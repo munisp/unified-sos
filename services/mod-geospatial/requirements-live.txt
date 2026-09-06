@@ -1,0 +1,11 @@
+# mod-geospatial — optional production "live" adapter dependencies.
+# Exact pins; the union across services is mirrored in the repo-root
+# constraints-live.txt. Adapters fail closed when these are absent.
+# Install: pip install -c ../../constraints-live.txt -r requirements-live.txt
+psycopg[binary]==3.2.3   # LGPL-3.0 — PostGIS repository seam
+deltalake==0.22.3        # Apache-2.0 — Delta Lake lakehouse write path
+temporalio==1.9.0        # MIT — durable workflow worker (worker image only)
+
+# Additional optional extras remain deliberately unpinned here (not on the
+# production critical path): h3>=4.1, geopandas>=1.0, pyarrow>=15.0,
+# pyspark>=3.5 + apache-sedona>=1.6, geolibre / geolibre-wasm.

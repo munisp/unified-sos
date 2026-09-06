@@ -157,8 +157,11 @@ def test_fail_closed_without_dsn(fake_psycopg, monkeypatch):
 
 def test_fail_closed_without_driver(monkeypatch):
     monkeypatch.delenv("GEOSPATIAL_POSTGIS_DSN", raising=False)
+    # sys.modules[name] = None makes ``import name`` raise ImportError,
+    # simulating a missing driver even when psycopg is installed (e.g. the
+    # live-deps compile gate environment).
     for mod in ("psycopg", "psycopg.types", "psycopg.types.json"):
-        monkeypatch.delitem(sys.modules, mod, raising=False)
+        monkeypatch.setitem(sys.modules, mod, None)
     with pytest.raises(AdapterUnavailableError):
         PostGISGeospatialRepository("postgresql://fake/fake", connect=lambda dsn: None)
 

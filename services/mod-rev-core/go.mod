@@ -4,5 +4,7 @@ go 1.23
 
 require github.com/munisp/unified-sos/ledger/splits v0.0.0
 
+require github.com/tigerbeetle/tigerbeetle-go v0.16.11 // indirect
+
 // Monorepo-local dependency on the ledger split library (WP-03).
 replace github.com/munisp/unified-sos/ledger/splits => ../../ledger/splits

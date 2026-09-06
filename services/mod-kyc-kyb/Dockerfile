@@ -2,7 +2,8 @@ FROM python:3.12-slim
 
 WORKDIR /srv/mod-kyc-kyb
 
-RUN pip install --no-cache-dir fastapi==0.116.1 uvicorn[standard]==0.34.0 pydantic==2.11.4
+# httpx pin mirrors requirements.txt / constraints-live.txt (live registry clients).
+RUN pip install --no-cache-dir fastapi==0.116.1 uvicorn[standard]==0.34.0 pydantic==2.11.4 httpx==0.28.1
 
 COPY app ./app
 
