@@ -6,7 +6,7 @@ GO_SERVICES := services/mod-rev-core ledger/splits services/mod-geospatial-gatew
 PY_SERVICES := $(wildcard services/*/ edge/edge-daemon/ deploy/keycloak/ packages/*/)
 RUST_COMPONENTS := geospatial/geometry-rs
 
-.PHONY: help test test-go test-python test-rust test-acceptance validate contracts lint lint-rust compose-up compose-down gates
+.PHONY: help test test-go test-python test-rust test-acceptance test-e2e validate contracts lint lint-rust compose-up compose-down gates
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -35,6 +35,9 @@ test-ci: ## Run CI workflow gate assertions (security workflows must stay blocki
 
 test-acceptance: ## Run FAT/SAT acceptance gates (contract + security + SAT suites)
 	python -m pytest -q tests/contract tests/security tests/sat
+
+test-e2e: ## Run Stage 7.B E2E journey tests (in-process tier; E2E_STACK=live for the live stack)
+	python -m pytest -q tests/e2e
 
 test-rust: ## Run cargo tests for Rust components (skips if cargo unavailable)
 	@if command -v cargo >/dev/null 2>&1; then \

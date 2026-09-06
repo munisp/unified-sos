@@ -1,0 +1,233 @@
+# Stage 7.B — live integration stack for the E2E journey tests.
+#
+# CI/deployment-run only (no Docker in the dev sandbox): this profile wires
+# the journey services against real infrastructure images — TigerBeetle
+# (ledger), Postgres (metadata), Redpanda (event backbone), OpenSearch
+# (immutable audit archive), MinIO (S3 evidence/objects), Keycloak (SSO) —
+# with each service's env set per its fail-closed adapter contract.
+#
+# Run the same journeys against the live stack:
+#   docker compose -f tests/e2e/docker-compose.integration.yaml up -d --wait
+#   E2E_STACK=live \
+#   E2E_PORTAL_BASE_URL=http://localhost:8211 \
+#   E2E_KYC_BASE_URL=http://localhost:8212 \
+#   E2E_MARKET_BASE_URL=http://localhost:8213 \
+#   E2E_TRANSPARENCY_BASE_URL=http://localhost:8215 \
+#   E2E_CONTROL_PLANE_BASE_URL=http://localhost:8210 \
+#   pytest tests/e2e -q -m e2e
+#
+# Default (no E2E_STACK): the in-process tier runs with no Docker at all.
+name: sos-e2e-integration
+
+services:
+  # --- Infrastructure ------------------------------------------------------
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sos-e2e-only-not-a-secret}
+      POSTGRES_DB: ${POSTGRES_DB:-sos}
+    volumes:
+      - pg-e2e-data:/var/lib/postgresql/data
+      - ../../db/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-sos} -d $${POSTGRES_DB:-sos}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  tigerbeetle-init:
+    image: ghcr.io/tigerbeetle/tigerbeetle:0.16.40
+    command: ["format", "--cluster=0", "--replica=0", "--replica-count=1", "/data/0_0.tigerbeetle"]
+    volumes:
+      - tb-e2e-data:/data
+    restart: "no"
+
+  tigerbeetle:
+    image: ghcr.io/tigerbeetle/tigerbeetle:0.16.40
+    command: ["start", "--cache-grid=512MiB", "--addresses=0.0.0.0:3000", "/data/0_0.tigerbeetle"]
+    volumes:
+      - tb-e2e-data:/data
+    depends_on:
+      tigerbeetle-init:
+        condition: service_completed_successfully
+
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.2.7
+    command:
+      - redpanda
+      - start
+      - --smp=1
+      - --memory=1G
+      - --reserve-memory=0M
+      - --overprovisioned
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
+      - --advertise-kafka-addr=PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  opensearch:
+    image: opensearchproject/opensearch:2.16.0
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true" # integration only; production enforces TLS+SSO
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${OPENSEARCH_ADMIN_PASSWORD:-SosE2eOnly_NotASecret1!}
+      bootstrap.memory_lock: "true"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ulimits:
+      memlock: {soft: -1, hard: -1}
+      nofile: {soft: 65536, hard: 65536}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:RELEASE.2024-09-13T20-26-02Z
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-sos-e2e}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-sos-e2e-only-not-a-secret}
+    volumes:
+      - minio-e2e-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin-e2e-only-not-a-secret}
+      KC_HOSTNAME: http://localhost:8281
+    ports:
+      - "8281:8080"
+    volumes:
+      - ../../deploy/keycloak:/opt/keycloak/data/import:ro
+
+  # --- Journey services (env per fail-closed adapter contracts) ------------
+  control-plane:
+    build:
+      context: ../../services/control-plane
+      dockerfile: Dockerfile
+    environment:
+      # Local provisioning operators (no K8s in the integration profile);
+      # the audit archive is the real OpenSearch backend — fail-closed
+      # without OPENSEARCH_URL.
+      CONTROL_PLANE_OPERATORS: local
+      CONTROL_PLANE_PROVISION_MODE: sync
+      AUDIT_ARCHIVE: opensearch
+      OPENSEARCH_URL: http://opensearch:9200
+    ports:
+      - "8210:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      minio:
+        condition: service_healthy
+
+  mod-rev-core:
+    build:
+      context: ../..
+      dockerfile: services/mod-rev-core/Dockerfile
+    environment:
+      REV_CORE_ADDR: ":8080"
+      # Live ledger tier: real TigerBeetle cluster (the Go TB adapter is a
+      # documented stub until cluster provisioning lands — ledger/README.md;
+      # set REV_CORE_LEDGER=memory to fall back to the in-memory fake).
+      REV_CORE_LEDGER: ${REV_CORE_LEDGER:-memory}
+      TB_ADDRESSES: tigerbeetle:3000
+      TB_CLUSTER_ID: "0"
+    ports:
+      - "8214:8080"
+    depends_on:
+      tigerbeetle:
+        condition: service_started
+
+  mod-citizen-portal:
+    build:
+      context: ../../services/mod-citizen-portal
+      dockerfile: Dockerfile
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-lagos}
+      # USSD/IVR telco webhooks are fail-closed without the shared secret.
+      CITIZEN_PORTAL_TELCO_SECRET: ${E2E_TELCO_SECRET:-e2e-telco-only-not-a-secret}
+    ports:
+      - "8211:8000"
+    depends_on:
+      keycloak:
+        condition: service_started
+
+  mod-kyc-kyb:
+    build:
+      context: ../../services/mod-kyc-kyb
+      dockerfile: Dockerfile
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-lagos}
+      # local = deterministic simulated adapters (fixtures); production mode
+      # fails closed without real OCR/registry adapter config.
+      KYC_KYB_MODE: local
+    ports:
+      - "8212:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  mod-market:
+    build:
+      context: ../../services/mod-market
+      dockerfile: Dockerfile
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-lagos}
+    ports:
+      - "8213:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  mod-transparency:
+    build:
+      context: ../../services/mod-transparency
+      dockerfile: Dockerfile
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-lagos}
+      # Unset upstream URLs => deterministic in-memory fixture source; the
+      # production HTTP source is fail-closed without both base URLs.
+      POLICE_CAD_BASE_URL: ""
+      PPP_INVESTMENT_BASE_URL: ""
+    ports:
+      - "8215:8000"
+
+  mod-mobility-switch:
+    build:
+      context: ../../services/mod-mobility-switch
+      dockerfile: Dockerfile
+    environment:
+      # Local mode: deterministic fixture FSPIOP/NIBSS adapters; the scheme
+      # adapters are fail-closed unless explicitly enabled with a peer.
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-lagos}
+    ports:
+      - "8216:8000"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
+volumes:
+  pg-e2e-data:
+  tb-e2e-data:
+  minio-e2e-data:
