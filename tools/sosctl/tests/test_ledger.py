@@ -8,7 +8,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from sosctl.cli import app
-from sosctl.ledger import build_chart
+from sosctl.ledger import build_account_plan, build_chart
 from sosctl.states import STATE_TENANT_IDS
 
 runner = CliRunner()
@@ -59,3 +59,38 @@ def test_init_chart_rejects_bad_state_and_blank_gazette(tmp_path: Path) -> None:
         app, ["ledger", "init-chart", "--state=ogun", "--gazette-ref=  ", f"--out-dir={tmp_path}"]
     )
     assert blank.exit_code == 2
+
+
+def test_ledger_init_dry_run_by_default() -> None:
+    result = runner.invoke(app, ["ledger", "init", "--state=osun"])
+    assert result.exit_code == 0, result.output
+    assert "dry-run" in result.output
+    assert "State Consolidated Revenue Fund" in result.output
+    assert "5001" in result.output  # federal pass-through included in plan
+
+
+def test_ledger_init_plan_is_deterministic() -> None:
+    first = build_account_plan("ogun")
+    second = build_account_plan("ogun")
+    assert first == second
+    ids = [a["account_id"] for a in first]
+    assert len(set(ids)) == len(ids)
+    for acct in first:
+        assert acct["account_id"] & 0xFFFF == STATE_TENANT_IDS["ogun"]
+        assert (acct["account_id"] >> 32) & 0xFFFF == acct["code"]
+
+
+def test_ledger_init_apply_fails_closed_without_addresses(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.delenv("TB_ADDRESSES", raising=False)
+    result = runner.invoke(app, ["ledger", "init", "--state=benue", "--apply"])
+    assert result.exit_code == 2
+    assert "fail-closed" in result.output
+
+
+def test_provision_accounts_fails_closed_without_addresses() -> None:
+    import pytest
+
+    from sosctl.ledger import provision_accounts
+
+    with pytest.raises(RuntimeError, match="TB_ADDRESSES"):
+        provision_accounts("osun", [])

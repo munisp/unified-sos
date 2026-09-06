@@ -1,0 +1,59 @@
+{{- if .Values.modRevCore.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ include "sos-platform.fullname" . }}-mod-rev-core"
+  labels:
+    app.kubernetes.io/component: mod-rev-core
+{{ include "sos-platform.labels" . | indent 4 }}
+spec:
+  replicas: {{ .Values.modRevCore.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: mod-rev-core
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: mod-rev-core
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        sos.gov.ng/tenant-state: {{ .Values.global.tenantStateId }}
+    spec:
+      containers:
+        - name: mod-rev-core
+          image: "{{ .Values.modRevCore.image.repository }}:{{ .Values.modRevCore.image.tag }}"
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: SOS_TENANT_STATE
+              value: {{ .Values.global.tenantStateId | quote }}
+            - name: SOS_POLICY_PACK_PATH
+              value: {{ .Values.global.policyPackPath | quote }}
+            - name: SOS_POSTGRES_HOST
+              value: {{ .Values.global.postgresHost | quote }}
+            - name: SOS_LEDGER_ADDRESS
+              value: {{ .Values.modRevCore.env.ledgerClusterAddress | quote }}
+            - name: SOS_LEDGER_ID
+              value: {{ .Values.modRevCore.env.ledgerId | quote }}
+            - name: REV_CORE_LEDGER
+              value: {{ .Values.modRevCore.env.ledgerBackend | quote }}
+            - name: TB_ADDRESSES
+              value: "{{ include "sos-platform.fullname" . }}-tigerbeetle:3000"
+            - name: TB_CLUSTER_ID
+              value: {{ .Values.tigerbeetle.clusterId | quote }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+{{ toYaml .Values.modRevCore.resources | indent 12 }}
+{{- end }}

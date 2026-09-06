@@ -6,11 +6,13 @@
 //	REV_CORE_POLICY_DIR  directory of revenue-split policy packs that
 //	                     override the embedded gazetted seeds (optional)
 //	REV_CORE_LEDGER      ledger backend: "memory" (default, in-memory
-//	                     fake) or "tigerbeetle" (production adapter —
-//	                     documented stub pending cluster provisioning,
-//	                     see ledger/README.md)
+//	                     fake) or "tigerbeetle" (production adapter;
+//	                     requires a binary built with `-tags tigerbeetle`
+//	                     and fails closed otherwise)
 //	TB_ADDRESSES         comma-separated TigerBeetle cluster addresses
-//	                     (used when REV_CORE_LEDGER=tigerbeetle)
+//	                     (required when REV_CORE_LEDGER=tigerbeetle)
+//	TB_CLUSTER_ID        TigerBeetle cluster ID (required when
+//	                     REV_CORE_LEDGER=tigerbeetle)
 //	REV_CORE_EBILLS      e-Bills notifier: "noop" (default, deterministic
 //	                     local) or "nibss" (production NIBSS e-Bills client)
 //	NIBSS_EBILLS_URL     NIBSS e-Bills gateway base URL (required when
@@ -27,12 +29,17 @@ import (
 )
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	addr := getenv("REV_CORE_ADDR", ":8080")
 	policyDir := os.Getenv("REV_CORE_POLICY_DIR")
 
 	catalog, err := revenue.LoadPolicyCatalog(policyDir)
 	if err != nil {
-		log.Fatalf("mod-rev-core: policy catalog: %v", err)
+		log.Printf("mod-rev-core: policy catalog: %v", err)
+		return 1
 	}
 
 	var ledger splits.LedgerClient
@@ -41,12 +48,18 @@ func main() {
 		ledger = splits.NewInMemoryLedger()
 		log.Printf("mod-rev-core: using in-memory ledger (no TigerBeetle cluster configured)")
 	case "tigerbeetle":
-		// Production adapter: wrap github.com/tigerbeetle/tigerbeetle-go
-		// behind splits.LedgerClient using TB_ADDRESSES. Blocked on
-		// cluster provisioning (docs/delivery/90-day-playbook Days 31-60).
-		log.Fatalf("mod-rev-core: tigerbeetle adapter not yet provisioned; TB_ADDRESSES=%q", os.Getenv("TB_ADDRESSES"))
+		// Fail-closed: no cluster configuration (or a binary built
+		// without `-tags tigerbeetle`) is a hard startup error.
+		l, err := splits.NewTigerBeetleLedgerFromEnv()
+		if err != nil {
+			log.Printf("mod-rev-core: tigerbeetle ledger: %v", err)
+			return 1
+		}
+		ledger = l
+		log.Printf("mod-rev-core: using TigerBeetle cluster at %q", os.Getenv("TB_ADDRESSES"))
 	default:
-		log.Fatalf("mod-rev-core: unknown REV_CORE_LEDGER %q (want memory|tigerbeetle)", backend)
+		log.Printf("mod-rev-core: unknown REV_CORE_LEDGER %q (want memory|tigerbeetle)", backend)
+		return 1
 	}
 
 	notifier, err := revenue.NewEBillNotifierFromEnv()
@@ -60,8 +73,10 @@ func main() {
 
 	log.Printf("mod-rev-core: listening on %s (policy_dir=%q)", addr, policyDir)
 	if err := http.ListenAndServe(addr, handler.Routes()); err != nil {
-		log.Fatalf("mod-rev-core: serve: %v", err)
+		log.Printf("mod-rev-core: serve: %v", err)
+		return 1
 	}
+	return 0
 }
 
 func getenv(key, fallback string) string {

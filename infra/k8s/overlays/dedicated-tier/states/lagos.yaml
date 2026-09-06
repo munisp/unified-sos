@@ -91,3 +91,26 @@ data:
       no references to shared database, lakehouse or object-storage hosts.
     - DR: synchronous replication across 3 AZs; RPO=0 ledger, RPO<5s Postgres
       per docs/architecture/07-resilience-dr.md.
+---
+# TigerBeetle ledger wiring for the Lagos tenant (ADR-002 / Clause 22.2).
+# mod-rev-core consumes these as REV_CORE_LEDGER=tigerbeetle + TB_ADDRESSES /
+# TB_CLUSTER_ID (fail-closed when unset).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sos-lagos-ledger
+  namespace: sos-lagos
+  labels:
+    sos.gov.ng/tenant-state: lagos
+data:
+  TB_ADDRESSES: "sos-lagos-tigerbeetle-client.sos-lagos:3000"
+  TB_CLUSTER_ID: "1"
+  LEDGER_TENANCY_NOTES.md: |
+    # Lagos — TigerBeetle ledger plane
+    - Tier 1 Dedicated: standalone TigerBeetle VSR cluster in the Lagos namespace (NVMe PVCs, no shared data plane).
+    - Ledger ID: 1 (NG State Sovereign Ledger); state tenant ID 0x0001 in
+      account ID bits 0..15 (see `ledger/chart-of-accounts.md`).
+    - Replicas: 5 (odd, >= 3 for VSR quorum), per-replica NVMe PVCs —
+      no hostPath; provisioned via infra/terraform/modules/tigerbeetle or the
+      sos-platform Helm chart (`tigerbeetle.*` values).
+    - Bootstrap: `sosctl ledger init --state=lagos` (dry-run by default).

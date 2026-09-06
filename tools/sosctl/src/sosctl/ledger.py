@@ -63,3 +63,81 @@ def write_chart(state: str, gazette_ref: str, out_dir: Path) -> Path:
     if not (dest.exists() and dest.read_text() == content):
         dest.write_text(content)
     return dest
+
+
+def build_account_plan(state: str, gazette_ref: str = "sosctl-ledger-init") -> list[dict]:
+    """Build the deterministic account-creation plan for a state tenant.
+
+    One entry per chart-of-accounts class; IDs are the 128-bit seeds from
+    the chart bootstrap (tenant in bits 0..15, class in bits 32..47), so
+    re-running the plan is idempotent.
+    """
+    chart = build_chart(state, gazette_ref)
+    return [
+        {
+            "account_id": acct["account_id_seed"],
+            "code": acct["code"],
+            "name": acct["name"],
+            "ledger_id": chart["ledger_id"],
+        }
+        for acct in chart["accounts"]
+    ]
+
+
+def provision_accounts(
+    state: str,
+    addresses: list[str],
+    cluster_id: int = LEDGER_ID,
+    gazette_ref: str = "sosctl-ledger-init",
+) -> dict:
+    """Create the state's chart-of-accounts accounts on a live cluster.
+
+    Idempotent: TigerBeetle answers ``exists`` for already-created
+    accounts, which is treated as success. FAIL-CLOSED: raises
+    RuntimeError when no addresses are supplied or the tigerbeetle
+    Python client is unavailable — never silently no-ops.
+    """
+    if not addresses:
+        raise RuntimeError(
+            "no TigerBeetle addresses supplied; set TB_ADDRESSES or pass --addresses"
+        )
+    try:
+        import tigerbeetle as tb  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise RuntimeError(
+            "tigerbeetle Python client not installed; run the Go adapter "
+            "(`-tags tigerbeetle`) path or install tigerbeetle-client"
+        ) from exc
+
+    plan = build_account_plan(state, gazette_ref)
+    created, existing = 0, 0
+    with tb.Client(cluster_id=cluster_id, replica_addresses=addresses) as client:
+        results = client.create_accounts(
+            [
+                tb.Account(
+                    id=acct["account_id"],
+                    ledger=acct["ledger_id"],
+                    code=acct["code"],
+                )
+                for acct in plan
+            ]
+        )
+        by_index = {r.index: r for r in results}
+        for i in range(len(plan)):
+            outcome = by_index.get(i)
+            if outcome is None:
+                created += 1  # no result entry = committed
+            elif str(outcome.result).endswith("EXISTS"):
+                existing += 1
+            else:
+                raise RuntimeError(
+                    f"account {plan[i]['code']} ({plan[i]['name']}) rejected: {outcome.result}"
+                )
+    return {
+        "state": state,
+        "cluster_id": cluster_id,
+        "addresses": addresses,
+        "accounts_planned": len(plan),
+        "accounts_created": created,
+        "accounts_already_existing": existing,
+    }

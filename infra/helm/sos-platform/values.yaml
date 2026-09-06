@@ -251,8 +251,11 @@ modules:
     service:
       port: 8080
     env:
-      SOS_LEDGER_ADDRESS: tigerbeetle.sos-data:3000
-      SOS_LEDGER_ID: "1"
+      # Ledger backend: memory | tigerbeetle. "tigerbeetle" requires a binary
+      # built with `-tags tigerbeetle` and fails closed when TB_* are unset.
+      REV_CORE_LEDGER: "memory"
+      TB_ADDRESSES: tigerbeetle.sos-data:3000
+      TB_CLUSTER_ID: "1"
     resources:
       requests:
         cpu: 250m
@@ -270,6 +273,28 @@ modules:
       port: 8000
     env: {}
     resources: {}
+
+
+tigerbeetle:
+  enabled: true
+  # VSR quorum: odd count >= 3 (dedicated tier: 5, hybrid/shared: 3)
+  replicaCount: 3
+  # 1 = NG State Sovereign Ledger (ledger/chart-of-accounts.md)
+  clusterId: 1
+  image:
+    repository: ghcr.io/tigerbeetle/tigerbeetle
+    tag: "0.16.11" # Apache-2.0
+  # NVMe-backed StorageClass; ledger data lives on per-replica PVCs
+  # (volumeClaimTemplates) — hostPath is forbidden.
+  storageClass: sos-nvme
+  storageSize: 100Gi
+  resources:
+    requests:
+      cpu: "1"
+      memory: 2Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
 
 kubecost:
   enabled: true
