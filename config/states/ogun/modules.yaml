@@ -19,3 +19,9 @@ modules:
 - name: mod-gis-luc
   wave: 3
   rationale: '#20 — Digital building approvals & LUC'
+- name: mod-environment
+  wave: 2
+  rationale: 'ENV-09 — Ogun industrial corridor emissions/effluent compliance'
+- name: mod-citizen-portal
+  wave: 2
+  rationale: 'CIT-11 — Unified citizen portal & SSO (all states)'

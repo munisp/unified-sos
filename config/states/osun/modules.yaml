@@ -19,3 +19,9 @@ modules:
 - name: mod-education
   wave: 2
   rationale: '#25 — Tertiary institutions consolidated billing (UNIOSUN)'
+- name: mod-environment
+  wave: 3
+  rationale: 'ENV-09 — shared-config environmental permits & levies'
+- name: mod-citizen-portal
+  wave: 3
+  rationale: 'CIT-11 — Unified citizen portal & SSO (all states)'

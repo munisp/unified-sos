@@ -19,3 +19,9 @@ modules:
 - name: mod-mining
   wave: 3
   rationale: '#15 — Solid minerals digital asset tracking (sapphire/barite)'
+- name: mod-environment
+  wave: 2
+  rationale: 'ENV-09 — Taraba forest surveillance & timber/logging permits'
+- name: mod-citizen-portal
+  wave: 3
+  rationale: 'CIT-11 — Unified citizen portal & SSO (all states)'

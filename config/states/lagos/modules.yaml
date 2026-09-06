@@ -22,3 +22,9 @@ modules:
 - name: mod-agri-waybill
   wave: 3
   rationale: '#30 — Waterways & wharf cargo waybills (LASWA)'
+- name: mod-environment
+  wave: 2
+  rationale: 'ENV-09 — Lagos industrial air/effluent IoT monitoring (LASEPA seam)'
+- name: mod-citizen-portal
+  wave: 2
+  rationale: 'CIT-11 — Unified citizen portal & SSO (all states)'

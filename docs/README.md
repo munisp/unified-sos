@@ -6,6 +6,7 @@ All platform documentation is organized to mirror the official SOS artifact suit
 
 | Directory | Scope | Source Artifact |
 |---|---|---|
+| [`business/`](business/sos-v3-business-specification.md) | v3.0 business specification port (vision, tenancy, 12-domain catalog, financial core, commercial/legal, roadmap/SLA) | SOS Business Specification Pack v3.0.0 |
 | [`architecture/`](architecture/README.md) | System design goals, ADRs, bounded contexts, core deep-dives (ledger, geospatial, lakehouse, security, DR) | SOS Technical Specification |
 | [`delivery/`](delivery/README.md) | Work Packages WP-01…WP-18, Release Trains RT-01…RT-05, 4-wave rollout matrix, 90-day playbook | Implementation Backlog Pack + Rollout Matrix |
 | [`procurement/`](procurement/README.md) | 8-lot packaging, vendor qualification, 1,000-point QCBS scorecards, contract clauses, SLA/SLO & penalties, acceptance gates | Procurement & Vendor Delivery Framework |

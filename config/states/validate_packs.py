@@ -45,6 +45,7 @@ KNOWN_MODULES = {
     "mod-rev-core", "mod-gis-lands", "mod-gis-luc", "mod-mining",
     "mod-forestry", "mod-transport-wim", "mod-agri-waybill", "mod-health",
     "mod-education", "mod-market", "mod-police-cad", "mod-mobility-switch",
+    "mod-environment", "mod-citizen-portal",
     "lakehouse", "control-plane",
 }
 
