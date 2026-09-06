@@ -10,7 +10,12 @@ from .registry_adapters import (
     FixtureRegistryAdapter,
 )
 from .registry_clients import CacClient, NimcClient, SanctionsClient
-from .liveness import LivenessEngine
+from .liveness import (
+    BiometricDeviceAdapter,
+    HardwareLivenessAdapter,
+    LivenessEngine,
+    get_liveness_adapter,
+)
 
 __all__ = [
     "AdapterUnavailableError",
@@ -28,4 +33,7 @@ __all__ = [
     "NimcClient",
     "SanctionsClient",
     "LivenessEngine",
+    "HardwareLivenessAdapter",
+    "BiometricDeviceAdapter",
+    "get_liveness_adapter",
 ]

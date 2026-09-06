@@ -6,11 +6,14 @@ Only scores/hashes are handled — never biometric media.
 """
 from __future__ import annotations
 
+import importlib
+import os
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Protocol, Set, Tuple, runtime_checkable
 
+from .base import AdapterUnavailableError
 from ..domain import (
     LivenessAction,
     LivenessChallenge,
@@ -161,3 +164,65 @@ class LivenessEngine:
             passed=True, score=score, anti_spoof_flags=flags,
             model_version=LIVENESS_MODEL_VERSION, reasons=["ok"],
         )
+
+
+@runtime_checkable
+class HardwareLivenessAdapter(Protocol):
+    """Hardware biometric seam: evaluate challenge evidence into a result.
+
+    Implementations may call out to a vendor liveness SDK (on-device neural
+    engine, hardware attestation); they receive only scores/hashes via
+    :class:`LivenessEvidence` — never raw biometric media.
+    """
+
+    def evaluate(
+        self, challenge: LivenessChallenge, evidence: LivenessEvidence
+    ) -> LivenessResult: ...
+
+
+class BiometricDeviceAdapter:
+    """Vendor biometric SDK seam — fail closed when unavailable.
+
+    Selected via ``KYC_BIOMETRIC_ADAPTER`` naming an importable module that
+    exposes ``create_adapter() -> HardwareLivenessAdapter``. If the variable
+    is set but the module cannot be imported or does not provide the factory,
+    :class:`AdapterUnavailableError` is raised — production must never fall
+    back to software-only liveness silently.
+    """
+
+    def __init__(self, module_path: str) -> None:
+        if not module_path:
+            raise AdapterUnavailableError(
+                "BiometricDeviceAdapter unavailable: KYC_BIOMETRIC_ADAPTER is not set"
+            )
+        try:
+            module = importlib.import_module(module_path)
+            factory = getattr(module, "create_adapter")
+        except Exception as exc:
+            raise AdapterUnavailableError(
+                f"BiometricDeviceAdapter unavailable: cannot load vendor SDK "
+                f"module {module_path!r}: {exc}"
+            ) from exc
+        self._delegate: HardwareLivenessAdapter = factory()
+        self.module_path = module_path
+
+    def evaluate(
+        self, challenge: LivenessChallenge, evidence: LivenessEvidence
+    ) -> LivenessResult:
+        return self._delegate.evaluate(challenge, evidence)
+
+
+def get_liveness_adapter(
+    env: "os._Environ[str] | None" = None, **engine_kwargs
+) -> HardwareLivenessAdapter:
+    """Resolve the liveness adapter; default is the local deterministic engine.
+
+    ``KYC_BIOMETRIC_ADAPTER`` set → :class:`BiometricDeviceAdapter` (vendor
+    SDK, fail closed). Unset → :class:`LivenessEngine` (existing local
+    liveness; unchanged behaviour).
+    """
+    env = os.environ if env is None else env
+    module_path = env.get("KYC_BIOMETRIC_ADAPTER", "").strip()
+    if module_path:
+        return BiometricDeviceAdapter(module_path)
+    return LivenessEngine(**engine_kwargs)
