@@ -71,6 +71,8 @@ Full detail: [`docs/architecture/`](docs/architecture/README.md).
 | [`edge/`](edge/README.md) | Offline-first POS / checkpoint edge design |
 | [`tests/`](tests/README.md) | Load, FAT/SAT and acceptance specs mapped to procurement gates |
 | [`tools/`](tools/README.md) | `sosctl` tenant-provisioning CLI |
+| [`deploy/`](deploy/README.md) | Local development stack (Docker Compose: PostGIS, TigerBeetle, Keycloak, Redpanda, MinIO, OpenSearch + flagship services) |
+| [`Makefile`](Makefile) | `make test`, `make validate`, `make contracts`, `make compose-up` |
 | [`.github/`](.github/) | CI, security scanning, SBOM, issue & PR templates |
 
 The full design rationale is recorded in [`docs/REPO-STRUCTURE.md`](docs/REPO-STRUCTURE.md).

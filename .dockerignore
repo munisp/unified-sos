@@ -1,0 +1,23 @@
+# SOS monorepo — Docker build context exclusions
+.git/
+.gitignore
+.github/
+**/__pycache__/
+**/.pytest_cache/
+**/*.pyc
+**/.venv/
+**/venv/
+**/node_modules/
+**/.mypy_cache/
+**/.ruff_cache/
+coverage/
+**/htmlcov/
+docs/
+tests/
+tools/
+deploy/
+*.md
+!README.md
+.env
+.env.*
+!.env.example
