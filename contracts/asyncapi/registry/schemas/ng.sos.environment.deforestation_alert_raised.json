@@ -1,0 +1,55 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.environment.deforestation_alert_raised.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.environment.deforestation_alert_raised' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "alert_id": {
+      "type": "string"
+    },
+    "area_hectares": {
+      "type": "number"
+    },
+    "enforcement_ticket_ref": {
+      "nullable": true,
+      "type": "string"
+    },
+    "h3_cells": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "ndvi_delta": {
+      "type": "number"
+    },
+    "sla_deadline": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "source": {
+      "enum": [
+        "SENTINEL2",
+        "LANDSAT"
+      ],
+      "type": "string"
+    },
+    "state_id": {
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "alert_id",
+    "h3_cells",
+    "area_hectares",
+    "source",
+    "sla_deadline",
+    "timestamp"
+  ],
+  "title": "ng.sos.environment.deforestation_alert_raised",
+  "type": "object"
+}

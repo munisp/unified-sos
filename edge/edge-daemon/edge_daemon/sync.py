@@ -13,17 +13,59 @@ Pushes pending outbox records to the APISIX gateway on reconnect.
   ``accepted``/``duplicate`` ack, so re-sending after a crash is safe.
 - **Resumability**: pending state lives in the SQLite outbox; a restarted
   daemon constructs a new SyncEngine over the same DB and continues.
+- **Event backbone bridge**: when ``bus`` is provided (or
+  :func:`sync_engine_from_env` selects one via ``EVENT_BUS``), every
+  gateway-acknowledged record is also published as its AsyncAPI payload onto
+  the configured bus (Kafka central tier / Fluvio edge tier). Unset
+  ``EVENT_BUS`` keeps the pure outbox→gateway behaviour (default).
 """
 from __future__ import annotations
 
+import json
+import os
 import random
+import sys
 import time
-from typing import Callable, List, Optional
+from pathlib import Path
+from typing import Callable, Dict, List, Optional
 
 import httpx
 
-from .models import SyncBatch, SyncBatchResult
+from .models import RecordKind, SyncBatch, SyncBatchResult
 from .outbox import Outbox
+
+_SHARED = Path(__file__).resolve().parents[3] / "services" / "_shared"
+if str(_SHARED) not in sys.path:
+    sys.path.insert(0, str(_SHARED))
+
+from eventbus import EventBus, event_bus_from_env  # noqa: E402
+
+#: Default record-kind → AsyncAPI channel map for the event backbone bridge.
+#: Only channels present in the generated registry
+#: (contracts/asyncapi/registry/topics.json) may be used; operators extend
+#: this with ``EVENT_EDGE_CHANNELS`` (JSON object) as contracts add channels.
+DEFAULT_EVENT_CHANNELS: Dict[str, str] = {
+    RecordKind.REVENUE_TICKET.value: "ng.sos.payments.settlement_completed",
+}
+
+
+def sync_engine_from_env(outbox: Outbox, **kwargs) -> "SyncEngine":
+    """Build a SyncEngine, wiring an event bus when ``EVENT_BUS`` is set.
+
+    Fail-closed via the shared eventbus factory: ``EVENT_BUS=kafka`` requires
+    ``EVENT_KAFKA_BOOTSTRAP``; ``EVENT_BUS=fluvio`` requires the fluvio client
+    on the edge device. Unset ``EVENT_BUS`` returns a gateway-only engine.
+    Optional ``EVENT_EDGE_CHANNELS`` (JSON object) overrides the default
+    record-kind → channel map.
+    """
+    bus: Optional[EventBus] = None
+    if os.environ.get("EVENT_BUS"):
+        bus = event_bus_from_env()
+    channels = dict(DEFAULT_EVENT_CHANNELS)
+    override = os.environ.get("EVENT_EDGE_CHANNELS")
+    if override:
+        channels.update(json.loads(override))
+    return SyncEngine(outbox, bus=bus, event_channels=channels, **kwargs)
 
 
 class SyncEngine:
@@ -42,6 +84,8 @@ class SyncEngine:
         verify: object = True,
         sleep: Callable[[float], None] = time.sleep,
         rng: Optional[random.Random] = None,
+        bus: Optional[EventBus] = None,
+        event_channels: Optional[Dict[str, str]] = None,
     ) -> None:
         self.outbox = outbox
         self.gateway_url = gateway_url.rstrip("/")
@@ -49,6 +93,10 @@ class SyncEngine:
         self.max_retries = max_retries
         self.backoff_base_s = backoff_base_s
         self.backoff_cap_s = backoff_cap_s
+        self.bus = bus
+        self.event_channels = dict(
+            DEFAULT_EVENT_CHANNELS if event_channels is None else event_channels
+        )
         self._sleep = sleep
         self._rng = rng or random.Random()
         self._client = httpx.Client(
@@ -97,6 +145,18 @@ class SyncEngine:
             for ack in result.acks
             if ack.status in ("accepted", "duplicate")
         ]
+        if self.bus is not None and acked:
+            # Event backbone bridge: emit acknowledged records as their
+            # AsyncAPI payloads before marking them synced, so a publish
+            # failure leaves the record pending and the next sync retries
+            # (server-side dedupe on (device_id, sequence) makes the
+            # re-push safe). Records with no channel mapping are skipped.
+            by_sequence = {r.sequence: r for r in records}
+            for seq in acked:
+                record = by_sequence[seq]
+                channel = self.event_channels.get(record.payload.kind.value)
+                if channel is not None:
+                    self.bus.publish(channel, record.payload)
         # 'rejected' records stay pending for operator investigation; they are
         # NOT deleted (audit trail), and a poison record never blocks the rest
         # of the queue because the gateway acks each record independently.

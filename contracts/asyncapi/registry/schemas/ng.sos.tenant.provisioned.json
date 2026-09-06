@@ -1,0 +1,47 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.tenant.provisioned.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.tenant.provisioned' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "keycloak_realm": {
+      "type": "string"
+    },
+    "postgres_schema": {
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "lagos",
+        "ogun",
+        "osun",
+        "benue",
+        "nasarawa",
+        "taraba"
+      ],
+      "type": "string"
+    },
+    "tenant_id": {
+      "type": "string"
+    },
+    "tier": {
+      "enum": [
+        "dedicated",
+        "hybrid",
+        "shared"
+      ],
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "tenant_id",
+    "state",
+    "tier",
+    "timestamp"
+  ],
+  "title": "ng.sos.tenant.provisioned",
+  "type": "object"
+}

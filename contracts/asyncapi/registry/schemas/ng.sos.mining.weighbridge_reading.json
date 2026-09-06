@@ -1,0 +1,34 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.mining.weighbridge_reading.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.mining.weighbridge_reading' (derived from contracts/asyncapi/mining-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "anpr_plate": {
+      "type": "string"
+    },
+    "axle_weights_kg": {
+      "items": {
+        "type": "number"
+      },
+      "type": "array"
+    },
+    "gross_weight_kg": {
+      "type": "number"
+    },
+    "overload_detected": {
+      "type": "boolean"
+    },
+    "state_id": {
+      "type": "string"
+    },
+    "station_id": {
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "title": "ng.sos.mining.weighbridge_reading",
+  "type": "object"
+}

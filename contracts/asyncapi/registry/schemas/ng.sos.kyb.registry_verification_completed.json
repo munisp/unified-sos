@@ -1,0 +1,66 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.kyb.registry_verification_completed.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.kyb.registry_verification_completed' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "case_id": {
+      "type": "string"
+    },
+    "confidence": {
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number"
+    },
+    "fields_checked": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "registry": {
+      "enum": [
+        "CAC",
+        "NIMC",
+        "TAX",
+        "SANCTIONS"
+      ],
+      "type": "string"
+    },
+    "response_hash": {
+      "type": "string"
+    },
+    "state_id": {
+      "enum": [
+        "lagos",
+        "ogun",
+        "osun",
+        "benue",
+        "nasarawa",
+        "taraba"
+      ],
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "MATCH",
+        "MISMATCH",
+        "NOT_FOUND",
+        "UNAVAILABLE"
+      ],
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "case_id",
+    "registry",
+    "status",
+    "timestamp"
+  ],
+  "title": "ng.sos.kyb.registry_verification_completed",
+  "type": "object"
+}

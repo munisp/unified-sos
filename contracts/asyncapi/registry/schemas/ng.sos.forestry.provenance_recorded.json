@@ -1,0 +1,64 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.forestry.provenance_recorded.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.forestry.provenance_recorded' (derived from contracts/asyncapi/forestry-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "actor_id": {
+      "description": "ranger / hauler / mill operator ID",
+      "type": "string"
+    },
+    "event_id": {
+      "type": "string"
+    },
+    "gps_lat": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "gps_lon": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "location": {
+      "type": "string"
+    },
+    "recorded_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "stage": {
+      "enum": [
+        "ISSUED",
+        "HARVESTED",
+        "IN_TRANSIT",
+        "MILLED",
+        "SEIZED"
+      ],
+      "type": "string"
+    },
+    "tag_id": {
+      "description": "UHF RFID EPC",
+      "e.g. RFID-TAR-000123": null,
+      "type": "string"
+    },
+    "transit_permit_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "event_id",
+    "tag_id",
+    "stage",
+    "actor_id",
+    "location",
+    "recorded_at"
+  ],
+  "title": "ng.sos.forestry.provenance_recorded",
+  "type": "object"
+}

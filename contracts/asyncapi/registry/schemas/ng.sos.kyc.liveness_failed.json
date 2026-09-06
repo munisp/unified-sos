@@ -1,0 +1,57 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.kyc.liveness_failed.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.kyc.liveness_failed' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "anti_spoof_flags": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "case_id": {
+      "type": "string"
+    },
+    "challenge_id": {
+      "type": "string"
+    },
+    "evidence_hash": {
+      "type": "string"
+    },
+    "reasons": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "score": {
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number"
+    },
+    "state_id": {
+      "enum": [
+        "lagos",
+        "ogun",
+        "osun",
+        "benue",
+        "nasarawa",
+        "taraba"
+      ],
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "case_id",
+    "challenge_id",
+    "reasons",
+    "timestamp"
+  ],
+  "title": "ng.sos.kyc.liveness_failed",
+  "type": "object"
+}

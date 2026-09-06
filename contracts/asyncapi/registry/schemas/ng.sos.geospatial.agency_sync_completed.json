@@ -1,0 +1,60 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.geospatial.agency_sync_completed.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.geospatial.agency_sync_completed' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "agency": {
+      "type": "string"
+    },
+    "content_hash": {
+      "nullable": true,
+      "type": "string"
+    },
+    "direction": {
+      "enum": [
+        "PUSH",
+        "PULL"
+      ],
+      "type": "string"
+    },
+    "link_id": {
+      "type": "string"
+    },
+    "records_synced": {
+      "nullable": true,
+      "type": "integer"
+    },
+    "state_id": {
+      "enum": [
+        "lagos",
+        "ogun",
+        "osun",
+        "benue",
+        "nasarawa",
+        "taraba"
+      ],
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "COMPLETED",
+        "FAILED"
+      ],
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "link_id",
+    "agency",
+    "direction",
+    "status",
+    "timestamp"
+  ],
+  "title": "ng.sos.geospatial.agency_sync_completed",
+  "type": "object"
+}

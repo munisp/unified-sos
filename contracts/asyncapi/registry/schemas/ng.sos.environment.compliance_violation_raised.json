@@ -1,0 +1,51 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.environment.compliance_violation_raised.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.environment.compliance_violation_raised' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "facility_id": {
+      "type": "string"
+    },
+    "fine_estimate_kobo": {
+      "type": "integer"
+    },
+    "incident_id": {
+      "type": "string"
+    },
+    "medium": {
+      "enum": [
+        "AIR",
+        "WATER",
+        "NOISE"
+      ],
+      "type": "string"
+    },
+    "parameter": {
+      "type": "string"
+    },
+    "reading_id": {
+      "type": "string"
+    },
+    "state_id": {
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "value": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "state_id",
+    "incident_id",
+    "facility_id",
+    "medium",
+    "parameter",
+    "fine_estimate_kobo",
+    "timestamp"
+  ],
+  "title": "ng.sos.environment.compliance_violation_raised",
+  "type": "object"
+}

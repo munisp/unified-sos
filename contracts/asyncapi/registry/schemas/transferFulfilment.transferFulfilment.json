@@ -1,0 +1,34 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/transferFulfilment.transferFulfilment.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'transferFulfilment' message 'transferFulfilment' (derived from contracts/asyncapi/mojaloop-transfers.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "completedTimestamp": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "extensionList": {
+      "description": "Platform extension (invoice_id / bill_reference, amount_kobo).",
+      "type": "object"
+    },
+    "fulfilment": {
+      "description": "Base64 fulfilment satisfying the prepare condition.",
+      "type": "string"
+    },
+    "transferId": {
+      "format": "uuid",
+      "type": "string"
+    },
+    "transferState": {
+      "const": "COMMITTED",
+      "type": "string"
+    }
+  },
+  "required": [
+    "transferId",
+    "transferState",
+    "completedTimestamp"
+  ],
+  "title": "transferFulfilment/transferFulfilment",
+  "type": "object"
+}

@@ -1,0 +1,39 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.forestry.untagged_timber_alert.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.forestry.untagged_timber_alert' (derived from contracts/asyncapi/mining-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "checkpoint_id": {
+      "type": "string"
+    },
+    "gps": {
+      "properties": {
+        "lat": {
+          "type": "number"
+        },
+        "lon": {
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "state_id": {
+      "enum": [
+        "taraba",
+        "ogun",
+        "osun",
+        "benue"
+      ],
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "vehicle_plate": {
+      "type": "string"
+    }
+  },
+  "title": "ng.sos.forestry.untagged_timber_alert",
+  "type": "object"
+}

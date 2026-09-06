@@ -1,0 +1,57 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.payments.settlement_completed.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.payments.settlement_completed' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "bill_reference": {
+      "type": "string"
+    },
+    "gross_amount_kobo": {
+      "type": "integer"
+    },
+    "splits": {
+      "items": {
+        "properties": {
+          "amount_kobo": {
+            "type": "integer"
+          },
+          "beneficiary": {
+            "MDA_RETENTION": null,
+            "PPP_CONCESSIONAIRE_ESCROW": null,
+            "description": "e.g. STATE_CONSOLIDATED_REVENUE_FUND",
+            "type": "string"
+          },
+          "tigerbeetle_account_code": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "state_id": {
+      "type": "string"
+    },
+    "tigerbeetle_transfer_ids": {
+      "items": {
+        "description": "128-bit ID as decimal string",
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "bill_reference",
+    "gross_amount_kobo",
+    "splits",
+    "tigerbeetle_transfer_ids",
+    "timestamp"
+  ],
+  "title": "ng.sos.payments.settlement_completed",
+  "type": "object"
+}

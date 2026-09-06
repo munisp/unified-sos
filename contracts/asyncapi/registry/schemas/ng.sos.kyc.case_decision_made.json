@@ -1,0 +1,70 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.kyc.case_decision_made.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.kyc.case_decision_made' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "audit_entry_hash": {
+      "type": "string"
+    },
+    "case_id": {
+      "type": "string"
+    },
+    "decided_by": {
+      "description": "SYSTEM or reviewer identifier",
+      "type": "string"
+    },
+    "decision": {
+      "enum": [
+        "APPROVED",
+        "REJECTED",
+        "SUSPENDED",
+        "EXPIRED"
+      ],
+      "type": "string"
+    },
+    "risk_band": {
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "PROHIBITED"
+      ],
+      "type": "string"
+    },
+    "risk_score": {
+      "type": "integer"
+    },
+    "state_id": {
+      "enum": [
+        "lagos",
+        "ogun",
+        "osun",
+        "benue",
+        "nasarawa",
+        "taraba"
+      ],
+      "type": "string"
+    },
+    "subject_ref_hash": {
+      "description": "SHA-256 of the subject reference",
+      "type": "string"
+    },
+    "subject_type": {
+      "description": "e.g. CITIZEN | AGENT | CIVIL_SERVANT | VENDOR",
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "case_id",
+    "decision",
+    "risk_band",
+    "timestamp"
+  ],
+  "title": "ng.sos.kyc.case_decision_made",
+  "type": "object"
+}

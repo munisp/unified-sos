@@ -1,0 +1,45 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.citizen.payroll_audit_completed.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.citizen.payroll_audit_completed' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "audit_id": {
+      "type": "string"
+    },
+    "findings_count": {
+      "type": "integer"
+    },
+    "period": {
+      "type": "string"
+    },
+    "recoverable_kobo": {
+      "type": "integer"
+    },
+    "staff_scanned": {
+      "type": "integer"
+    },
+    "state_id": {
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "workflow_ref": {
+      "description": "Temporal durable cleanup workflow reference",
+      "nullable": true,
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "audit_id",
+    "period",
+    "staff_scanned",
+    "findings_count",
+    "recoverable_kobo",
+    "timestamp"
+  ],
+  "title": "ng.sos.citizen.payroll_audit_completed",
+  "type": "object"
+}

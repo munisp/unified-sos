@@ -1,0 +1,34 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.gis.unassessed_property_discovered.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.gis.unassessed_property_discovered' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "audit_status": {
+      "enum": [
+        "UNREGISTERED_ENCROACHMENT",
+        "UNASSESSED_IMPROVEMENT",
+        "COMPLIANT"
+      ],
+      "type": "string"
+    },
+    "building_footprint_id": {
+      "type": "string"
+    },
+    "estimated_area_sqm": {
+      "type": "number"
+    },
+    "parcel_uin": {
+      "nullable": true,
+      "type": "string"
+    },
+    "state_id": {
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "title": "ng.sos.gis.unassessed_property_discovered",
+  "type": "object"
+}
