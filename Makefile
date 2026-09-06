@@ -3,7 +3,7 @@
 
 COMPOSE := docker compose -f deploy/docker-compose.yml --env-file deploy/.env
 GO_SERVICES := services/mod-rev-core ledger/splits services/mod-geospatial-gateway
-PY_SERVICES := $(wildcard services/*/ edge/edge-daemon/ deploy/keycloak/)
+PY_SERVICES := $(wildcard services/*/ edge/edge-daemon/ deploy/keycloak/ packages/*/)
 RUST_COMPONENTS := geospatial/geometry-rs
 
 .PHONY: help test test-go test-python test-rust validate contracts lint lint-rust compose-up compose-down
