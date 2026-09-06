@@ -1,0 +1,912 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-environment/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS Environmental Protection, Carbon Registry & Industrial Emissions API (mod-environment)
+  version: 0.1.0
+  description: 'v3.0 / ENV-09 · Lot 5. Industrial IoT telemetry compliance (COMPLIANT/WARNING/VIOLATION evaluation against
+    per-state limits; violation fines with state multipliers), effluent discharge & timber permit lifecycles, deforestation
+    satellite surveillance with a <4h dispatch SLA (SEC-10 enforcement tickets), state carbon registry (issue/transfer/retire
+    with unique serials; brokerage fee default 3% [DERIVED], state-overridable), and EIA workflow. Deploys: Lagos, Ogun, Taraba
+    (+ Osun, Benue, Nasarawa via shared config).'
+paths:
+  /environment/v1/telemetry:
+    post:
+      summary: Ingest Telemetry
+      operationId: ingest_telemetry_environment_v1_telemetry_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelemetryReading'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelemetryEvaluation'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - environment
+      security:
+      - bearerAuth: []
+  /environment/v1/facilities/{facility_id}/compliance:
+    get:
+      summary: Facility Compliance
+      operationId: facility_compliance_environment_v1_facilities__facility_id__compliance_get
+      parameters:
+      - name: facility_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Facility Id
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - environment
+      security:
+      - bearerAuth: []
+  /environment/v1/permits:
+    post:
+      summary: Create Permit
+      operationId: create_permit_environment_v1_permits_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Permit'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Permit'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - environment
+      security:
+      - bearerAuth: []
+  /environment/v1/permits/{permit_id}/activate:
+    post:
+      summary: Activate Permit
+      operationId: activate_permit_environment_v1_permits__permit_id__activate_post
+      parameters:
+      - name: permit_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Permit Id
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Permit'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - environment
+      security:
+      - bearerAuth: []
+  /environment/v1/deforestation-alerts:
+    post:
+      summary: Raise Alert
+      operationId: raise_alert_environment_v1_deforestation_alerts_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeforestationAlert'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeforestationAlert'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - environment
+      security:
+      - bearerAuth: []
+  /environment/v1/deforestation-alerts/{alert_id}/dispatch:
+    post:
+      summary: Dispatch Alert
+      operationId: dispatch_alert_environment_v1_deforestation_alerts__alert_id__dispatch_post
+      parameters:
+      - name: alert_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Alert Id
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeforestationAlert'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - environment
+      security:
+      - bearerAuth: []
+  /environment/v1/carbon-projects:
+    post:
+      summary: Register Project
+      operationId: register_project_environment_v1_carbon_projects_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CarbonProject'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CarbonProject'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - environment
+      security:
+      - bearerAuth: []
+  /environment/v1/carbon-credits:
+    post:
+      summary: Create Credit
+      operationId: create_credit_environment_v1_carbon_credits_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CarbonCredit'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CarbonCredit'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - environment
+      security:
+      - bearerAuth: []
+  /environment/v1/carbon-credits/{credit_id}/issue:
+    post:
+      summary: Issue Credit
+      operationId: issue_credit_environment_v1_carbon_credits__credit_id__issue_post
+      parameters:
+      - name: credit_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Credit Id
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CarbonCredit'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - environment
+      security:
+      - bearerAuth: []
+  /environment/v1/carbon-credits/{credit_id}/transfer:
+    post:
+      summary: Transfer Credit
+      operationId: transfer_credit_environment_v1_carbon_credits__credit_id__transfer_post
+      parameters:
+      - name: credit_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Credit Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - environment
+      security:
+      - bearerAuth: []
+  /environment/v1/carbon-credits/{credit_id}/retire:
+    post:
+      summary: Retire Credit
+      operationId: retire_credit_environment_v1_carbon_credits__credit_id__retire_post
+      parameters:
+      - name: credit_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Credit Id
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CarbonCredit'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - environment
+      security:
+      - bearerAuth: []
+  /environment/v1/eias:
+    post:
+      summary: Submit Eia
+      operationId: submit_eia_environment_v1_eias_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EIAApplication'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EIAApplication'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - environment
+      security:
+      - bearerAuth: []
+  /environment/v1/eias/{application_id}/advance:
+    post:
+      summary: Advance Eia
+      operationId: advance_eia_environment_v1_eias__application_id__advance_post
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Application Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EIAAdvanceRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EIAApplication'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - environment
+      security:
+      - bearerAuth: []
+  /healthz:
+    get:
+      summary: Healthz
+      operationId: healthz_healthz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Healthz Healthz Get
+      tags:
+      - environment
+components:
+  schemas:
+    AlertSource:
+      type: string
+      enum:
+      - SENTINEL2
+      - LANDSAT
+      title: AlertSource
+    AlertStatus:
+      type: string
+      enum:
+      - RAISED
+      - DISPATCHED
+      - RESOLVED
+      title: AlertStatus
+    CarbonCredit:
+      properties:
+        credit_id:
+          type: string
+          title: Credit Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        project_id:
+          type: string
+          title: Project Id
+        serial:
+          type: string
+          title: Serial
+          description: unique registry serial, e.g. NG-TAR-2026-0001
+        vintage:
+          type: integer
+          minimum: 2000.0
+          title: Vintage
+        quantity_tco2e:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Quantity Tco2E
+        price_kobo:
+          type: integer
+          minimum: 0.0
+          title: Price Kobo
+          default: 0
+        status:
+          $ref: '#/components/schemas/CreditStatus'
+          default: REGISTERED
+        owner_id:
+          type: string
+          title: Owner Id
+      type: object
+      required:
+      - tenant_state_id
+      - project_id
+      - serial
+      - vintage
+      - quantity_tco2e
+      - owner_id
+      title: CarbonCredit
+    CarbonProject:
+      properties:
+        project_id:
+          type: string
+          title: Project Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        name:
+          type: string
+          title: Name
+        boundary:
+          additionalProperties: true
+          type: object
+          title: Boundary
+          description: GeoJSON-like project boundary
+        methodology:
+          type: string
+          title: Methodology
+          default: REDD+
+        status:
+          $ref: '#/components/schemas/CarbonProjectStatus'
+          default: REGISTERED
+        registered_at:
+          type: string
+          format: date-time
+          title: Registered At
+      type: object
+      required:
+      - tenant_state_id
+      - name
+      - boundary
+      title: CarbonProject
+    CarbonProjectStatus:
+      type: string
+      enum:
+      - REGISTERED
+      - ISSUED
+      - TRANSFERRED
+      - RETIRED
+      title: CarbonProjectStatus
+    ComplianceIncident:
+      properties:
+        incident_id:
+          type: string
+          title: Incident Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        facility_id:
+          type: string
+          title: Facility Id
+        reading_id:
+          type: string
+          title: Reading Id
+        medium:
+          $ref: '#/components/schemas/Medium'
+        parameter:
+          $ref: '#/components/schemas/Parameter'
+        measured_value:
+          type: number
+          title: Measured Value
+        violation_threshold:
+          type: number
+          title: Violation Threshold
+        base_fine_kobo:
+          type: integer
+          minimum: 0.0
+          title: Base Fine Kobo
+        fine_multiplier:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Fine Multiplier
+        fine_estimate_kobo:
+          type: integer
+          minimum: 0.0
+          title: Fine Estimate Kobo
+        ledger_account_code:
+          type: string
+          title: Ledger Account Code
+          default: '3001'
+        status:
+          type: string
+          title: Status
+          default: OPEN
+        raised_at:
+          type: string
+          format: date-time
+          title: Raised At
+      type: object
+      required:
+      - tenant_state_id
+      - facility_id
+      - reading_id
+      - medium
+      - parameter
+      - measured_value
+      - violation_threshold
+      - base_fine_kobo
+      - fine_multiplier
+      - fine_estimate_kobo
+      title: ComplianceIncident
+    ComplianceStatus:
+      type: string
+      enum:
+      - COMPLIANT
+      - WARNING
+      - VIOLATION
+      title: ComplianceStatus
+    CreditStatus:
+      type: string
+      enum:
+      - REGISTERED
+      - ISSUED
+      - TRANSFERRED
+      - RETIRED
+      title: CreditStatus
+    DeforestationAlert:
+      properties:
+        alert_id:
+          type: string
+          title: Alert Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        polygon:
+          additionalProperties: true
+          type: object
+          title: Polygon
+          description: GeoJSON-like polygon dict
+        h3_cells:
+          items:
+            type: string
+          type: array
+          title: H3 Cells
+        ndvi_delta:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Ndvi Delta
+        area_hectares:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Area Hectares
+        source:
+          $ref: '#/components/schemas/AlertSource'
+        status:
+          $ref: '#/components/schemas/AlertStatus'
+          default: RAISED
+        detected_at:
+          type: string
+          format: date-time
+          title: Detected At
+        sla_deadline:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Sla Deadline
+        enforcement_ticket_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Enforcement Ticket Ref
+      type: object
+      required:
+      - tenant_state_id
+      - polygon
+      - ndvi_delta
+      - area_hectares
+      - source
+      title: DeforestationAlert
+      description: Raised from the lakehouse/Sedona NDVI change-detection job.
+    EIAAdvanceRequest:
+      properties:
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        target:
+          $ref: '#/components/schemas/EIAStatus'
+        decision_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Decision Reason
+      type: object
+      required:
+      - tenant_state_id
+      - target
+      title: EIAAdvanceRequest
+    EIAApplication:
+      properties:
+        application_id:
+          type: string
+          title: Application Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        project_name:
+          type: string
+          title: Project Name
+        facility_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Facility Id
+        category:
+          type: string
+          title: Category
+          description: e.g. CATEGORY_1 | CATEGORY_2 | CATEGORY_3
+        documents:
+          items:
+            type: string
+          type: array
+          title: Documents
+        status:
+          $ref: '#/components/schemas/EIAStatus'
+          default: SUBMITTED
+        decision_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Decision Reason
+        temporal_workflow_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Temporal Workflow Ref
+        submitted_at:
+          type: string
+          format: date-time
+          title: Submitted At
+      type: object
+      required:
+      - tenant_state_id
+      - project_name
+      - category
+      title: EIAApplication
+    EIAStatus:
+      type: string
+      enum:
+      - SUBMITTED
+      - SCREENING
+      - PUBLIC_COMMENT
+      - APPROVED
+      - REJECTED
+      title: EIAStatus
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    Medium:
+      type: string
+      enum:
+      - AIR
+      - WATER
+      - NOISE
+      title: Medium
+    Parameter:
+      type: string
+      enum:
+      - PM2_5
+      - NO2
+      - BOD
+      - COD
+      - PH
+      title: Parameter
+    Permit:
+      properties:
+        permit_id:
+          type: string
+          title: Permit Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        permit_type:
+          $ref: '#/components/schemas/PermitType'
+        holder_id:
+          type: string
+          title: Holder Id
+        facility_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Facility Id
+        fee_kobo:
+          type: integer
+          minimum: 0.0
+          title: Fee Kobo
+        status:
+          $ref: '#/components/schemas/PermitStatus'
+          default: DRAFT
+        issued_at:
+          type: string
+          format: date-time
+          title: Issued At
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+      type: object
+      required:
+      - tenant_state_id
+      - permit_type
+      - holder_id
+      - fee_kobo
+      title: Permit
+    PermitStatus:
+      type: string
+      enum:
+      - DRAFT
+      - ACTIVE
+      - SUSPENDED
+      - EXPIRED
+      title: PermitStatus
+    PermitType:
+      type: string
+      enum:
+      - EFFLUENT_DISCHARGE
+      - TIMBER_LOGGING
+      title: PermitType
+    TelemetryEvaluation:
+      properties:
+        reading:
+          $ref: '#/components/schemas/TelemetryReading'
+        status:
+          $ref: '#/components/schemas/ComplianceStatus'
+        incident:
+          anyOf:
+          - $ref: '#/components/schemas/ComplianceIncident'
+          - type: 'null'
+      type: object
+      required:
+      - reading
+      - status
+      title: TelemetryEvaluation
+    TelemetryReading:
+      properties:
+        reading_id:
+          type: string
+          title: Reading Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+          description: 'tenant: lagos | ogun | osun | benue | nasarawa | taraba'
+        facility_id:
+          type: string
+          title: Facility Id
+        sensor_id:
+          type: string
+          title: Sensor Id
+        medium:
+          $ref: '#/components/schemas/Medium'
+        parameter:
+          $ref: '#/components/schemas/Parameter'
+        value:
+          type: number
+          title: Value
+        unit:
+          type: string
+          title: Unit
+        measured_at:
+          type: string
+          format: date-time
+          title: Measured At
+      type: object
+      required:
+      - tenant_state_id
+      - facility_id
+      - sensor_id
+      - medium
+      - parameter
+      - value
+      - unit
+      title: TelemetryReading
+    TransferRequest:
+      properties:
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        new_owner_id:
+          type: string
+          title: New Owner Id
+      type: object
+      required:
+      - tenant_state_id
+      - new_owner_id
+      title: TransferRequest
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: environment
+- name: carbon-registry
+- name: compliance

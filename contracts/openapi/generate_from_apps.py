@@ -170,6 +170,42 @@ SERVICES: dict[str, dict] = {
             tags=["mobility", "transit", "clearing"],
         ),
     },
+    "mod-environment": {
+        "package": "app.main",
+        "info": dict(
+            title="SOS Environmental Protection, Carbon Registry & Industrial Emissions API (mod-environment)",
+            description=(
+                "v3.0 / ENV-09 · Lot 5. Industrial IoT telemetry compliance "
+                "(COMPLIANT/WARNING/VIOLATION evaluation against per-state "
+                "limits; violation fines with state multipliers), effluent "
+                "discharge & timber permit lifecycles, deforestation satellite "
+                "surveillance with a <4h dispatch SLA (SEC-10 enforcement "
+                "tickets), state carbon registry (issue/transfer/retire with "
+                "unique serials; brokerage fee default 3% [DERIVED], "
+                "state-overridable), and EIA workflow. Deploys: Lagos, Ogun, "
+                "Taraba (+ Osun, Benue, Nasarawa via shared config)."
+            ),
+            tags=["environment", "carbon-registry", "compliance"],
+        ),
+    },
+    "mod-citizen-portal": {
+        "package": "app.main",
+        "info": dict(
+            title="SOS Unified Citizen Portal, Sovereign Identity SSO & Civil Service Clean-Up API (mod-citizen-portal)",
+            description=(
+                "v3.0 / CIT-11 · Lot 7. Citizen identity wallet over Keycloak "
+                "OIDC multi-realm SSO (raw NIN reduced to a SHA-256 hash at "
+                "creation; NIMC API seam), multi-MDA self-service catalog and "
+                "requests (STANDARD/EXPEDITED priority; 70% state / 15% MDA / "
+                "15% platform settlement default [DERIVED], state-overridable), "
+                "e-petitions with public reference IDs, and civil-service "
+                "biometric payroll audit with deterministic ghost-worker "
+                "detection (₦500m+ recoverable target, Temporal workflow seam). "
+                "Complements, not replaces, mod-identity. Deploys: all 6 states."
+            ),
+            tags=["citizen-portal", "sso", "payroll-audit"],
+        ),
+    },
 }
 
 

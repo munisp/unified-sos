@@ -1,0 +1,1059 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-citizen-portal/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS Unified Citizen Portal, Sovereign Identity SSO & Civil Service Clean-Up API (mod-citizen-portal)
+  version: 0.1.0
+  description: 'v3.0 / CIT-11 · Lot 7. Citizen identity wallet over Keycloak OIDC multi-realm SSO (raw NIN reduced to a SHA-256
+    hash at creation; NIMC API seam), multi-MDA self-service catalog and requests (STANDARD/EXPEDITED priority; 70% state
+    / 15% MDA / 15% platform settlement default [DERIVED], state-overridable), e-petitions with public reference IDs, and
+    civil-service biometric payroll audit with deterministic ghost-worker detection (₦500m+ recoverable target, Temporal workflow
+    seam). Complements, not replaces, mod-identity. Deploys: all 6 states.'
+paths:
+  /citizen/v1/wallets:
+    post:
+      summary: Create Wallet
+      operationId: create_wallet_citizen_v1_wallets_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WalletCreate'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletRead'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - citizen-portal
+      security:
+      - bearerAuth: []
+  /citizen/v1/wallets/{wallet_id}:
+    get:
+      summary: Get Wallet
+      operationId: get_wallet_citizen_v1_wallets__wallet_id__get
+      parameters:
+      - name: wallet_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Wallet Id
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletRead'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - citizen-portal
+      security:
+      - bearerAuth: []
+  /citizen/v1/sso/sessions:
+    post:
+      summary: Create Sso Session
+      operationId: create_sso_session_citizen_v1_sso_sessions_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SsoSessionCreate'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SsoSession'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - citizen-portal
+      security:
+      - bearerAuth: []
+  /citizen/v1/services:
+    get:
+      summary: List Services
+      operationId: list_services_citizen_v1_services_get
+      parameters:
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServiceCatalogEntry'
+                title: Response List Services Citizen V1 Services Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - citizen-portal
+      security:
+      - bearerAuth: []
+  /citizen/v1/service-requests:
+    post:
+      summary: Submit Service Request
+      operationId: submit_service_request_citizen_v1_service_requests_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceRequestCreate'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceRequest'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - citizen-portal
+      security:
+      - bearerAuth: []
+  /citizen/v1/service-requests/{request_id}:
+    get:
+      summary: Get Service Request
+      operationId: get_service_request_citizen_v1_service_requests__request_id__get
+      parameters:
+      - name: request_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Request Id
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceRequest'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - citizen-portal
+      security:
+      - bearerAuth: []
+  /citizen/v1/service-requests/{request_id}/advance:
+    post:
+      summary: Advance Service Request
+      operationId: advance_service_request_citizen_v1_service_requests__request_id__advance_post
+      parameters:
+      - name: request_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Request Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdvanceRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceRequest'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - citizen-portal
+      security:
+      - bearerAuth: []
+  /citizen/v1/petitions:
+    post:
+      summary: Submit Petition
+      operationId: submit_petition_citizen_v1_petitions_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PetitionCreate'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Petition'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - citizen-portal
+      security:
+      - bearerAuth: []
+  /citizen/v1/petitions/{petition_id}/advance:
+    post:
+      summary: Advance Petition
+      operationId: advance_petition_citizen_v1_petitions__petition_id__advance_post
+      parameters:
+      - name: petition_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Petition Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PetitionAdvance'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Petition'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - citizen-portal
+      security:
+      - bearerAuth: []
+  /citizen/v1/civil-servants:
+    post:
+      summary: Register Civil Servant
+      operationId: register_civil_servant_citizen_v1_civil_servants_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CivilServant'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CivilServant'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - citizen-portal
+      security:
+      - bearerAuth: []
+  /citizen/v1/biometric-verifications:
+    post:
+      summary: Record Biometric Verification
+      operationId: record_biometric_verification_citizen_v1_biometric_verifications_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BiometricVerificationCreate'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BiometricVerification'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - citizen-portal
+      security:
+      - bearerAuth: []
+  /citizen/v1/payroll-audits:
+    post:
+      summary: Run Payroll Audit
+      operationId: run_payroll_audit_citizen_v1_payroll_audits_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayrollAuditCreate'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollAudit'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - citizen-portal
+      security:
+      - bearerAuth: []
+  /citizen/v1/payroll-audits/{audit_id}:
+    get:
+      summary: Get Payroll Audit
+      operationId: get_payroll_audit_citizen_v1_payroll_audits__audit_id__get
+      parameters:
+      - name: audit_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Audit Id
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayrollAudit'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - citizen-portal
+      security:
+      - bearerAuth: []
+  /healthz:
+    get:
+      summary: Healthz
+      operationId: healthz_healthz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+      tags:
+      - citizen-portal
+components:
+  schemas:
+    AdvanceRequest:
+      properties:
+        state_id:
+          type: string
+          title: State Id
+        to_status:
+          $ref: '#/components/schemas/RequestStatus'
+        note:
+          type: string
+          title: Note
+          default: ''
+      type: object
+      required:
+      - state_id
+      - to_status
+      title: AdvanceRequest
+    BiometricVerification:
+      properties:
+        verification_id:
+          type: string
+          title: Verification Id
+        state_id:
+          type: string
+          title: State Id
+        employee_no:
+          type: string
+          title: Employee No
+        liveness_passed:
+          type: boolean
+          title: Liveness Passed
+        verified:
+          type: boolean
+          title: Verified
+        verified_at:
+          type: string
+          format: date-time
+          title: Verified At
+      type: object
+      required:
+      - verification_id
+      - state_id
+      - employee_no
+      - liveness_passed
+      - verified
+      title: BiometricVerification
+      description: Proof-of-liveness / verification result; no raw biometric data.
+    BiometricVerificationCreate:
+      properties:
+        state_id:
+          type: string
+          title: State Id
+        employee_no:
+          type: string
+          title: Employee No
+        liveness_passed:
+          type: boolean
+          title: Liveness Passed
+        verified:
+          type: boolean
+          title: Verified
+      type: object
+      required:
+      - state_id
+      - employee_no
+      - liveness_passed
+      - verified
+      title: BiometricVerificationCreate
+    CivilServant:
+      properties:
+        employee_no:
+          type: string
+          title: Employee No
+        state_id:
+          type: string
+          title: State Id
+        full_name:
+          type: string
+          title: Full Name
+        mda:
+          type: string
+          title: Mda
+        grade_band:
+          type: string
+          title: Grade Band
+        salary_kobo:
+          type: integer
+          minimum: 0.0
+          title: Salary Kobo
+        biometric_template_hash:
+          type: string
+          title: Biometric Template Hash
+        bank_account_hash:
+          type: string
+          title: Bank Account Hash
+        status:
+          $ref: '#/components/schemas/ServantStatus'
+          default: ACTIVE
+        registered_at:
+          type: string
+          format: date-time
+          title: Registered At
+      type: object
+      required:
+      - employee_no
+      - state_id
+      - full_name
+      - mda
+      - grade_band
+      - salary_kobo
+      - biometric_template_hash
+      - bank_account_hash
+      title: CivilServant
+      description: Civil-service payroll record. Hashes only — no raw biometrics.
+    GhostRule:
+      type: string
+      enum:
+      - UNVERIFIED_BIOMETRIC
+      - DUPLICATE_BIOMETRIC
+      - DUPLICATE_SALARY_ACCOUNT
+      - INACTIVE_STILL_PAID
+      title: GhostRule
+      description: Deterministic ghost-worker detection rules.
+    GhostWorkerFinding:
+      properties:
+        finding_id:
+          type: string
+          title: Finding Id
+        state_id:
+          type: string
+          title: State Id
+        rule:
+          $ref: '#/components/schemas/GhostRule'
+        employee_nos:
+          items:
+            type: string
+          type: array
+          title: Employee Nos
+        recoverable_kobo:
+          type: integer
+          minimum: 0.0
+          title: Recoverable Kobo
+        detail:
+          type: string
+          title: Detail
+          default: ''
+      type: object
+      required:
+      - finding_id
+      - state_id
+      - rule
+      - employee_nos
+      - recoverable_kobo
+      title: GhostWorkerFinding
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    PayrollAudit:
+      properties:
+        audit_id:
+          type: string
+          title: Audit Id
+        state_id:
+          type: string
+          title: State Id
+        run_at:
+          type: string
+          format: date-time
+          title: Run At
+        findings:
+          items:
+            $ref: '#/components/schemas/GhostWorkerFinding'
+          type: array
+          title: Findings
+        total_recoverable_kobo:
+          type: integer
+          title: Total Recoverable Kobo
+          default: 0
+        temporal_workflow:
+          anyOf:
+          - $ref: '#/components/schemas/TemporalWorkflowRef'
+          - type: 'null'
+      type: object
+      required:
+      - audit_id
+      - state_id
+      title: PayrollAudit
+      description: One deterministic ghost-worker audit run over a state's payroll.
+    PayrollAuditCreate:
+      properties:
+        state_id:
+          type: string
+          title: State Id
+      type: object
+      required:
+      - state_id
+      title: PayrollAuditCreate
+    Petition:
+      properties:
+        petition_id:
+          type: string
+          title: Petition Id
+        reference_id:
+          type: string
+          title: Reference Id
+          description: public reference, e.g. PET-LAGOS-000001
+        state_id:
+          type: string
+          title: State Id
+        wallet_id:
+          type: string
+          title: Wallet Id
+        title:
+          type: string
+          title: Title
+        body:
+          type: string
+          title: Body
+        status:
+          $ref: '#/components/schemas/PetitionStatus'
+          default: SUBMITTED
+        timeline:
+          items:
+            $ref: '#/components/schemas/StatusEvent'
+          type: array
+          title: Timeline
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - petition_id
+      - reference_id
+      - state_id
+      - wallet_id
+      - title
+      - body
+      title: Petition
+      description: E-petition intake + workflow; ``reference_id`` is the public handle.
+    PetitionAdvance:
+      properties:
+        state_id:
+          type: string
+          title: State Id
+        to_status:
+          $ref: '#/components/schemas/PetitionStatus'
+        note:
+          type: string
+          title: Note
+          default: ''
+      type: object
+      required:
+      - state_id
+      - to_status
+      title: PetitionAdvance
+    PetitionCreate:
+      properties:
+        state_id:
+          type: string
+          title: State Id
+        wallet_id:
+          type: string
+          title: Wallet Id
+        title:
+          type: string
+          title: Title
+        body:
+          type: string
+          title: Body
+      type: object
+      required:
+      - state_id
+      - wallet_id
+      - title
+      - body
+      title: PetitionCreate
+    PetitionStatus:
+      type: string
+      enum:
+      - SUBMITTED
+      - UNDER_REVIEW
+      - RESOLVED
+      - REJECTED
+      title: PetitionStatus
+    Priority:
+      type: string
+      enum:
+      - STANDARD
+      - EXPEDITED
+      title: Priority
+    RequestStatus:
+      type: string
+      enum:
+      - SUBMITTED
+      - IN_REVIEW
+      - APPROVED
+      - REJECTED
+      - COMPLETED
+      title: RequestStatus
+    ServantStatus:
+      type: string
+      enum:
+      - ACTIVE
+      - INACTIVE
+      - RETIRED
+      - SUSPENDED
+      title: ServantStatus
+    ServiceCatalogEntry:
+      properties:
+        service_code:
+          type: string
+          title: Service Code
+        state_id:
+          type: string
+          title: State Id
+        name:
+          type: string
+          title: Name
+        category:
+          $ref: '#/components/schemas/ServiceCategory'
+        mda:
+          type: string
+          title: Mda
+        base_fee_kobo:
+          type: integer
+          title: Base Fee Kobo
+          default: 0
+        expedited_fee_kobo:
+          type: integer
+          title: Expedited Fee Kobo
+          default: 0
+        sla_days:
+          type: integer
+          title: Sla Days
+          default: 14
+        active:
+          type: boolean
+          title: Active
+          default: true
+      type: object
+      required:
+      - service_code
+      - state_id
+      - name
+      - category
+      - mda
+      title: ServiceCatalogEntry
+      description: One MDA service offered through the portal, seeded per state.
+    ServiceCategory:
+      type: string
+      enum:
+      - REVENUE
+      - LANDS
+      - HEALTH
+      - EDUCATION
+      - MARKET
+      title: ServiceCategory
+    ServiceRequest:
+      properties:
+        request_id:
+          type: string
+          title: Request Id
+        state_id:
+          type: string
+          title: State Id
+        wallet_id:
+          type: string
+          title: Wallet Id
+        service_code:
+          type: string
+          title: Service Code
+        form_payload:
+          additionalProperties:
+            type: string
+          type: object
+          title: Form Payload
+        priority:
+          $ref: '#/components/schemas/Priority'
+          default: STANDARD
+        fee_kobo:
+          type: integer
+          title: Fee Kobo
+          default: 0
+        status:
+          $ref: '#/components/schemas/RequestStatus'
+          default: SUBMITTED
+        timeline:
+          items:
+            $ref: '#/components/schemas/StatusEvent'
+          type: array
+          title: Timeline
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - request_id
+      - state_id
+      - wallet_id
+      - service_code
+      title: ServiceRequest
+      description: Citizen self-service request with dynamic form payload and timeline.
+    ServiceRequestCreate:
+      properties:
+        state_id:
+          type: string
+          title: State Id
+        wallet_id:
+          type: string
+          title: Wallet Id
+        service_code:
+          type: string
+          title: Service Code
+        form_payload:
+          additionalProperties:
+            type: string
+          type: object
+          title: Form Payload
+        priority:
+          $ref: '#/components/schemas/Priority'
+          default: STANDARD
+      type: object
+      required:
+      - state_id
+      - wallet_id
+      - service_code
+      title: ServiceRequestCreate
+    SsoSession:
+      properties:
+        session_id:
+          type: string
+          title: Session Id
+        state_id:
+          type: string
+          title: State Id
+        wallet_id:
+          type: string
+          title: Wallet Id
+        realm:
+          type: string
+          title: Realm
+        client_id:
+          type: string
+          title: Client Id
+        redirect_uri:
+          type: string
+          title: Redirect Uri
+        scopes:
+          items:
+            type: string
+          type: array
+          title: Scopes
+        status:
+          $ref: '#/components/schemas/SsoSessionStatus'
+          default: PENDING
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+      type: object
+      required:
+      - session_id
+      - state_id
+      - wallet_id
+      - realm
+      - client_id
+      - redirect_uri
+      - expires_at
+      title: SsoSession
+      description: 'OIDC authorization/session descriptor (Keycloak facade).
+
+
+        In production the portal redirects to the state realm''s Keycloak
+
+        authorization endpoint; this record is the server-side handle carrying
+
+        redirect URI, scopes, expiry, and realm.'
+    SsoSessionCreate:
+      properties:
+        state_id:
+          type: string
+          title: State Id
+        wallet_id:
+          type: string
+          title: Wallet Id
+        redirect_uri:
+          type: string
+          title: Redirect Uri
+        scopes:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Scopes
+      type: object
+      required:
+      - state_id
+      - wallet_id
+      - redirect_uri
+      title: SsoSessionCreate
+    SsoSessionStatus:
+      type: string
+      enum:
+      - PENDING
+      - AUTHENTICATED
+      - EXPIRED
+      title: SsoSessionStatus
+    StatusEvent:
+      properties:
+        status:
+          type: string
+          title: Status
+        at:
+          type: string
+          format: date-time
+          title: At
+        note:
+          type: string
+          title: Note
+          default: ''
+      type: object
+      required:
+      - status
+      title: StatusEvent
+    TemporalWorkflowRef:
+      properties:
+        workflow_id:
+          type: string
+          title: Workflow Id
+        task_queue:
+          type: string
+          title: Task Queue
+          default: payroll-cleanup
+        status:
+          type: string
+          title: Status
+          default: PLACEHOLDER
+        note:
+          type: string
+          title: Note
+          default: durable cleanup workflow scheduled via Temporal in production
+      type: object
+      required:
+      - workflow_id
+      title: TemporalWorkflowRef
+      description: 'Placeholder reference to the durable Temporal cleanup workflow.
+
+
+        Production: one Temporal workflow per payroll audit drives biometric
+
+        re-verification notices, payroll holds, and recovery postings; this
+
+        reference module records the handle only.'
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    WalletCreate:
+      properties:
+        state_id:
+          type: string
+          title: State Id
+        nin:
+          type: string
+          title: Nin
+          description: raw NIN — hashed immediately, never stored
+      type: object
+      required:
+      - state_id
+      - nin
+      title: WalletCreate
+    WalletRead:
+      properties:
+        wallet_id:
+          type: string
+          title: Wallet Id
+        state_id:
+          type: string
+          title: State Id
+        masked_nin:
+          type: string
+          title: Masked Nin
+        keycloak_realm:
+          type: string
+          title: Keycloak Realm
+        keycloak_client_id:
+          type: string
+          title: Keycloak Client Id
+        status:
+          type: string
+          title: Status
+      type: object
+      required:
+      - wallet_id
+      - state_id
+      - masked_nin
+      - keycloak_realm
+      - keycloak_client_id
+      - status
+      title: WalletRead
+      description: 'Read model: masked NIN only — structurally cannot leak the raw NIN.'
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: citizen-portal
+- name: sso
+- name: payroll-audit
