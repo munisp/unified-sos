@@ -26,9 +26,9 @@ The **State Operating System (SOS)** is a production-grade, multi-tenant digital
 | **Nasarawa** | 2.9M | ₦20.5 Billion | Lithium / solid minerals, Abuja-border sprawl | Tier 3 — Shared Multi-Tenant |
 | **Taraba** | 3.6M | ₦17.46 Billion | Highland agribusiness, rosewood, cross-border trade | Tier 3 — Shared Multi-Tenant |
 
-### The Seven SOS Modules
+### The SOS Module Suite
 
-30 PPP opportunities reduce to **seven reusable modules** — built once, configured per state:
+30 PPP opportunities reduce to **reusable modules** — built once, configured per state. v3.0 extends the original seven-suite catalog with **ENV-09** (environment & carbon) and **CIT-11** (unified citizen portal):
 
 | Module | Serves | Core Stack |
 |---|---|---|
@@ -37,8 +37,10 @@ The **State Operating System (SOS)** is a production-grade, multi-tenant digital
 | **(c) Market & Levy** (`mod-market`, `mod-agri-waybill`) | Markets, transport parks, haulage e-waybills, weighbridges | Go · Dapr · Redis |
 | **(d) Extractives** (`mod-mining`, `mod-forestry`) | Mining formalization, ASM buying centres, timber provenance | Rust · Kafka · PostGIS |
 | **(e) Security & Safety** (`mod-police-cad`) | C2, CCTV/drone integration, force HR/payroll, trust-fund administration | Rust · PostGIS · OpenCTI |
-| **(f) Identity & Data** | Resident registry, verification APIs (LASRRA/QoreID model) | Keycloak · APISIX metered gateway |
-| **(g) PPP & Investment** | Pipeline disclosure, OBC/FBC workflow, concession monitoring | Temporal · OpenSearch |
+| **(f) Identity & Data** (`mod-identity`) | Resident registry, verification APIs (LASRRA/QoreID model) | Keycloak · APISIX metered gateway |
+| **(g) PPP & Investment** (`mod-ppp-investment`) | Pipeline disclosure, OBC/FBC workflow, concession monitoring | Temporal · OpenSearch |
+| **(h) Environment & Carbon** (`mod-environment`) — *v3.0 / ENV-09* | Industrial emissions telemetry compliance, effluent/timber permits, deforestation surveillance (<4h SLA), carbon registry, EIA | FastAPI · PostGIS · Sedona |
+| **(i) Citizen Portal** (`mod-citizen-portal`) — *v3.0 / CIT-11* | Citizen identity wallet & Keycloak SSO, multi-MDA self-service, e-petitions, payroll ghost-worker audit | FastAPI · Keycloak OIDC · Temporal |
 
 ### Architecture at a Glance — Four Layers
 
@@ -71,7 +73,7 @@ Full detail: [`docs/architecture/`](docs/architecture/README.md).
 | [`edge/`](edge/README.md) | Offline-first POS / checkpoint edge design |
 | [`tests/`](tests/README.md) | Load, FAT/SAT and acceptance specs mapped to procurement gates |
 | [`tools/`](tools/README.md) | `sosctl` tenant-provisioning CLI |
-| [`deploy/`](deploy/README.md) | Local development stack (Docker Compose: PostGIS, TigerBeetle, Keycloak, Redpanda, MinIO, OpenSearch + flagship services) |
+| [`deploy/`](deploy/README.md) | Local development stack (Docker Compose: PostGIS, TigerBeetle, Keycloak, Redpanda, MinIO, OpenSearch + flagship and v3.0 services) |
 | [`Makefile`](Makefile) | `make test`, `make validate`, `make contracts`, `make compose-up` |
 | [`.github/`](.github/) | CI, security scanning, SBOM, issue & PR templates |
 

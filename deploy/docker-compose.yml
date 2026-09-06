@@ -177,6 +177,44 @@ services:
       timeout: 5s
       retries: 5
 
+  # --- v3.0 application services (ENV-09, CIT-11) -------------------------
+
+  mod-environment:
+    build:
+      context: ../services/mod-environment
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-environment:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+    ports:
+      - "8010:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  mod-citizen-portal:
+    build:
+      context: ../services/mod-citizen-portal
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-citizen-portal:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+      # SSO facade targets the local Keycloak dev realm (one realm per state
+      # tenant in production; see deploy/keycloak/).
+      KEYCLOAK_BASE_URL: http://keycloak:8080
+    ports:
+      - "8011:8000"
+    depends_on:
+      keycloak:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres-data:
   redis-data:

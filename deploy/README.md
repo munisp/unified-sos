@@ -31,6 +31,8 @@ make compose-down
 | OpenSearch 2 (single-node) | `opensearchproject/opensearch` | Audit/search indexes; security plugin disabled for dev only | `localhost:9200` |
 | mod-rev-core | built from `services/mod-rev-core/Dockerfile` (context = repo root, needs `ledger/splits`) | Flagship Go revenue service | `localhost:8080/healthz` |
 | mod-gis-lands | built from `services/mod-gis-lands/Dockerfile` | Flagship Python cadastral service | `localhost:8000/openapi.json` |
+| mod-environment | built from `services/mod-environment/Dockerfile` | v3.0 / ENV-09 FastAPI module: emissions telemetry compliance, permits, deforestation alerts, carbon registry, EIA | `localhost:8010/healthz` |
+| mod-citizen-portal | built from `services/mod-citizen-portal/Dockerfile` | v3.0 / CIT-11 FastAPI module: citizen SSO wallet (targets local Keycloak), service requests, e-petitions, payroll audit | `localhost:8011/healthz` |
 
 ## Excluded from local (and why)
 
