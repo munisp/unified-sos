@@ -1,0 +1,305 @@
+# SOS platform Prometheus scrape configuration (Stage 7.C).
+# One job per module service; services are discovered via Kubernetes
+# endpoints and matched on the app.kubernetes.io/component label rendered
+# by infra/helm/sos-platform. Keep this file in sync with the modules map in
+# infra/helm/sos-platform/values.yaml — infra/tests/validate_infra.py enforces it.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+rule_files:
+- alerts.yml
+scrape_configs:
+- job_name: control-plane
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: control-plane
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: control-plane
+- job_name: mod-agri-waybill
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-agri-waybill
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: mod-agri-waybill
+- job_name: mod-citizen-portal
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-citizen-portal
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: mod-citizen-portal
+- job_name: mod-education
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-education
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: mod-education
+- job_name: mod-environment
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-environment
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: mod-environment
+- job_name: mod-forestry
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-forestry
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: mod-forestry
+- job_name: mod-geospatial
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-geospatial
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8013'
+    action: keep
+  - target_label: service
+    replacement: mod-geospatial
+- job_name: mod-geospatial-gateway
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-geospatial-gateway
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8014'
+    action: keep
+  - target_label: service
+    replacement: mod-geospatial-gateway
+- job_name: mod-gis-lands
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-gis-lands
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: mod-gis-lands
+- job_name: mod-gis-luc
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-gis-luc
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: mod-gis-luc
+- job_name: mod-health
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-health
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: mod-health
+- job_name: mod-identity
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-identity
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: mod-identity
+- job_name: mod-kyc-kyb
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-kyc-kyb
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8090'
+    action: keep
+  - target_label: service
+    replacement: mod-kyc-kyb
+- job_name: mod-market
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-market
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: mod-market
+- job_name: mod-mining
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-mining
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: mod-mining
+- job_name: mod-mobility-switch
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-mobility-switch
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: mod-mobility-switch
+- job_name: mod-police-cad
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-police-cad
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: mod-police-cad
+- job_name: mod-ppp-investment
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-ppp-investment
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: mod-ppp-investment
+- job_name: mod-rev-core
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-rev-core
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8080'
+    action: keep
+  - target_label: service
+    replacement: mod-rev-core
+- job_name: mod-transport-wim
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-transport-wim
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: mod-transport-wim
+- job_name: mod-transparency
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-transparency
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: mod-transparency

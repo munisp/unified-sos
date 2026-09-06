@@ -329,3 +329,29 @@ keda:
       topic: ng.sos.revenue.assessments
       consumerGroup: mod-rev-core
       lagThreshold: "1000"
+
+# Stage 7.C observability stack (values-gated, off by default).
+# When enabled, renders an in-cluster Prometheus scraping every enabled
+# module's /metrics endpoint plus Grafana with the RED dashboard
+# (deploy/observability/). Alert rules come from deploy/observability/alerts.yml.
+prometheus:
+  enabled: false
+  image:
+    repository: prom/prometheus
+    tag: "v2.54.1" # Apache-2.0
+  service:
+    port: 9090
+  retention: 15d
+  resources: {}
+
+grafana:
+  enabled: false
+  image:
+    repository: grafana/grafana
+    tag: "11.2.2" # AGPL-3.0
+  service:
+    port: 3000
+  # Admin credentials come from this pre-created Secret (keys: admin-user,
+  # admin-password). Never commit credentials to values.
+  adminSecretName: sos-grafana-admin
+  resources: {}

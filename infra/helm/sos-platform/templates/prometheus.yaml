@@ -1,0 +1,137 @@
+{{- /*
+Stage 7.C: in-cluster Prometheus for the SOS platform (values-gated,
+off by default). The scrape ConfigMap is generated from .Values.modules so
+it can never drift from the chart's module map; the checked-in reference
+copy at deploy/observability/prometheus.yml is validated by
+infra/tests/validate_infra.py.
+*/ -}}
+{{- if .Values.prometheus.enabled }}
+{{- $fullname := include "sos-platform.fullname" . -}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "{{ $fullname }}-prometheus-config"
+  labels:
+    app.kubernetes.io/component: prometheus
+{{ include "sos-platform.labels" . | indent 4 }}
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+    rule_files:
+      - alerts.yml
+    scrape_configs:
+      {{- range $key, $mod := .Values.modules }}
+      {{- if and $mod.enabled (ne $key "lakehouse") }}
+      {{- $name := include "sos-platform.moduleName" $key }}
+      - job_name: {{ $name }}
+        kubernetes_sd_configs:
+          - role: endpoints
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_component]
+            regex: {{ $name }}
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_container_port_number]
+            regex: "{{ $mod.service.port }}"
+            action: keep
+          - target_label: service
+            replacement: {{ $name }}
+      {{- end }}
+      {{- end }}
+  alerts.yml: |
+    groups:
+      - name: sos-red
+        interval: 30s
+        rules:
+          - alert: SosHighErrorRate
+            expr: |
+              sum by (service) (rate(http_errors_total[5m]))
+                / sum by (service) (rate(http_requests_total[5m])) > 0.01
+            for: 10m
+            labels: {severity: page, team: sos-platform}
+            annotations:
+              summary: "High 5xx error rate on {{ `{{ $labels.service }}` }}"
+          - alert: SosHighP99Latency
+            expr: |
+              histogram_quantile(0.99,
+                sum by (service, le) (rate(http_request_duration_seconds_bucket[15m]))) > 0.8
+            for: 15m
+            labels: {severity: warning, team: sos-platform}
+            annotations:
+              summary: "p99 latency above 800ms on {{ `{{ $labels.service }}` }}"
+          - alert: SosServiceDown
+            expr: up == 0
+            for: 5m
+            labels: {severity: page, team: sos-platform}
+      - name: sos-business
+        interval: 30s
+        rules:
+          - alert: SosAuditChainVerifyFailure
+            expr: sum by (service) (rate(audit_chain_verify_failures_total[5m])) > 0
+            for: 1m
+            labels: {severity: critical, team: sos-security}
+          - alert: SosLedgerImbalance
+            expr: abs(ledger_debits_total - ledger_credits_total) > 0
+            for: 5m
+            labels: {severity: critical, team: sos-revenue}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ $fullname }}-prometheus"
+  labels:
+    app.kubernetes.io/component: prometheus
+{{ include "sos-platform.labels" . | indent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: prometheus
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: prometheus
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: prometheus
+          image: "{{ .Values.prometheus.image.repository }}:{{ .Values.prometheus.image.tag }}"
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.retention.time={{ .Values.prometheus.retention }}
+          ports:
+            - name: http
+              containerPort: 9090
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+          readinessProbe:
+            httpGet: {path: /-/ready, port: http}
+          livenessProbe:
+            httpGet: {path: /-/healthy, port: http}
+          resources:
+{{ toYaml .Values.prometheus.resources | indent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: "{{ $fullname }}-prometheus-config"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ $fullname }}-prometheus"
+  labels:
+    app.kubernetes.io/component: prometheus
+{{ include "sos-platform.labels" . | indent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/component: prometheus
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: {{ .Values.prometheus.service.port }}
+      targetPort: http
+{{- end }}

@@ -53,7 +53,9 @@
     "apisix": { "type": "object" },
     "keycloak": { "type": "object" },
     "kubecost": { "type": "object" },
-    "keda": { "type": "object" }
+    "keda": { "type": "object" },
+    "prometheus": { "type": "object" },
+    "grafana": { "type": "object" }
   },
   "$defs": {
     "module": {

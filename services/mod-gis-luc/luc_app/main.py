@@ -44,6 +44,22 @@ class ValuationRunRequest(BaseModel):
     findings: list[JoinFinding] = Field(default_factory=list)
 
 
+# --- Stage 7.C observability wiring (services/_shared/observability.py) ---
+try:
+    from _shared.observability import instrument_fastapi as _instrument_fastapi
+except ImportError:
+    import sys as _sys
+    from pathlib import Path as _Path
+
+    _services_root = _Path(__file__).resolve().parents[2]
+    if str(_services_root) not in _sys.path:
+        _sys.path.insert(0, str(_services_root))
+    try:
+        from _shared.observability import instrument_fastapi as _instrument_fastapi
+    except ImportError:  # minimal container images ship only the app package
+        _instrument_fastapi = None
+
+
 def create_app(repository: BillRepository | None = None) -> FastAPI:
     """Application factory — inject the bill repository for tests."""
 
@@ -114,6 +130,8 @@ def create_app(repository: BillRepository | None = None) -> FastAPI:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "bill not found")
         return bill
 
+    if _instrument_fastapi is not None:
+        _instrument_fastapi(app, "mod-gis-luc")
     return app
 
 

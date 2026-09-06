@@ -25,6 +25,7 @@ import (
 	"os"
 
 	"github.com/munisp/unified-sos/ledger/splits"
+	"github.com/munisp/unified-sos/services/mod-rev-core/internal/observability"
 	"github.com/munisp/unified-sos/services/mod-rev-core/internal/revenue"
 )
 
@@ -71,8 +72,14 @@ func run() int {
 		revenue.WithEBillNotifier(notifier))
 	handler := revenue.NewHandler(svc)
 
+	// Stage 7.C: /metrics + request counters/histograms (stdlib-only).
+	metrics := observability.New("mod-rev-core")
+	root := http.NewServeMux()
+	root.Handle("GET /metrics", metrics.Handler())
+	root.Handle("/", metrics.Instrument(handler.Routes()))
+
 	log.Printf("mod-rev-core: listening on %s (policy_dir=%q)", addr, policyDir)
-	if err := http.ListenAndServe(addr, handler.Routes()); err != nil {
+	if err := http.ListenAndServe(addr, root); err != nil {
 		log.Printf("mod-rev-core: serve: %v", err)
 		return 1
 	}
