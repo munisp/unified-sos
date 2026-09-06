@@ -1,0 +1,16 @@
+[project]
+name = "sos-control-plane"
+version = "0.1.0"
+description = "SOS global control plane — tenant provisioning, policy-pack registry, audit events (zero citizen PII)"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.110",
+    "pydantic>=2.6",
+    "jsonschema>=4.21",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "httpx>=0.27", "uvicorn>=0.29"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

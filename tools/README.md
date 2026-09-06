@@ -2,6 +2,9 @@
 
 `sosctl` is the platform operator CLI for tenant lifecycle management (WP-01 / EP-CP-01).
 
+> Implementation: [`sosctl/`](sosctl/) (Python package, typer + rich). See
+> `sosctl/README.md` for install/run/test and behavior notes.
+
 ## Command Surface
 
 ```bash

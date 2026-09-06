@@ -1,0 +1,12 @@
+[project]
+name = "sos-lakehouse"
+version = "0.1.0"
+description = "SOS lakehouse — medallion pipeline reference (bronze/silver/gold as pure functions)"
+requires-python = ">=3.11"
+dependencies = ["pandas>=2.1", "pyarrow>=15"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
