@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from .domain import (
     CadStore,
+    CrossTenantError,
     DispatchEvent,
     Disbursement,
     Donation,
@@ -159,6 +160,10 @@ def create_app(store: CadStore | None = None,
             return store.dispatch(req.incident_id, req.unit_id, req.latitude, req.longitude)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=exc.args[0])
+        except CrossTenantError as exc:
+            # Tenant-isolation violation: fail closed with 403 (matching
+            # mod-ppp-investment TenantIsolationError) — never a 2xx/422.
+            raise HTTPException(status_code=403, detail=str(exc))
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc))
 

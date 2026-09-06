@@ -110,12 +110,12 @@ def test_ppp_cross_state_stage_advance_is_forbidden():
 
 
 def test_police_cad_cross_state_dispatch_fails_closed():
-    """Cross-tenant dispatch is rejected (non-2xx, fail closed).
+    """Cross-tenant dispatch is rejected fail-closed with 403 (or 404).
 
-    NOTE: mod-police-cad maps its domain ``ValueError('cross-tenant dispatch
-    is prohibited')`` to HTTP 422 rather than 403/404; the gate here asserts
-    fail-closed semantics (rejection + no dispatch logged + no cross-tenant
-    data in the audit feed). TODO(F-053): align the error mapping to 403.
+    mod-police-cad raises ``CrossTenantError`` (mapped to HTTP 403, matching
+    the mod-ppp-investment TenantIsolationError pattern); unknown
+    incident/unit IDs return 404 (no enumeration). The gate also asserts no
+    dispatch was logged and no cross-tenant data leaks via the audit feed.
     """
     mod = load_service_app("mod-police-cad")
     with TestClient(mod.create_app()) as c:
@@ -135,7 +135,8 @@ def test_police_cad_cross_state_dispatch_fails_closed():
             "unit_id": unit.json()["unit_id"],
             "latitude": 6.50, "longitude": 3.40,
         })
-        assert not r.is_success, "cross-tenant dispatch must never succeed"
+        assert r.status_code in (403, 404), (
+            f"cross-tenant dispatch must fail closed with 403/404, got {r.status_code}: {r.text}")
         assert c.get("/cad/v1/dispatch-log").json() == []
 
         # Trust-fund audit feeds are per-tenant: ogun must not see lagos funds.

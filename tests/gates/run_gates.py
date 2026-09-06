@@ -139,9 +139,19 @@ def gate_stage1(result: GateResult) -> None:
         skip(result, "coverage-gate-85pct", "no services with tests/ found", tool=False)
     else:
         for svc in services:
-            run_check(result, f"coverage-gate-85pct[{svc.name}]",
-                      ["python3", "-m", "pytest", "-q", "--cov=.", "--cov-fail-under=85", "tests"],
-                      timeout=900)
+            # Run inside the service directory: "--cov=." must measure the
+            # service's own package, and "tests" must be its own suite.
+            start = dt.datetime.now()
+            code, out = run_cmd(
+                ["python3", "-m", "pytest", "-q", "--cov=.", "--cov-fail-under=85", "tests"],
+                cwd=svc, timeout=900)
+            elapsed = (dt.datetime.now() - start).total_seconds()
+            tail = "\n".join(out.splitlines()[-15:]) if out else ""
+            result.add(Check(name=f"coverage-gate-85pct[{svc.name}]",
+                             status=STATUS_PASS if code == 0 else STATUS_FAIL,
+                             detail=tail,
+                             command=f"(cd {svc} && pytest --cov=. --cov-fail-under=85 tests)",
+                             duration_s=elapsed))
 
     # 1c. Trivy container scan hook over an image list.
     image_list = TESTS / "gates" / "trivy-images.txt"

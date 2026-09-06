@@ -28,20 +28,12 @@ METHODS = ("get", "post", "put", "patch", "delete", "head", "options")
 
 # ---------------------------------------------------------------------------
 # Known contract drift, recorded explicitly (never silently passed).
-# TODO(F-053): regenerate contracts/openapi/mod-mobility-switch.yaml — the
-# P1 Mojaloop/NIBSS escrow seam landed after the contract was curated.
+# The ledger is intentionally empty: all known drift was closed in Stage 7.E
+# by regenerating the contracts from the implementation (contract-as-code).
+# Any future drift must be fixed by regenerating the contract, not by adding
+# entries here — entries require an exact-match TODO reference.
 # ---------------------------------------------------------------------------
-EXPECTED_DRIFT: dict[str, dict[str, set]] = {
-    "mod-mobility-switch": {
-        "extra_in_app": {
-            ("/mobility/v1/escrow", "post"),
-            ("/mobility/v1/escrow/{transfer_id}/abort", "post"),
-            ("/mobility/v1/escrow/{transfer_id}/fulfil", "post"),
-            ("/mobility/v1/webhooks/nibss/ebills", "post"),
-        },
-        "missing_in_app": set(),
-    },
-}
+EXPECTED_DRIFT: dict[str, dict[str, set]] = {}
 
 CONTRACT_FILES = sorted(CONTRACTS_DIR.glob("*.yaml"))
 GENERATED_SERVICES = sorted(gen.SERVICES)
@@ -91,7 +83,7 @@ def test_app_openapi_matches_committed_contract(service):
     if expected is not None:
         assert drift == expected, (
             f"{service}: drift changed vs the recorded EXPECTED_DRIFT — "
-            f"either regenerate the contract (TODO F-053) or update the list; "
+            f"either regenerate the contract or update the list; "
             f"got {drift}"
         )
         return

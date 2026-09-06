@@ -996,34 +996,6 @@ components:
       - BENEFICIAL_OWNERSHIP_DECLARATION
       - OTHER
       title: DocumentType
-    RegistryUnavailableError:
-      properties:
-        error:
-          type: string
-          enum:
-          - REGISTRY_UNAVAILABLE
-          title: Error Code
-        registry:
-          type: string
-          enum:
-          - CAC
-          - NIMC
-          - SANCTIONS
-          title: Registry
-        detail:
-          type: string
-          title: Detail
-          description: Human-readable context. NEVER contains raw registry payloads or PII (NIN, RC number).
-        retryable:
-          type: boolean
-          title: Retryable
-          description: Whether the caller may retry after backoff (true for timeouts/5xx, false for 401/403 fail-closed).
-      type: object
-      required:
-      - error
-      - registry
-      title: RegistryUnavailableError
-      description: Returned when a registry federation seam (NIMC/CAC/sanctions) is unavailable. The service fails closed — no verification is attested from partial data.
     HTTPValidationError:
       properties:
         detail:

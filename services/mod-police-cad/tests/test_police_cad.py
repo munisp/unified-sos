@@ -80,13 +80,39 @@ def test_geofenced_dispatch_event_log(client: TestClient) -> None:
     assert bad.status_code == 422
     assert len(client.get("/cad/v1/dispatch-log").json()) == 1
 
-    # Cross-tenant dispatch prohibited.
+    # Cross-tenant dispatch prohibited — fail closed with 403 (SEC: never 2xx/422).
     other_unit = _unit(client, state="osun")
     cross = client.post("/cad/v1/dispatch", json={
         "incident_id": inc["incident_id"], "unit_id": other_unit,
         "latitude": 6.51, "longitude": 3.36,
     })
-    assert cross.status_code == 422
+    assert cross.status_code == 403
+    assert "cross-tenant" in cross.json()["detail"]
+    assert len(client.get("/cad/v1/dispatch-log").json()) == 1
+
+
+def test_cross_tenant_dispatch_maps_to_403_and_logs_nothing(client: TestClient) -> None:
+    """SEC mapping: CrossTenantError -> HTTP 403 (fail closed), not 422."""
+    inc = client.post("/cad/v1/incidents", json={
+        "tenant_state_id": "lagos", "agency": "LNSC", "category": "robbery",
+        "latitude": 6.50, "longitude": 3.40,
+    }).json()
+    ogun_unit = _unit(client, state="ogun")
+    r = client.post("/cad/v1/dispatch", json={
+        "incident_id": inc["incident_id"], "unit_id": ogun_unit,
+        "latitude": 6.50, "longitude": 3.40,
+    })
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"] == "cross-tenant dispatch is prohibited"
+    assert client.get("/cad/v1/dispatch-log").json() == []
+
+
+def test_dispatch_unknown_ids_return_404_no_enumeration(client: TestClient) -> None:
+    r = client.post("/cad/v1/dispatch", json={
+        "incident_id": "inc-nonexistent", "unit_id": "unit-nonexistent",
+        "latitude": 6.50, "longitude": 3.40,
+    })
+    assert r.status_code == 404, r.text
 
 
 def test_trust_fund_public_audit_feed(client: TestClient) -> None:

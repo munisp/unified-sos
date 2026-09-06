@@ -79,7 +79,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Trader'
+                $ref: '#/components/schemas/TraderRead'
         '422':
           description: Validation Error
           content:
@@ -110,7 +110,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Trader'
+                  $ref: '#/components/schemas/TraderRead'
                 title: Response List Traders Traders Get
         '422':
           description: Validation Error
@@ -663,6 +663,52 @@ components:
       - phone
       - market_id
       title: Trader
+    TraderRead:
+      properties:
+        trader_id:
+          type: string
+          title: Trader Id
+        state_id:
+          type: string
+          title: State Id
+        full_name:
+          type: string
+          title: Full Name
+        masked_phone:
+          type: string
+          title: Masked Phone
+        market_id:
+          type: string
+          title: Market Id
+        stall_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Stall Id
+        stin:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Stin
+        enumerated_at:
+          type: string
+          format: date-time
+          title: Enumerated At
+      type: object
+      required:
+      - trader_id
+      - state_id
+      - full_name
+      - masked_phone
+      - market_id
+      - enumerated_at
+      title: TraderRead
+      description: 'Read model for trader records: masked phone only (NDPA gate).
+
+
+        Raw MSISDNs structurally cannot leave the API — every trader-serving
+
+        endpoint uses this response model.'
     ValidationError:
       properties:
         loc:
