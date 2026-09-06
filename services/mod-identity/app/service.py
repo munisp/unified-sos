@@ -51,8 +51,11 @@ STATE_SHARE_BPS = 7_000
 
 
 class IdentityService:
-    def __init__(self, repo: IdentityRepository) -> None:
+    def __init__(self, repo: IdentityRepository, federation_client=None) -> None:
+        from .federation import FixtureFederationClient
+
         self.repo = repo
+        self.federation_client = federation_client or FixtureFederationClient()
         self._ids = itertools.count(1)
 
     def _next_id(self, prefix: str) -> str:
@@ -169,6 +172,17 @@ class IdentityService:
         else:  # RESIDENCY_ATTESTATION / KYC_ADJUNCT: attest registered + active
             attested = resident.active
 
+        # KYC_ADJUNCT additionally federates the NIN claim (per-state Keycloak
+        # realm in live mode); latency is metered into the audit detail.
+        registry_latency_ms: Optional[int] = None
+        if product is VerificationProduct.KYC_ADJUNCT and attested:
+            import time as _time
+
+            started = _time.perf_counter()
+            fed = self.federation_client.verify_nin_claim(state_id, resident.nin, claim)
+            registry_latency_ms = int((_time.perf_counter() - started) * 1000)
+            attested = attested and bool(fed.get("attested", False))
+
         result = VerificationResult(
             result_id=self._next_id("VR"),
             state_id=state_id,
@@ -186,7 +200,10 @@ class IdentityService:
             result_id=result.result_id,
         )
         self.repo.save_usage(usage)
-        self._audit("VERIFY_GRANTED", state_id, consumer_id, resident_id, f"{product.value}:{attested}")
+        detail = f"{product.value}:{attested}"
+        if registry_latency_ms is not None:
+            detail += f":registry_latency_ms={registry_latency_ms}"
+        self._audit("VERIFY_GRANTED", state_id, consumer_id, resident_id, detail)
         return result
 
     # -- settlement (TigerBeetle wiring) --------------------------------------
