@@ -7,9 +7,11 @@ Executable verification mapped to the procurement acceptance framework (`docs/pr
 | [load/k6-ledger-split.js](load/k6-ledger-split.js) | Stage 2 (Performance/Stress) | 500,000 TPS TigerBeetle; 50,000 req/s APISIX; p99 < 50 ms split |
 | [load/k6-apisix-gateway.js](load/k6-apisix-gateway.js) | Stage 2 (Performance/Stress) | 50,000 req/s APISIX sustained; p99 < 100 ms; zero errors |
 | [load/sedona_joins.py](load/sedona_joins.py) | Sedona stress | 10,000 concurrent spatial joins without error (deterministic local profile; `--profile sedona` for real Spark/Sedona) |
-| `contract/` (planned) | Stage 1 (FAT) | OpenAPI schema validation; Dapr bindings; > 85% coverage |
-| [security/owasp_zap_baseline.sh](security/owasp_zap_baseline.sh) + [security/check_cves.py](security/check_cves.py) | Stage 3 (Pen-test) | OWASP Top 10 100% block; zero critical/high CVEs |
-| [sat/run_sat.py](sat/run_sat.py) | Stage 4 (SAT) | Hardware integration + live bank clearing settlement |
+| [contract/](contract/) — **delivered** | Stage 1 (FAT) | OpenAPI app↔contract drift gates (explicit expected-drift ledger); AsyncAPI envelope validation against in-memory event-bus payloads + registry schemas |
+| [security/owasp_zap_baseline.sh](security/owasp_zap_baseline.sh) + [security/check_cves.py](security/check_cves.py) + [security/test_security_baseline.py](security/test_security_baseline.py) — **delivered** | Stage 3 (Pen-test) | OWASP Top 10 100% block; zero critical/high CVEs; read-model PII egress scan; tenant-isolation negative tests; inline-secret scan; USSD/IVR webhook auth fail-closed |
+| [sat/run_sat.py](sat/run_sat.py) + [sat/test_sat_gates.py](sat/test_sat_gates.py) — **delivered** | Stage 4 (SAT) | Hardware integration + live bank clearing settlement; 10k-assessment zero-discrepancy reconciliation vs mod-rev-core; offline-POS replay (edge outbox → mod-market). Explicit SKIP locally, fail-closed under SAT_ENV=production |
+
+Acceptance entrypoint: `make test-acceptance` (runs `tests/contract`, `tests/security`, `tests/sat`).
 
 ## Executable Gates (P0 Workstream E)
 
