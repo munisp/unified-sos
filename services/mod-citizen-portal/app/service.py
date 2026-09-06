@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import itertools
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
 
 from .domain import (
     DEFAULT_SPLIT_BPS,
@@ -38,6 +38,9 @@ from .domain import (
     utcnow,
 )
 from .repository import CitizenPortalRepository
+
+if TYPE_CHECKING:
+    from .catalog import CatalogProvider
 
 
 class NotFoundError(Exception):
@@ -72,14 +75,22 @@ PETITION_TRANSITIONS = {
     PetitionStatus.REJECTED: set(),
 }
 
-# Seed catalog [DERIVED] — one entry per mandatory category; states extend
-# via seed data / config packs in production.
+# Seed catalog [DERIVED] — covers every domain module wired through the
+# portal; states enable subsets via config/states/<state>/modules.yaml
+# (see app/catalog.py ModuleCatalogProvider). Tuple shape:
+# (code, name, category, mda, base_fee_kobo, expedited_fee_kobo, module, endpoint_hint)
 DEFAULT_CATALOG = [
-    ("REV-TAX-ID", "Tax ID & PAYE registration", ServiceCategory.REVENUE, "Board of Internal Revenue", 0, 50_000),
-    ("LAND-COFO", "Certificate of Occupancy", ServiceCategory.LANDS, "Lands Bureau", 500_000, 1_500_000),
-    ("HLT-PHC-REG", "Primary healthcare registration", ServiceCategory.HEALTH, "Ministry of Health", 0, 20_000),
-    ("EDU-SCH-TRANS", "School transfer & records", ServiceCategory.EDUCATION, "Ministry of Education", 10_000, 50_000),
-    ("MKT-STALL", "Market stall allocation", ServiceCategory.MARKET, "Market Development Authority", 100_000, 250_000),
+    ("REV-TAX-ID", "Tax ID & PAYE registration", ServiceCategory.REVENUE, "Board of Internal Revenue", 0, 50_000, "mod-rev-core", "/rev/v1/taxpayers"),
+    ("LAND-COFO", "Certificate of Occupancy", ServiceCategory.LANDS, "Lands Bureau", 500_000, 1_500_000, "mod-gis-lands", "/lands/v1/titles"),
+    ("HLT-PHC-REG", "Primary healthcare registration", ServiceCategory.HEALTH, "Ministry of Health", 0, 20_000, "mod-health", "/health/v1/facilities"),
+    ("EDU-SCH-TRANS", "School transfer & records", ServiceCategory.EDUCATION, "Ministry of Education", 10_000, 50_000, "mod-education", "/edu/v1/transfers"),
+    ("MKT-STALL", "Market stall allocation", ServiceCategory.MARKET, "Market Development Authority", 100_000, 250_000, "mod-market", "/market/v1/stalls"),
+    ("MIN-EPERMIT", "Mining e-permit & levy account", ServiceCategory.MINING, "Ministry of Solid Minerals", 250_000, 750_000, "mod-mining", "/mining/v1/permits"),
+    ("AGR-WAYBILL", "Agricultural produce waybill", ServiceCategory.AGRICULTURE, "Ministry of Agriculture", 25_000, 75_000, "mod-agri-waybill", "/agri/v1/waybills"),
+    ("TRN-WIM-FINE", "Transport WIM violation fine payment", ServiceCategory.TRANSPORT, "Transport Ministry (WIM)", 50_000, 0, "mod-transport-wim", "/wim/v1/violations"),
+    ("ENV-PERMIT", "Environmental impact permit", ServiceCategory.ENVIRONMENT, "Environmental Protection Agency", 300_000, 900_000, "mod-environment", "/env/v1/permits"),
+    ("FOR-TTP", "Forestry timber transit permit", ServiceCategory.FORESTRY, "Forestry Commission", 150_000, 450_000, "mod-forestry", "/forestry/v1/transit-permits"),
+    ("PPP-DISCLOSURE", "PPP project disclosure lookup", ServiceCategory.INVESTMENT, "PPP / Investment Office", 0, 0, "mod-ppp-investment", "/ppp/v1/disclosures"),
 ]
 
 SMARTCARD_FEE_KOBO = 150_000  # ₦1,500 smartcard issuance [DERIVED]
@@ -90,11 +101,18 @@ class CitizenPortalService:
         self,
         repo: CitizenPortalRepository,
         state_splits: Optional[Dict[str, Dict[str, int]]] = None,
+        catalog_provider: Optional["CatalogProvider"] = None,
     ) -> None:
         self.repo = repo
         self._ids = itertools.count(1)
         # Per-state settlement split overrides (bps); default 70/15/15.
         self._state_splits = state_splits or {}
+        # Catalog source; defaults to the deterministic static seed catalog.
+        if catalog_provider is None:
+            from .catalog import StaticCatalogProvider
+
+            catalog_provider = StaticCatalogProvider()
+        self._catalog_provider = catalog_provider
 
     def _next_id(self, prefix: str) -> str:
         return f"{prefix}-{next(self._ids):06d}"
@@ -170,22 +188,12 @@ class CitizenPortalService:
 
     # -- service catalog / requests ----------------------------------------
     def ensure_catalog(self, state_id: str) -> List[ServiceCatalogEntry]:
-        """Seed the default catalog on first access (configurable by seed data)."""
+        """Seed the catalog on first access via the configured provider."""
         existing = self.repo.list_catalog(state_id)
         if existing:
             return existing
-        for code, name, category, mda, base, expedited in DEFAULT_CATALOG:
-            self.repo.save_catalog_entry(
-                ServiceCatalogEntry(
-                    service_code=code,
-                    state_id=state_id,
-                    name=name,
-                    category=category,
-                    mda=mda,
-                    base_fee_kobo=base,
-                    expedited_fee_kobo=expedited,
-                )
-            )
+        for entry in self._catalog_provider.entries(state_id):
+            self.repo.save_catalog_entry(entry)
         return self.repo.list_catalog(state_id)
 
     def submit_service_request(

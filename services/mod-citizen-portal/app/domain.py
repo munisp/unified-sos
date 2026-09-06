@@ -110,10 +110,22 @@ class ServiceCategory(str, enum.Enum):
     HEALTH = "HEALTH"
     EDUCATION = "EDUCATION"
     MARKET = "MARKET"
+    MINING = "MINING"
+    AGRICULTURE = "AGRICULTURE"
+    TRANSPORT = "TRANSPORT"
+    ENVIRONMENT = "ENVIRONMENT"
+    FORESTRY = "FORESTRY"
+    INVESTMENT = "INVESTMENT"
 
 
 class ServiceCatalogEntry(BaseModel):
-    """One MDA service offered through the portal, seeded per state."""
+    """One MDA service offered through the portal, seeded per state.
+
+    ``module`` names the owning SOS module (e.g. ``mod-mining``); the
+    :mod:`app.catalog` providers use it to filter the catalog against the
+    state's enabled-module config. ``endpoint_hint`` is the owning module's
+    API hint used by channel adapters (USSD/IVR) when deep-linking.
+    """
 
     service_code: str
     state_id: str
@@ -124,6 +136,8 @@ class ServiceCatalogEntry(BaseModel):
     expedited_fee_kobo: int = 0
     sla_days: int = 14
     active: bool = True
+    module: str = Field(default="", description="owning SOS module, e.g. mod-mining")
+    endpoint_hint: str = Field(default="", description="owning module API hint for channel deep-links")
 
 
 class Priority(str, enum.Enum):
@@ -288,6 +302,40 @@ class SettlementRecord(BaseModel):
     gross_kobo: int = Field(ge=0)
     lines: List[SettlementLine]
     settled_at: datetime = Field(default_factory=utcnow)
+
+
+# --------------------------------------------------------------------------
+# 6. Citizen channels (USSD / IVR)
+# --------------------------------------------------------------------------
+
+
+def hash_msisdn(msisdn: str) -> str:
+    """One-way MSISDN hash; raw phone numbers are never persisted."""
+    return hashlib.sha256(f"msisdn:{msisdn}".encode()).hexdigest()
+
+
+class ChannelKind(str, enum.Enum):
+    USSD = "USSD"
+    IVR = "IVR"
+
+
+class ChannelSession(BaseModel):
+    """Server-side USSD/IVR session state.
+
+    Carries the hashed MSISDN only (never the raw number), the current menu
+    node, the selection breadcrumb trail, and last-activity for the 180s
+    deterministic timeout.
+    """
+
+    session_id: str
+    state_id: str
+    msisdn_hash: str
+    channel: ChannelKind = ChannelKind.USSD
+    node: str = Field(default="root", description="root | category | service | confirm | done")
+    depth: int = 0
+    selections: List[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=utcnow)
+    last_activity: datetime = Field(default_factory=utcnow)
 
 
 # Default split [DERIVED]: 70% state / 15% MDA / 15% platform.
