@@ -1,0 +1,49 @@
+# OpenAppSec WAF policy pack — default-deny posture.
+#
+# Aligned with the zero-trust Cilium network matrix in infra/k8s/base
+# (networkpolicy-default-deny.yaml / networkpolicy-allow-dns.yaml): every
+# request is denied unless an explicit allow rule matches, exactly as the
+# cluster denies pod traffic unless a NetworkPolicy allows it.
+#
+# Rendered into the cluster by infra/helm/openappsec (ConfigMap
+# openappsec-waf-policy). Validated by infra/tests/validate_infra.py.
+apiVersion: openappsec.io/v1beta1
+kind: Policy
+metadata:
+  name: sos-waf-default-deny
+  labels:
+    sos.gov.ng/policy-pack: waf-default-deny
+    sos.gov.ng/aligned-with: cilium-default-deny
+spec:
+  default: deny
+  practices:
+    - name: sos-owasp-prevent
+      mode: prevent
+      protections:
+        - owasp-top-ten
+        - web-attacks
+        - zero-day
+    - name: sos-api-protect
+      mode: prevent
+      protections:
+        - schema-validation
+        - api-discovery
+  triggers:
+    - name: sos-log-all
+      log: log
+      destination: stdout
+      compliance: cielo
+  rules:
+    # Explicit allows mirror the allow-listing style of the Cilium matrix.
+    - match: "path == '/healthz' or path == '/readyz'"
+      action: accept
+      comment: "probe endpoints (cf. Cilium allow-dns carve-out)"
+    - match: "host endswith '.sos.gov.ng'"
+      action: detect
+      practice: sos-owasp-prevent
+      trigger: sos-log-all
+      comment: "first-party traffic inspected in prevent mode"
+    - match: "true"
+      action: deny
+      trigger: sos-log-all
+      comment: "default-deny: mirrors networkpolicy-default-deny.yaml"

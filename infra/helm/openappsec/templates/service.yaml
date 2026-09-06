@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: openappsec-agent
+  namespace: {{ .Values.namespace | default "sos-platform" }}
+  labels:
+    app.kubernetes.io/name: openappsec
+    app.kubernetes.io/component: agent
+spec:
+  type: {{ .Values.service.type | default "ClusterIP" }}
+  selector:
+    app.kubernetes.io/name: openappsec
+  ports:
+    - name: http
+      port: {{ .Values.service.port | default 80 }}
+      targetPort: http

@@ -1,0 +1,37 @@
+# Renders the OpenAppSec WAF policy bundle (default-deny) into a ConfigMap
+# consumed by the agent. Source of truth:
+# contracts/policy-packs/examples/openappsec-waf-default-deny.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openappsec-waf-policy
+  namespace: {{ .Values.namespace | default "sos-platform" }}
+  labels:
+    app.kubernetes.io/name: openappsec
+    app.kubernetes.io/component: waf-policy
+data:
+  policy.yaml: |
+    apiVersion: openappsec.io/v1beta1
+    kind: Policy
+    metadata:
+      name: sos-waf-default-deny
+    spec:
+      default: {{ .Values.policy.defaultAction | default "deny" }}
+      practices:
+        - name: sos-owasp-prevent
+          mode: {{ .Values.policy.practice | default "prevent" }}
+          protections:
+            - owasp-top-ten
+            - web-attacks
+            - zero-day
+      triggers:
+        - name: sos-log-all
+          log: {{ .Values.policy.trigger | default "log" }}
+          destination: stdout
+      rules:
+        - match: "host == 'healthz.internal' or path == '/healthz'"
+          action: accept
+          comment: "liveness/readiness probes bypass inspection"
+        - match: "true"
+          action: deny
+          comment: "default-deny: mirrors Cilium default-deny in infra/k8s/base"

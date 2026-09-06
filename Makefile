@@ -12,7 +12,7 @@ help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}'
 
-test: test-go test-python ## Run all tests (Go + Python)
+test: test-go test-python test-ci ## Run all tests (Go + Python + CI gate assertions)
 
 test-go: ## Run Go tests for all Go modules
 	@for mod in $(GO_SERVICES); do \
@@ -29,6 +29,9 @@ test-python: ## Run pytest per Python service directory
 			(cd $$svc && python -m pytest -q) || exit 1; \
 		fi; \
 	done
+
+test-ci: ## Run CI workflow gate assertions (security workflows must stay blocking)
+	python -m pytest -q tests/ci
 
 test-rust: ## Run cargo tests for Rust components (skips if cargo unavailable)
 	@if command -v cargo >/dev/null 2>&1; then \
