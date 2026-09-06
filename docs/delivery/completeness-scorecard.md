@@ -1,0 +1,177 @@
+# SOS Completeness Scorecard — Modules, Mapping, and Gap Analysis
+
+**Deliverable:** Rigorous completeness scorecard answering *"how many modules are on the platform, how complete are they, and what is the gap between the business/technical spec and the code?"*
+
+**Commit base:** `80e33e9` (main after geospatial Python + Go gateway merges)
+**Method:** Full-repo audit against `docs/delivery/feature-inventory.md` (53 validated feature rows), service-by-service inspection, spec↔code traceability, and the orchestrator-verified test run.
+**Scoring principle:** Every score is a **local/reference-implementation** score unless a live production adapter exists. No score claims production readiness.
+
+---
+
+## 1. Executive summary
+
+| Question | Answer |
+|---|---|
+| How many service modules? | **21 service directories** under `services/` (control-plane, lakehouse, and 19 `mod-*` domain services), plus supporting components: `edge/edge-daemon`, `geospatial/` jobs, `ledger/splits`, `tools/sosctl`, and `contracts/`, `config/`, `infra/`. |
+| How many domain modules? | **19 `mod-*` services**, including the new `mod-geospatial` (Python) and `mod-geospatial-gateway` (Go). The Rust `geometry-rs` validator remains on branch `feat/geospatial-rust` — **pending merge, not counted** as merged. |
+| Feature coverage | **16 / 53 features (30.2%)** at implemented/reference/manifest level; 32 partial (60.4%); 3 adapter-seam (5.7%); 2 gap (3.8%). |
+| Weighted production-readiness score | **55.1%** (formula in §2). |
+| Test evidence | `make test` green at `80e33e9`: **377 Python service/edge tests + 64 Go tests = 441**, plus 8 top-level geospatial pytest tests = **449 total**. (Rust `geometry-rs` has 31 tests on branch, excluded until merge.) |
+| Honest verdict | The platform is a **broad, well-tested reference implementation with pervasive, intentional adapter seams**. Roughly half the weighted gap is concentrated in production bindings (TigerBeetle, Kafka/Fluvio, Temporal, Mojaloop/NIBSS, NIMC/CAC, hardware SE, PostGIS/Sedona/Delta live runtimes). |
+
+---
+
+## 2. Feature-level rollup (from `feature-inventory.md`, 53 rows)
+
+### 2.1 Status normalization
+
+| Normalized status | Count | Share | Weight |
+|---|---|---|---|
+| IMPLEMENTED | 3 | 5.7% | 1.00 |
+| IMPLEMENTED (reference) | 9 | 17.0% | 0.75 |
+| IMPLEMENTED (manifests) | 2 | 3.8% | 0.65 |
+| IMPLEMENTED (taxonomy + builder) | 1 | 1.9% | 0.65 |
+| IMPLEMENTED (reference impl.; ADAPTER-SEAM bindings) | 1 | 1.9% | 0.75 |
+| **Feature coverage subtotal** | **16** | **30.2%** | — |
+| PARTIAL | 32 | 60.4% | 0.50 |
+| ADAPTER-SEAM | 3 | 5.7% | 0.25 |
+| GAP | 2 | 3.8% | 0.00 |
+| **Total** | **53** | 100% | — |
+
+### 2.2 Weighted production-readiness score
+
+```
+score = ( 3*1.00 + 9*0.75 + 2*0.65 + 1*0.65 + 1*0.75
+        + 32*0.50 + 3*0.25 + 2*0.00 ) / 53
+      = (3 + 6.75 + 1.30 + 0.65 + 0.75 + 16.00 + 0.75 + 0) / 53
+      = 29.2 / 53 = 55.1%
+```
+
+**Interpretation:** the platform is ~55% of the way from "documented/seamed" to "production-wired" on a feature-weighted basis. Feature *coverage* (something runnable in-repo) is 96.2% (51/53 have code or manifests); only 2 named requirements are pure gaps.
+
+---
+
+## 3. Module inventory & per-module scores (21 service directories)
+
+Scores are 0–100, defensible against the status vocabulary above. "Reference" means runnable, tested, in-repo; it does **not** mean production-wired.
+
+| # | Module | Role | Code path | Tests | Score | Status | Top gap |
+|---|---|---|---|---|---|---|---|
+| 1 | control-plane | Tenant provisioning, policy packs, audit feed | `services/control-plane/` | pytest (in 377) | 55 | PARTIAL | Live provisioning operators (K8s/Keycloak/S3/KMS bindings) |
+| 2 | lakehouse | Delta/Iceberg medallion orchestration | `services/lakehouse/` | pytest | 55 | PARTIAL | Live Delta/Sedona cluster runtime (seam) |
+| 3 | mod-rev-core | Revenue core: STIN, assessments, bills, idempotency, settlement | `services/mod-rev-core/` (Go) | Go tests (in 64) | 75 | PARTIAL | TigerBeetle prod adapter (`REV_CORE_LEDGER=tigerbeetle` stub); NIBSS/Mojaloop scheme adapters |
+| 4 | mod-gis-lands | Land registry / cadastre | `services/mod-gis-lands/` | pytest | 70 | PARTIAL | PostGIS production datastore + survey-grade ingest |
+| 5 | mod-gis-luc | Land-use change detection | `services/mod-gis-luc/` | pytest | 65 | PARTIAL | Imagery pipeline + Sedona live runtime |
+| 6 | mod-mining | Mining permits, royalties | `services/mod-mining/` | pytest | 70 | PARTIAL | Royalty settlement to TigerBeetle; field-inspector mobile binding |
+| 7 | mod-agri-waybill | Agri produce waybills, movement permits | `services/mod-agri-waybill/` | pytest | 75 | PARTIAL | Offline agent sync at scale; market levy settlement adapter |
+| 8 | mod-transport-wim | Transport weigh-in-motion | `services/mod-transport-wim/` | pytest | 75 | PARTIAL | WIM hardware/edge binding; fine collection adapter |
+| 9 | mod-market | Market stalls, trader levies, POS wire-compat | `services/mod-market/` | pytest | 75 | PARTIAL | Live POS fleet enrollment; clearing adapter |
+| 10 | mod-health | Health facility licensing/records flows | `services/mod-health/` | pytest | 70 | PARTIAL | NHIA/HMIS interoperability adapters; consent enforcement runtime |
+| 11 | mod-education | School census, fees, Mojaloop webhook stub | `services/mod-education/` | pytest | 70 | PARTIAL | Mojaloop scheme adapter (stub webhook); SUBEB data exchange |
+| 12 | mod-environment | Environmental permits, EIA, levies | `services/mod-environment/` | pytest | 80 | PARTIAL | Sensor/telemetry ingest runtime; enforcement workflow binding |
+| 13 | mod-police-cad | Police CAD, trust-fund ledger refs | `services/mod-police-cad/` | pytest | 55 | PARTIAL | Dispatch/tetra integration; body-worn/evidence chain-of-custody |
+| 14 | mod-citizen-portal | Citizen service portal/API | `services/mod-citizen-portal/` | pytest | 75 | PARTIAL | Full cross-module service catalogue wiring; USSD/IVR channels |
+| 15 | mod-ppp-investment | PPP/concession investment, settlement statements | `services/mod-ppp-investment/` | pytest | 75 | PARTIAL | Escrow settlement on TigerBeetle cluster; investor portal |
+| 16 | mod-forestry | Forestry permits, timber tracking | `services/mod-forestry/` | pytest | 70 | PARTIAL | Chain-of-custody field app; satellite verification seam |
+| 17 | mod-identity | Resident registry (NIN-linked, tenant-scoped) | `services/mod-identity/` | pytest | 70 | PARTIAL | NIMC federation adapter (ADAPTER-SEAM); credential issuance at scale |
+| 18 | mod-kyc-kyb | KYC/KYB: PaddleOCR/Docling/VLM, local liveness | `services/mod-kyc-kyb/` | pytest | 75 | IMPLEMENTED (reference) | NIN/CAC live verification gateways; hardware-backed liveness |
+| 19 | mod-mobility-switch | Mobility/payment switch, escrow seams | `services/mod-mobility-switch/` | pytest | 65 | PARTIAL | Mojaloop FSPIOP connector deployment + certification |
+| 20 | mod-geospatial | GeoLibre project/adapters, H3, Sedona orchestration | `services/mod-geospatial/` (Python) | pytest (incl. 8 top-level) | 55 | PARTIAL (new, local) | Live Sedona/PostGIS/Delta runtimes; self-hosted GeoLibre container/compose not yet integrated |
+| 21 | mod-geospatial-gateway | Low-latency geospatial validation & job gateway | `services/mod-geospatial-gateway/` (Go) | Go tests (in 64) | 55 | PARTIAL (new, local) | Rust `geometry-rs` validator pending merge (`feat/geospatial-rust`); Temporal job runtime binding |
+
+**Supporting components (not counted in the 21):**
+
+| Component | Path | Score | Note |
+|---|---|---|---|
+| Edge daemon | `edge/edge-daemon/` | 60 | Signed offline POS tickets, SQLite outbox, sync engine proven wire-compat with mod-market; hardware SE is ADAPTER-SEAM |
+| Ledger split engine | `ledger/splits/` (Go) | 70 | Deterministic split engine + 128-bit account-ID taxonomy + `InMemoryLedger`; tigerbeetle-go adapter pending |
+| Geospatial jobs | `geospatial/` | 55 | Job specs present; live cluster execution seam |
+| Operator CLI | `tools/sosctl/` | 75 | IMPLEMENTED (reference); needs live ArgoCD API + signed commits |
+| Contracts/config/infra | `contracts/`, `config/`, `infra/` | 65 | OpenAPI/AsyncAPI + K8s/Helm/Terraform/GitOps manifests validated in CI; live cluster reconciliation pending |
+
+**Aggregate module score (21 services, unweighted mean): ≈ 66/100** as reference implementations; **≈ 40/100** if scored strictly on production-wired adapters.
+
+---
+
+## 4. Business-domain (v3) ↔ code mapping & scores
+
+| Domain | Business scope | Code paths | Score | Rationale |
+|---|---|---|---|---|
+| REV-01 Revenue | Assessments, billing, collection, splits | `services/mod-rev-core/`, `ledger/splits/`, `contracts/openapi/revenue-assessments.yaml`, `db/migrations/0002_revenue_core.sql` | **75** | Strong Go reference + split engine + taxonomy; TigerBeetle/NIBSS/Mojaloop adapters pending |
+| LND-02 Land | Cadastre, titles, LUC, geospatial | `services/mod-gis-lands/`, `services/mod-gis-luc/`, `services/mod-geospatial/`, `services/mod-geospatial-gateway/`, `geospatial/` | **70** | New services are local references; PostGIS/Temporal/Sedona production seams remain |
+| EXT-03 Extractives | Mining permits, royalties | `services/mod-mining/`, royalty split refs in `ledger/` | **70** | Permit flows implemented; royalty settlement + field binding pending |
+| AGR-04 Agriculture | Waybills, movement permits, levies | `services/mod-agri-waybill/` | **75** | Core flows + tests green; offline-at-scale and levy settlement pending |
+| TRN-05 Transport | WIM, axle-load fines | `services/mod-transport-wim/`, `edge/edge-daemon/` | **75** | WIM logic + edge sync proven; hardware binding pending |
+| MKT-06 Markets | Stalls, trader levies, POS | `services/mod-market/`, `edge/edge-daemon/` | **75** | Wire-compat with edge daemon proven; live POS fleet + clearing pending |
+| HLT-07 Health | Facility licensing, records | `services/mod-health/` | **70** | Local flows complete; NHIA/HMIS interop seams |
+| EDU-08 Education | Census, fees, payments | `services/mod-education/` | **70** | Flows implemented; Mojaloop webhook is a stub |
+| ENV-09 Environment | Permits, EIA, levies | `services/mod-environment/` | **80** | Most complete domain module; telemetry ingest runtime remains a seam |
+| SEC-10 Security | Police CAD, trust fund | `services/mod-police-cad/` | **55** | Reference flows only; dispatch/evidence integrations absent |
+| CIT-11 Citizen | Portal, identity, KYC | `services/mod-citizen-portal/`, `services/mod-identity/`, `services/mod-kyc-kyb/` | **75** | Portal + registry + reference KYC green; NIMC/CAC federation seams |
+| PPP-12 PPP/Investment | Concessions, escrow, statements | `services/mod-ppp-investment/`, escrow 2099 in `ledger/chart-of-accounts.md` | **75** | Settlement statements + split ceilings implemented; live escrow cluster pending |
+
+Each score reflects a **local/reference implementation**; only modules with live external adapters could score above ~80 under this rubric, and none do.
+
+---
+
+## 5. Cross-cutting capability scores
+
+| Capability | Code paths | Score | Note |
+|---|---|---|---|
+| IAM / identity | `deploy/keycloak/realm-sos-dev.json`, `infra/helm/.../keycloak-realm-import-job.yaml`, `services/mod-identity/` | **70** | Multi-realm pattern + import job; NIMC/CAC federation ADAPTER-SEAM; per-state realm templates for all 6 states pending |
+| KYC / KYB | `services/mod-kyc-kyb/` | **75** | Reference impl.: PaddleOCR/Docling/VLM document extraction + local liveness; live NIN/CAC verification + hardware-backed liveness are seams |
+| Geospatial / lakehouse | `services/mod-geospatial/`, `services/mod-geospatial-gateway/`, `services/lakehouse/`, `geospatial/` | **55** | New local services merged; Sedona/PostGIS/Delta live runtimes + Temporal binding remain seams; GeoLibre self-hosted container not integrated |
+| Infrastructure | `infra/k8s/`, `infra/helm/`, `infra/terraform/`, `infra/gitops/`, `infra/tests/validate_infra.py` | **65** | Manifests validated in CI; live cluster reconciliation, remote TF state, app-of-apps wiring pending |
+| Acceptance testing | `tests/`, per-service suites | **45** | 449 tests green, but formal acceptance gates (100k-assessment zero-discrepancy, 5,000 offline POS txns, OWASP blocking scans) not yet executed as scripted gates |
+
+---
+
+## 6. Spec ↔ code mapping (business/technical specification traceability)
+
+| Spec artifact | Spec location | Code realization | Coverage |
+|---|---|---|---|
+| RTM v3 (requirements traceability) | `docs/delivery/rtm-v3.md` | 53 feature rows in `feature-inventory.md` → paths in §3/§4 | 51/53 features have code/manifests (96.2%) |
+| Revenue blueprint + Clause 22.2 non-negotiables | `contracts/openapi/revenue-assessments.yaml`, gazette-anchored split packs | `mod-rev-core`, `ledger/splits` (≤8%/≤15% ceilings enforced in `policy.go`) | Reference complete; prod ledger adapter pending |
+| Ledger/TigerBeetle architecture (ADR-002) | `ledger/chart-of-accounts.md` | `ledger/splits/account_id.go` 128-bit taxonomy + builder | Taxonomy/builder done; cluster provisioning P0 |
+| Offline POS acceptance (WP-05) | `docs/delivery/work-packages.md` | `edge/edge-daemon/` signed tickets + outbox + sync | Reference proven vs `mod-market`; Android + SE pending |
+| Payments interoperability (WP-04) | Mojaloop FSPIOP / NIBSS docs | Webhook seams in `mod-rev-core`, `mod-education`, `mod-mobility-switch` | ADAPTER-SEAM only |
+| Identity federation (WP-02, EP-IAM-02) | ADR-006, Keycloak realm strategy | Realm JSON + import job + `mod-identity` | PARTIAL; NIMC/CAC gateways absent |
+| K8s multi-tier tenancy | Arch doc 06 isolation matrix | `infra/k8s/base` + overlays, Cilium default-deny, validated | Manifests validated; live reconciliation pending |
+| Geospatial/GeoLibre | GeoLibre project/adapters spec | `mod-geospatial` (Python), `mod-geospatial-gateway` (Go) | Local impl.; GeoLibre container/compose + geometry-rs + live runtimes pending |
+| CI / contracts-first (Clause 19.4) | `.github/workflows/` | `ci.yml`, `sbom.yml`, `security-scan.yml`, Spectral/AsyncAPI lint | IMPLEMENTED; OWASP gates non-blocking |
+| 2 named GAP features | `feature-inventory.md` | Docs/architecture references only | 0% — see P0/P1 below |
+
+---
+
+## 7. Gap analysis (prioritized)
+
+### P0 — blocks any production pilot
+1. **TigerBeetle production adapter** — `LedgerClient` interface + `InMemoryLedger` only; `tigerbeetle-go` binding and per-tier cluster provisioning absent (`REV_CORE_LEDGER=tigerbeetle` is a stub). Affects REV-01, PPP-12, SEC-10.
+2. **Payments scheme adapters** — Mojaloop FSPIOP connector + NIBSS e-Bills are ADAPTER-SEAM/stub webhooks; no scheme certification path executed.
+3. **Identity federation** — NIMC/NIN and CAC gateways unimplemented; STIN issuance and KYC cannot verify against live registries.
+4. **Live provisioning operators** — control-plane does not yet drive real K8s namespaces, Postgres RLS schemas, Keycloak realms, S3 buckets, KMS keyrings.
+5. **Acceptance gates unexecuted** — 100k-assessment zero-discrepancy run and 5,000-offline-txn POS acceptance are specified but not run as scripted gates (acceptance testing score 45).
+
+### P1 — required for scale/hardening
+6. **Geospatial/lakehouse live runtimes** — Sedona/PostGIS/Delta execute locally only; Temporal job runtime binding pending. **GeoLibre status:** Python `mod-geospatial` implements the GeoLibre project/adapters; the Go `mod-geospatial-gateway` is merged and tested; the **Rust `geometry-rs` validator (31 tests) is pending merge** on `feat/geospatial-rust`; the **self-hosted GeoLibre container/compose is not yet integrated**.
+7. **Hardware bindings** — POS secure element signer, Android Rust daemon, WIM sensors, biometric capture devices all ADAPTER-SEAM.
+8. **Eventing backbone** — Kafka/Fluvio bindings documented but not live; sync currently via mTLS hooks/outbox reference.
+9. **Audit immutability** — OpenSearch hash-chained archive + 7-yr retention seam; control-plane feed not yet hash-chained.
+10. **Security gates** — security-scan workflow non-blocking; OWASP blocking gates and OpenAppSec WAF policy pack pending.
+
+### P2 — completeness/depth
+11. **Helm chart covers 1 of 19 modules** as templates; remaining 18 need chart templating.
+12. **Per-state realm templates** for all 6 tenant states; drift alerting and ArgoCD app-of-apps wiring.
+13. **2 GAP features** (named requirements with docs-only presence) need reference implementations.
+14. **Public audit/read-only views** for trust-fund and concession escrow transparency.
+15. **Citizen channels** — USSD/IVR and full cross-module service catalogue wiring for `mod-citizen-portal`.
+
+---
+
+## 8. Caveats & method notes
+
+- **No production-readiness claim is made anywhere in this scorecard.** Scores grade the in-repo reference implementation and the documented adapter seams.
+- **Test evidence:** `make test` passed at `80e33e9` — 377 Python service/edge tests + 64 Go tests = 441, plus 8 top-level geospatial pytest tests = **449 total**. Rust `geometry-rs` (31 tests) is on `feat/geospatial-rust`, **pending merge and excluded** from merged totals and from the module count.
+- **Weighted score (55.1%)** is feature-weighted and deliberately harsh on seams (0.25) and gaps (0.00); the **unweighted module mean (≈66)** reflects that local code quality is generally higher than production wiring.
+- **Two scores, honestly reported:** *coverage* (does something runnable exist?) = 96.2%; *production readiness* (is it wired to live infrastructure?) ≈ 55% weighted, lower for payment/identity/geospatial seams.
+- Source of truth for feature rows and statuses: `docs/delivery/feature-inventory.md` at commit `80e33e9`.
