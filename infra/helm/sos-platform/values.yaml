@@ -270,6 +270,16 @@ modules:
       port: 8000
     env: {}
     resources: {}
+  modTransparency:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-transparency
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env: {}
+    resources: {}
 
 kubecost:
   enabled: true

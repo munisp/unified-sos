@@ -1,0 +1,397 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-transparency/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS Public Transparency Views API (mod-transparency)
+  version: 0.1.0
+  description: 'P2 Workstream E. Unauthenticated, tenant-scoped, read-only public projections: security trust-fund feed (donations
+    in, disbursements out, kobo balances, per-entry hash-chain cursors; mod-police-cad), concession escrow settlement statements,
+    and the hash-chained procurement audit log with public recomputed verification (mod-ppp-investment). Structural redaction:
+    no donor, actor or concessionaire PII — identities are salted SHA-256 pseudonyms. Unknown tenant states return a generic
+    404 (no enumeration). Deploys: all 6.'
+paths:
+  /transparency/v1/{state_id}/trust-fund/feed:
+    get:
+      tags:
+      - transparency
+      summary: Trust Fund Feed
+      description: 'Public trust-fund feed: donations in, disbursements out, balance,
+
+        per-entry hash-chain cursors. Donor identities are pseudonymised.'
+      operationId: trust_fund_feed_transparency_v1__state_id__trust_fund_feed_get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrustFundFeed'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+  /transparency/v1/{state_id}/escrow/statements:
+    get:
+      tags:
+      - transparency
+      summary: Escrow Statements
+      description: 'Public concession escrow statements (monthly revenue-share
+
+        settlements), contract identities pseudonymised.'
+      operationId: escrow_statements_transparency_v1__state_id__escrow_statements_get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConcessionEscrowStatement'
+                title: Response Escrow Statements Transparency V1  State Id  Escrow Statements Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+  /transparency/v1/{state_id}/procurement/audit:
+    get:
+      tags:
+      - transparency
+      summary: Procurement Audit
+      description: 'Redacted procurement audit digests for the state (actor/details
+
+        removed; subject pseudonymised; hash chain preserved).'
+      operationId: procurement_audit_transparency_v1__state_id__procurement_audit_get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProcurementAuditDigest'
+                title: Response Procurement Audit Transparency V1  State Id  Procurement Audit Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+  /transparency/v1/{state_id}/procurement/audit/verify:
+    get:
+      tags:
+      - transparency
+      summary: Procurement Audit Verify
+      description: Recompute the state's procurement hash chain; reports tamper.
+      operationId: procurement_audit_verify_transparency_v1__state_id__procurement_audit_verify_get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcurementAuditVerification'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+  /healthz:
+    get:
+      tags:
+      - meta
+      summary: Healthz
+      operationId: healthz_healthz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+components:
+  schemas:
+    ConcessionEscrowStatement:
+      properties:
+        statement_id:
+          type: string
+          title: Statement Id
+        contract_ref_hash:
+          type: string
+          title: Contract Ref Hash
+          description: SHA-256 pseudonym of the contract id
+        period:
+          type: string
+          title: Period
+          description: settlement period, e.g. 2026-01
+        gross_collections_kobo:
+          type: integer
+          minimum: 0.0
+          title: Gross Collections Kobo
+        state_share_kobo:
+          type: integer
+          minimum: 0.0
+          title: State Share Kobo
+        concessionaire_share_kobo:
+          type: integer
+          minimum: 0.0
+          title: Concessionaire Share Kobo
+        applied_state_share_bps:
+          type: integer
+          maximum: 10000.0
+          minimum: 0.0
+          title: Applied State Share Bps
+        reconciled:
+          type: boolean
+          title: Reconciled
+        cursor:
+          type: string
+          title: Cursor
+          description: hash-chain cursor over the state's statement feed
+      type: object
+      required:
+      - statement_id
+      - contract_ref_hash
+      - period
+      - gross_collections_kobo
+      - state_share_kobo
+      - concessionaire_share_kobo
+      - applied_state_share_bps
+      - reconciled
+      - cursor
+      title: ConcessionEscrowStatement
+      description: 'Public projection of a monthly concession revenue-share settlement
+
+        (mod-ppp-investment SettlementStatement). Kobo amounts only; contract and
+
+        concessionaire identities are pseudonymised.'
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    ProcurementAuditDigest:
+      properties:
+        seq:
+          type: integer
+          minimum: 1.0
+          title: Seq
+        action:
+          type: string
+          title: Action
+        subject_ref_hash:
+          type: string
+          title: Subject Ref Hash
+          description: SHA-256 pseudonym of the audited subject
+        prev_hash:
+          type: string
+          title: Prev Hash
+        entry_hash:
+          type: string
+          title: Entry Hash
+        at:
+          type: string
+          format: date-time
+          title: At
+      type: object
+      required:
+      - seq
+      - action
+      - subject_ref_hash
+      - prev_hash
+      - entry_hash
+      - at
+      title: ProcurementAuditDigest
+      description: 'Redacted digest of one procurement audit-chain entry.
+
+
+        Actor identity and free-text details are removed; the digest keeps only
+
+        what is needed to recompute the hash chain: seq, action, subject
+
+        pseudonym and the link hashes.'
+    ProcurementAuditVerification:
+      properties:
+        state_id:
+          type: string
+          title: State Id
+        chain_valid:
+          type: boolean
+          title: Chain Valid
+        entries_checked:
+          type: integer
+          minimum: 0.0
+          title: Entries Checked
+        head_hash:
+          type: string
+          title: Head Hash
+          description: entry_hash of the state's latest audit entry
+        first_invalid_seq:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: First Invalid Seq
+          description: seq of the first entry failing verification, if any
+      type: object
+      required:
+      - state_id
+      - chain_valid
+      - entries_checked
+      - head_hash
+      title: ProcurementAuditVerification
+      description: Result of recomputing the procurement hash chain for a tenant state.
+    TrustFundEntry:
+      properties:
+        entry_id:
+          type: string
+          title: Entry Id
+        kind:
+          $ref: '#/components/schemas/TrustFundEntryKind'
+        amount_kobo:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Amount Kobo
+        donor_alias_hash:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Donor Alias Hash
+          description: SHA-256 pseudonym of the donor reference (donations only)
+        purpose_label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Purpose Label
+          description: Public purpose label (disbursements only)
+        occurred_at:
+          type: string
+          title: Occurred At
+        cursor:
+          type: string
+          title: Cursor
+          description: 'hash-chain cursor: sha256(prev_cursor|entry payload)'
+      type: object
+      required:
+      - entry_id
+      - kind
+      - amount_kobo
+      - occurred_at
+      - cursor
+      title: TrustFundEntry
+      description: 'One public trust-fund movement (donation in / disbursement out).
+
+
+        ``donor_alias_hash`` is a one-way pseudonym (SHA-256 of the source
+
+        ``donor_ref``); the raw reference never crosses the transparency
+
+        boundary. ``cursor`` chains entries per state so deletions/reorders are
+
+        detectable.'
+    TrustFundEntryKind:
+      type: string
+      enum:
+      - donation
+      - disbursement
+      title: TrustFundEntryKind
+    TrustFundFeed:
+      properties:
+        state_id:
+          type: string
+          title: State Id
+        balance_kobo:
+          type: integer
+          minimum: 0.0
+          title: Balance Kobo
+        entries:
+          items:
+            $ref: '#/components/schemas/TrustFundEntry'
+          type: array
+          title: Entries
+        head_cursor:
+          type: string
+          title: Head Cursor
+          description: cursor of the latest entry; empty-chain genesis otherwise
+      type: object
+      required:
+      - state_id
+      - balance_kobo
+      - entries
+      - head_cursor
+      title: TrustFundFeed
+      description: Public trust-fund feed for one tenant state.
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: transparency
+- name: trust-fund
+- name: procurement-audit
