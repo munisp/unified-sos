@@ -1,0 +1,10 @@
+apiVersion: v2
+name: geolibre
+description: >-
+  Self-hosted GeoLibre GIS workbench for the SOS platform. GeoLibre is a
+  workbench ONLY — PostGIS (db/migrations/0006_geospatial.sql) remains the
+  tenant-isolated system of record. Deployed with a sovereign posture:
+  hosted sharing/collaboration and the WASM sidecar are disabled by default.
+type: application
+version: 0.1.0
+appVersion: "2.0"

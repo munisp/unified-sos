@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: geolibre
+  namespace: {{ .Values.namespace | default "sos-platform" }}
+  labels:
+    app.kubernetes.io/name: geolibre
+    app.kubernetes.io/component: workbench
+spec:
+  replicas: {{ .Values.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: geolibre
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: geolibre
+        app.kubernetes.io/component: workbench
+    spec:
+      containers:
+        - name: geolibre
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          env:
+            # Sovereignty posture: no hosted share/collab endpoints.
+            - name: GEOLIBRE_SHARE_URL
+              value: {{ .Values.sovereignty.shareUrl | default "off" | quote }}
+            # GEOLIBRE_COLLAB_URL intentionally unset — no hosted collaboration
+            - name: GEOLIBRE_DISABLE_SIDECAR
+              value: {{ ternary "1" "0" (.Values.sovereignty.disableSidecar | default true) | quote }}
+            - name: GEOLIBRE_DATABASE_URL
+              value: {{ .Values.database.url | quote }}
+            - name: GEOLIBRE_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.existingSecret }}
+                  key: {{ .Values.database.secretKey | default "password" }}
+          ports:
+            - name: http
+              containerPort: 8085
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          resources:
+{{ toYaml .Values.resources | indent 12 }}

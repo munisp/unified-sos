@@ -8,7 +8,7 @@ import os
 import pytest
 
 from app.adapters.h3_adapter import LocalH3Adapter, get_h3_adapter
-from app.adapters.lakehouse_adapter import LakehouseAdapter, _parquet_stack_available
+from app.adapters.lakehouse_adapter import LakehouseAdapter, _delta_stack_available, _parquet_stack_available
 from app.adapters.postgis_adapter import PostGISConnectionFactory
 from app.adapters.sedona_adapter import SedonaAdapter
 from app.domain import AdapterUnavailableError
@@ -123,7 +123,19 @@ def test_sedona_adapter_fails_closed_without_endpoint(monkeypatch):
         SedonaAdapter()
 
 
-def test_sedona_adapter_submit_never_noops(monkeypatch):
-    adapter = SedonaAdapter(endpoint="spark://cluster:7077")
+def test_sedona_adapter_submit_never_noops(monkeypatch, tmp_path):
+    # No spec files under the (empty) spec dir: submission must fail closed
+    # rather than silently no-op even with a configured endpoint.
+    adapter = SedonaAdapter(endpoint="spark://cluster:7077", spec_dir=str(tmp_path), session=object())
     with pytest.raises(AdapterUnavailableError):
         adapter.submit_job("UNASSESSED_PROPERTY_JOIN", {})
+
+
+def test_lakehouse_delta_uri_fails_closed_without_stack(monkeypatch, tmp_path):
+    # A configured lakehouse URI must never silently downgrade to the local
+    # JSON fallback: without deltalake/pyarrow it fails closed.
+    if _delta_stack_available():
+        pytest.skip("delta stack installed")
+    adapter = LakehouseAdapter(str(tmp_path), lakehouse_uri="s3://lake/geospatial")
+    with pytest.raises(AdapterUnavailableError):
+        adapter.export_features([feature(SQUARE)], "e")

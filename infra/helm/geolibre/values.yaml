@@ -1,0 +1,34 @@
+# geolibre chart values — sovereign self-hosted workbench posture.
+# GeoLibre is a workbench ONLY; PostGIS remains the system of record.
+
+namespace: sos-platform
+
+image:
+  repository: ghcr.io/opengeos/geolibre
+  tag: "2.0"
+
+replicaCount: 1
+
+sovereignty:
+  # No public share endpoints, no hosted collaboration, WASM sidecar off.
+  shareUrl: "off"
+  disableSidecar: true
+
+# Connection to the tenant-isolated PostGIS system of record. The password
+# is supplied via an existing Secret (never inline credentials).
+database:
+  url: ""  # e.g. postgresql://user@postgres.sos-data:5432/geospatial
+  existingSecret: ""
+  secretKey: password
+
+service:
+  type: ClusterIP
+  port: 8085
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
