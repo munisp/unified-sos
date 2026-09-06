@@ -315,3 +315,59 @@ channels:
             receipt_id: { type: string }
             event_hash: { type: string, description: Hash-chain link of the outbound log record }
             timestamp: { type: string, format: date-time }
+  ng.sos.safecity.face_match:
+    publish:
+      operationId: safecityFaceMatch
+      description: >-
+        Emitted by mod-safecity-vision when an enrolled watchlist subject is
+        matched on a camera frame. Only emitted under a valid NDPA 2023
+        authorization (warrant/DPO record); carries match confidence and the
+        audit hash-chain link — never raw embeddings or imagery.
+      message:
+        payload:
+          type: object
+          required: [state_id, camera_id, subject_ref, similarity, authorization_ref, audit_hash, timestamp]
+          properties:
+            state_id: { type: string, enum: [lagos, ogun, osun, benue, nasarawa, taraba] }
+            camera_id: { type: string }
+            subject_ref: { type: string, description: Watchlist subject reference (pseudonymised) }
+            similarity: { type: number, description: Cosine similarity of the match }
+            authorization_ref: { type: string, description: NDPA warrant/DPO authorization record id }
+            audit_hash: { type: string, description: Hash-chain link of the face-lookup audit record }
+            timestamp: { type: string, format: date-time }
+  ng.sos.safecity.crowd_alert:
+    publish:
+      operationId: safecityCrowdAlert
+      description: >-
+        Emitted by mod-safecity-vision when a camera's crowd density or flow
+        crosses its configured threshold (stampede risk). Consumed by
+        mod-police-cad for dispatch and by the transparency feed.
+      message:
+        payload:
+          type: object
+          required: [state_id, camera_id, alert_type, density, threshold, timestamp]
+          properties:
+            state_id: { type: string, enum: [lagos, ogun, osun, benue, nasarawa, taraba] }
+            camera_id: { type: string }
+            alert_type: { type: string, enum: [density, flow, stampede_risk] }
+            density: { type: number, description: Persons per square metre }
+            threshold: { type: number }
+            timestamp: { type: string, format: date-time }
+  ng.sos.safecity.anomaly_detected:
+    publish:
+      operationId: safecityAnomalyDetected
+      description: >-
+        Emitted by mod-safecity-vision on rule/ML anomaly detection:
+        loitering, perimeter breach (geofence polygon), object-left-behind,
+        running/stampede.
+      message:
+        payload:
+          type: object
+          required: [state_id, camera_id, anomaly_type, severity, timestamp]
+          properties:
+            state_id: { type: string, enum: [lagos, ogun, osun, benue, nasarawa, taraba] }
+            camera_id: { type: string }
+            anomaly_type: { type: string, enum: [loitering, perimeter_breach, object_left_behind, running, stampede] }
+            severity: { type: string, enum: [low, medium, high, critical] }
+            details: { type: string, nullable: true }
+            timestamp: { type: string, format: date-time }

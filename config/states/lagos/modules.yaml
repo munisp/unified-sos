@@ -16,6 +16,9 @@ modules:
 - name: mod-police-cad
   wave: 2
   rationale: '#29 — Safe City traffic & space violations (LASTMA e-fines)'
+- name: mod-safecity-vision
+  wave: 2
+  rationale: '#29 — Safe City camera analytics (face-rec gate, crowd & anomaly AI) feeding LASTMA e-fines'
 - name: mod-transport-wim
   wave: 2
   rationale: '#28 — Port access smart corridor (Lekki & Apapa gantries)'

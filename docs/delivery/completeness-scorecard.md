@@ -268,3 +268,26 @@ Rows meeting the full bar — pinned+compiled production adapters, E2E journey c
 ### 10.4 Remaining 5.3% — what it honestly is
 
 The residual is **live-cluster certification evidence**, not missing code: running the pinned adapters against real TigerBeetle/Mojaloop/NIBSS/NIMC/CAC/PostGIS/Sedona/Kafka/OpenSearch infrastructure and capturing the outputs as gate artifacts. This requires credentials and infrastructure outside the repo. Every adapter fails closed without them; the live-tier E2E profile (`tests/e2e/docker-compose.integration.yaml`) and SAT harness are the vehicles to collect that evidence on first deployment. Reaching a verified 100% is a deployment-time activity, executable with the gates already in the repo.
+
+## 11. Stage 8 update — Safe-City AI/CV gap closure (F-042 → IMPLEMENTED)
+
+The three residual PARTIAL items on `mod-police-cad` (F-042) are closed:
+
+| Gap | Closure |
+|---|---|
+| WebRTC gateway | `app/webrtc.py` — fail-closed aiortc seam (`SOS_WEBRTC_GATEWAY_URL`), deterministic fixture default; stream session endpoints + audit |
+| Wazuh SIEM binding | `app/wazuh.py` — fail-closed HTTP adapter (`SOS_WAZUH_URL`/`SOS_WAZUH_API_TOKEN`); incidents, dispatches, gate denials, arms-register attempts, stream sessions forwarded |
+| Dispatch UI | `apps/dispatch-console/` — Vite+React+TS dispatcher console: incident queue w/ live latency timers, SVG map w/ state geofences, unit roster w/ biometric badges, stream viewer (WebRTC hook), trust-fund hash-chain panel |
+
+New companion service **`mod-safecity-vision`** (F-043a): face recognition vs
+watchlists behind an NDPA 2023 authorization gate (HTTP 423 until a certified
+warrant/DPO record is loaded — never tenant config), crowd density/stampede
+alerting, anomaly detection (loitering, perimeter breach, object-left-behind,
+running), WebRTC/RTSP stream registry, hash-chained face-lookup audit, events
+`ng.sos.safecity.{face_match,crowd_alert,anomaly_detected}` in the AsyncAPI
+registry. Fail-closed InsightFace seam with deterministic fixture engine.
+
+Validation: mod-police-cad 25 tests, mod-safecity-vision 28 tests,
+dispatch-console 20 vitest tests + production build, policy-pack/infra/registry
+gates green. Residual (external, by design): live model weights, camera estate
+procurement, aiortc/Wazuh cluster certification.

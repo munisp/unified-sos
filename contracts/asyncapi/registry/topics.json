@@ -115,6 +115,24 @@
       "topic": "ng.sos.payments.settlement_completed"
     },
     {
+      "channel": "ng.sos.safecity.anomaly_detected",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.safecity.anomaly_detected.json",
+      "topic": "ng.sos.safecity.anomaly_detected"
+    },
+    {
+      "channel": "ng.sos.safecity.crowd_alert",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.safecity.crowd_alert.json",
+      "topic": "ng.sos.safecity.crowd_alert"
+    },
+    {
+      "channel": "ng.sos.safecity.face_match",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.safecity.face_match.json",
+      "topic": "ng.sos.safecity.face_match"
+    },
+    {
       "channel": "ng.sos.tenant.provisioned",
       "contract": "platform-events.yaml",
       "schema": "schemas/ng.sos.tenant.provisioned.json",

@@ -304,6 +304,19 @@ modules:
       port: 8000
     env: {}
     resources: {}
+  modSafecityVision:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-safecity-vision
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env:
+      # CV engine: fixture | insightface. Production fails closed at boot
+      # without SOS_VISION_MODEL_DIR + NDPA authorization records file.
+      SOS_VISION_ENGINE: "fixture"
+    resources: {}
   modTransparency:
     enabled: false
     replicaCount: 1

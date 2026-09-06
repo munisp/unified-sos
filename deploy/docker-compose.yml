@@ -305,6 +305,30 @@ services:
       timeout: 5s
       retries: 5
 
+
+  # --- Safe-City AI/CV camera analytics (face rec, crowd, anomaly) ---------
+
+  mod-safecity-vision:
+    build:
+      context: ../services/mod-safecity-vision
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-safecity-vision:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+      # local default = deterministic fixture engine; production sets
+      # SOS_VISION_ENGINE=insightface + SOS_VISION_MODEL_DIR +
+      # SOS_VISION_AUTHORIZATIONS_FILE (NDPA warrant/DPO records) —
+      # fail closed otherwise (see services/mod-safecity-vision/README.md).
+      SOS_VISION_ENGINE: ${SOS_VISION_ENGINE:-fixture}
+      EVENT_BUS: ${EVENT_BUS:-memory}
+    ports:
+      - "8017:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
   mod-geospatial-gateway:
     build:
       context: ../services/mod-geospatial-gateway

@@ -143,6 +143,123 @@ paths:
                 title: Response Dispatch Log Cad V1 Dispatch Log Get
       security:
       - bearerAuth: []
+  /cad/v1/dispatch/slo:
+    get:
+      tags:
+      - cad
+      summary: Dispatch Slo
+      description: 'Dispatch-latency SLO status: incident-created -> dispatch-assigned.
+
+
+        p50/p95 (seconds, linear interpolation) plus the count of dispatches
+
+        breaching the <30 s acceptance SLO.'
+      operationId: dispatch_slo_cad_v1_dispatch_slo_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+      security:
+      - bearerAuth: []
+  /cad/v1/streams/{camera_id}/session:
+    post:
+      tags:
+      - streams
+      summary: Open Stream Session
+      description: 'Establish a WebRTC session for a CCTV/drone feed. Stream metadata
+
+        (camera id, tenant, kind, started_at) is recorded to the domain store
+
+        and forwarded to the SIEM; media never transits this service.'
+      operationId: open_stream_session_cad_v1_streams__camera_id__session_post
+      parameters:
+      - name: camera_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Camera Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StreamSessionRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /cad/v1/streams:
+    get:
+      tags:
+      - streams
+      summary: List Stream Sessions
+      description: 'List active stream sessions; ``tenant_state_id`` filter preserves
+
+        tenant isolation for per-state dashboards.'
+      operationId: list_stream_sessions_cad_v1_streams_get
+      parameters:
+      - name: tenant_state_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Tenant State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /cad/v1/streams/{session_id}:
+    delete:
+      tags:
+      - streams
+      summary: Close Stream Session
+      operationId: close_stream_session_cad_v1_streams__session_id__delete
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
   /cad/v1/trust-fund/donations:
     post:
       tags:
@@ -591,6 +708,25 @@ components:
       - initial_strength
       title: StandUpRequest
       description: 'ratification_gated: state-force stand-up order.'
+    StreamSessionRequest:
+      properties:
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        kind:
+          type: string
+          pattern: ^(cctv|drone)$
+          title: Kind
+        sdp_offer:
+          type: string
+          title: Sdp Offer
+          description: WebRTC SDP offer from the camera/drone peer
+      type: object
+      required:
+      - tenant_state_id
+      - kind
+      - sdp_offer
+      title: StreamSessionRequest
     Unit:
       properties:
         unit_id:

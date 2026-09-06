@@ -48,6 +48,7 @@ KNOWN_MODULES = {
     "mod-environment", "mod-citizen-portal", "mod-kyc-kyb",
     "mod-geospatial", "mod-geospatial-gateway", "mod-transparency",
     "mod-erp-bridge",
+    "mod-safecity-vision",
     "lakehouse", "control-plane",
 }
 

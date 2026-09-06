@@ -1,0 +1,57 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.safecity.anomaly_detected.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.safecity.anomaly_detected' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "anomaly_type": {
+      "enum": [
+        "loitering",
+        "perimeter_breach",
+        "object_left_behind",
+        "running",
+        "stampede"
+      ],
+      "type": "string"
+    },
+    "camera_id": {
+      "type": "string"
+    },
+    "details": {
+      "nullable": true,
+      "type": "string"
+    },
+    "severity": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "type": "string"
+    },
+    "state_id": {
+      "enum": [
+        "lagos",
+        "ogun",
+        "osun",
+        "benue",
+        "nasarawa",
+        "taraba"
+      ],
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "camera_id",
+    "anomaly_type",
+    "severity",
+    "timestamp"
+  ],
+  "title": "ng.sos.safecity.anomaly_detected",
+  "type": "object"
+}

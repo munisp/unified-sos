@@ -156,6 +156,22 @@ SERVICES: dict[str, dict] = {
             tags=["public-safety", "cad", "dispatch"],
         ),
     },
+    "mod-safecity-vision": {
+        "package": "app.main",
+        "info": dict(
+            title="SOS Safe-City AI/CV Camera Analytics API (mod-safecity-vision)",
+            description=(
+                "WP-13 / EPIC-15 companion · Safe-City camera-estate intelligence: "
+                "face recognition vs watchlists (NDPA 2023 authorization-gated, "
+                "HTTP 423 until certified warrant/DPO record), crowd density & "
+                "stampede-risk alerting, anomaly detection (loitering, perimeter "
+                "breach, object-left-behind, running), WebRTC/RTSP stream registry. "
+                "Fail-closed CV engine seam (InsightFace) with deterministic "
+                "fixtures. Deploys: Lagos L1 first; follows mod-police-cad rollout."
+            ),
+            tags=["public-safety", "cv", "analytics"],
+        ),
+    },
     "mod-mobility-switch": {
         "package": "app.main",
         "info": dict(

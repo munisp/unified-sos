@@ -1,0 +1,50 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.safecity.crowd_alert.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.safecity.crowd_alert' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "alert_type": {
+      "enum": [
+        "density",
+        "flow",
+        "stampede_risk"
+      ],
+      "type": "string"
+    },
+    "camera_id": {
+      "type": "string"
+    },
+    "density": {
+      "description": "Persons per square metre",
+      "type": "number"
+    },
+    "state_id": {
+      "enum": [
+        "lagos",
+        "ogun",
+        "osun",
+        "benue",
+        "nasarawa",
+        "taraba"
+      ],
+      "type": "string"
+    },
+    "threshold": {
+      "type": "number"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "camera_id",
+    "alert_type",
+    "density",
+    "threshold",
+    "timestamp"
+  ],
+  "title": "ng.sos.safecity.crowd_alert",
+  "type": "object"
+}
