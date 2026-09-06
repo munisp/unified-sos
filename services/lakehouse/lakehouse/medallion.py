@@ -75,13 +75,17 @@ def write_parquet(df: pd.DataFrame, path: Path) -> Path:
 
 def read_parquet(path: Path) -> pd.DataFrame:
     path = Path(path)
+    # JSON fallback is a layer-format stand-in, not a schema break: parse the
+    # canonical timestamp columns back to datetimes so silver frames compare
+    # equal whether the engine wrote parquet or JSON records.
+    date_cols = ["event_ts"]
     if path.suffix == ".json" and path.exists():
-        return pd.read_json(path, orient="records")
+        return pd.read_json(path, orient="records", convert_dates=date_cols)
     if path.exists() and _parquet_engine_available():
         return pd.read_parquet(path)
     fallback = path.with_suffix(".json")
     if fallback.exists():
-        return pd.read_json(fallback, orient="records")
+        return pd.read_json(fallback, orient="records", convert_dates=date_cols)
     if path.exists():
         return pd.read_parquet(path)
     raise FileNotFoundError(f"neither {path} nor {fallback} exists")
