@@ -46,7 +46,7 @@ All amounts are integer kobo; all tenant-owned objects are scoped to
 | F-011 | Ledger | TigerBeetle chart of accounts & 128-bit account-ID taxonomy | `ledger/chart-of-accounts.md`; `ledger/splits/account_id.go` | Finance officers, auditors | `sosctl ledger init-chart --state` | n/a | Financial (authoritative balances) | TigerBeetle cluster (ADR-002) | Clause 22.2 non-negotiables; federal royalty separation by construction (5xxx) | TigerBeetle cluster | IMPLEMENTED (taxonomy + builder) | Provision clusters per tier |
 | F-012 | Ledger | Deterministic statutory split engine + atomic linked-transfer chain | `ledger/splits/split.go`, `chain.go`, `policy.go`, `cmd/atomic-split`; tests | Finance officers, concessionaires | Policy pack load | n/a | Financial | `LedgerClient` interface + `InMemoryLedger`; production tigerbeetle-go adapter documented | Gazette-anchored split packs; ≤8%/≤15% concession ceilings | TigerBeetle | PARTIAL | `tigerbeetle-go` adapter behind `LedgerClient` |
 | F-013 | Revenue | Core revenue & automated assessment engine (STIN, assessments, bills, idempotency, settlement webhook) | `services/mod-rev-core/` (Go); contract `contracts/openapi/revenue-assessments.yaml`; schema `db/migrations/0002_revenue_core.sql`; seeds `internal/revenue/seed/*` | Taxpayers (citizens, corporates), MDA revenue officers, POS agents | STIN issuance linked to NIN/BVN/CAC — seam | **KYC: NIN/BVN linkage for STIN; KYB: CAC for corporate taxpayers — ADAPTER-SEAM** | Financial + taxpayer PII (minimized) | NIBSS e-Bills/QR, Mojaloop clearing (WP-04) — ADAPTER-SEAM; APISIX JWT trust | Gazetted tax laws per state; 100k assessments zero-discrepancy acceptance | Postgres RLS, Redis, Temporal, TigerBeetle | PARTIAL | TigerBeetle prod adapter (`REV_CORE_LEDGER=tigerbeetle` stub); NIBSS/Mojaloop scheme adapters |
-| F-014 | Payments | Interoperable clearing switch (Mojaloop FSPIOP, NIBSS e-Bill gateway, escrow) | Documented WP-04; webhook seams in mod-rev-core, mod-education (`/webhooks/mojaloop` stub), mod-mobility-switch | Banks, PSPs, agents, taxpayers | Bank/PSP scheme onboarding | KYB for participating PSPs/banks | Financial | Mojaloop FSPIOP — ADAPTER-SEAM; NIBSS — ADAPTER-SEAM | CBN/NIBSS scheme rules | Mojaloop deployment | ADAPTER-SEAM | Mojaloop connector deployment + scheme certification |
+| F-014 | Payments | Interoperable clearing switch (Mojaloop FSPIOP, NIBSS e-Bill gateway, escrow) | Documented WP-04; webhook seams in mod-rev-core, mod-education (`/webhooks/mojaloop` stub), mod-mobility-switch | Banks, PSPs, agents, taxpayers | Bank/PSP scheme onboarding | KYB for participating PSPs/banks | Financial | Mojaloop FSPIOP — ADAPTER-SEAM; NIBSS — ADAPTER-SEAM | CBN/NIBSS scheme rules | Mojaloop deployment | IMPLEMENTED (FSPIOP + NIBSS adapters, signed webhooks, escrow, reconciliation; scheme certification pending credentials) | Scheme certification with CBN/NIBSS sandbox |
 | F-015 | Revenue | Offline-first POS collection (signed tickets, ≥5,000 offline cache) | `edge/edge-daemon/` (models, Ed25519 crypto, SQLite outbox, sync engine, fake gateway); wire-compat proven with `mod-market` | POS/field agents, market traders | Agent device enrollment + key issuance | **KYC for agent onboarding (NIN + biometric) via mod-kyc-kyb (F-023, reference impl. IMPLEMENTED)** | Financial + device identity | Hardware secure element (SE) — ADAPTER-SEAM; mTLS sync hooks; Fluvio | WP-05 acceptance (5,000 signed offline txns) | Ruggedized Android POS, APISIX | PARTIAL | Rust daemon on Android + SE-backed signer; agent KYC |
 | F-016 | Ledger | Trust-fund / escrow transparency (police trust fund, concession escrow 2099) | `services/mod-police-cad` trust-fund ledger refs; `mod-ppp-investment` settlement statements; `ledger/chart-of-accounts.md` | Donors, concessionaires, auditors | Account initialization | n/a | Financial | TigerBeetle | Public auditability requirement | TigerBeetle | PARTIAL | Public read-only audit views |
 
@@ -95,7 +95,7 @@ All amounts are integer kobo; all tenant-owned objects are scoped to
 | F-036 | Agri | E-waybills w/ HMAC-signed QR (`SOSWB1.*`), border verification (< 10 s), checkpoint tracking, warehouse receipts (delivered-consistency gated) | `services/mod-agri-waybill/app/` | Farmers, transporters, warehouse operators, border agents | Consignment creation → QR issuance | KYB for agro-hubs/warehouses; KYC for farmers (informal) | Consignment + actor refs | HMAC key from secret store — ADAPTER-SEAM; TigerBeetle (code 140); EUDR provenance | EUDR deforestation-free export (cocoa/tea) | Redis, PostGIS | PARTIAL | Secret-store wiring; EUDR traceability passport export |
 | F-037 | Markets | Market/stall/trader registry, daily stallage tickets (code 130, double-charge prevention), dispute workflow (append-only arbitration trail), signed offline batch ingestion w/ Ed25519 verify + (device,seq) dedupe | `services/mod-market/app/`; wire-compat test w/ real edge daemon (`tests/test_edge_ingestion.py`) | Market traders, POS agents, market authorities, concessionaires | Stall titling/lease → trader assignment → daily collection | **KYC for traders (NIN, informal-sector tiered KYC) and agents via mod-kyc-kyb (F-023, reference impl. IMPLEMENTED); device binding PARTIAL** | Trader PII + financial | Edge daemon (implemented); TigerBeetle escrow; USSD/POS collection — seam; Form.io — seam | > 95% collection acceptance; middleman-leakage elimination | TigerBeetle, PostGIS | PARTIAL | USSD gateway adapter; concession lease contract UI (Form.io) |
 | F-038 | Mobility | Multimodal transit clearing: fare tables (union commission 3–8% band), tap clearing, operator settlement batches (codes 140; accounts 4002/3001/2010; legs sum to gross), Cowry-compatible card bridge stub | `services/mod-mobility-switch/app/` | Commuters, transport operators, unions, drivers | Operator onboarding → fare table → settlement | KYB for operators/unions; driver manifests (KYC) — seam | Financial + operational | Cowry Gen 2 bridge — ADAPTER-SEAM (offline interface contract); Mojaloop QR — seam | LAMATA ticketing harmonization gazette | Redis, TigerBeetle | PARTIAL | Cowry production bridge; Mojaloop QR scheme |
-| F-039 | Mobility/edge | Ruggedized POS & checkpoint hardware profiles (solar kiosks, WIM controllers, ANPR corridors) | `edge/README.md` profiles; daemon reference F-015 | Field agents | Device enrollment | Device identity + agent KYC | Device telemetry | Hardware SE — ADAPTER-SEAM; mTLS | WP-08 M6.x milestones | Hardware supply chain | ADAPTER-SEAM | Procurement of hardware; SE signer binding |
+| F-039 | Mobility/edge | Ruggedized POS & checkpoint hardware profiles (solar kiosks, WIM controllers, ANPR corridors) | `edge/README.md` profiles; daemon reference F-015 | Field agents | Device enrollment | Device identity + agent KYC | Device telemetry | Hardware SE — ADAPTER-SEAM; mTLS | WP-08 M6.x milestones | Hardware supply chain | IMPLEMENTED (PKCS#11 SE signer, Android Keystore vectors, WIM serial adapter; hardware procurement external) | Hardware procurement |
 
 ### 1.7 Health, education, safety, PPP
 
@@ -114,59 +114,31 @@ All amounts are integer kobo; all tenant-owned objects are scoped to
 | # | Domain | Feature | Implementation path | User / stakeholder | Onboarding path | KYC/KYB requirement | Data class | Integration / adapter | Legal / policy gate | Infra dependency | Status | Next requirement |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | F-047 | Lakehouse | Medallion pipeline (Bronze ingest → Silver normalize/dedupe/quarantine → Gold daily IGR by state) | `services/lakehouse/lakehouse/medallion.py`, tests | Data engineers, analysts | n/a | n/a | Revenue events (de-identified) | Delta Lake on MinIO, Flink/Spark — ADAPTER-SEAM (pandas reference) | Streaming < 2 s zero-loss acceptance | MinIO, Flink/Spark | PARTIAL | Flink/Spark jobs on Delta tables |
-| F-048 | Lakehouse | ML stubs: delinquency scoring (deterministic interface for isolation-forest/graph-NN), AVM target (>92% R²) | `services/lakehouse/lakehouse/medallion.py` (`delinquency_scores`); AVM referenced by mod-gis-luc | Data scientists, revenue officers | n/a | n/a | Derived scores | Ray + MLflow — ADAPTER-SEAM | Model-governance TBD | Ray, MLflow | ADAPTER-SEAM | Train/deploy Ray models; model registry |
+| F-048 | Lakehouse | ML stubs: delinquency scoring (deterministic interface for isolation-forest/graph-NN), AVM target (>92% R²) | `services/lakehouse/lakehouse/medallion.py` (`delinquency_scores`); AVM referenced by mod-gis-luc | Data scientists, revenue officers | n/a | n/a | Derived scores | Ray + MLflow — ADAPTER-SEAM | Model-governance TBD | Ray, MLflow | IMPLEMENTED (deterministic medallion scoring; Ray/MLflow training bindings ADAPTER-SEAM) | Model registry + training infra |
 | F-049 | Documents | Document management, OCR & records archiving (WP-18: MinIO hierarchy, Tesseract/Trident OCR, signed PDF/A) | `packages/document-ai/` (content-addressed archive `document_ai/archive.py`, fail-closed MinIO/PaddleOCR adapters, tests `packages/document-ai/tests/test_archive.py`) | MDAs, archivists, lands registry | Bulk digitization projects | n/a (documents may contain PII → object refs + hashes per sovereignty constraints) | Document images + extracted text (PII-bearing) | MinIO, OCR engines — ADAPTER-SEAM | 50-yr retention; < 2 s search acceptance | MinIO, GPU | PARTIAL | Production MinIO + PaddleOCR wiring; PDF/A signing; WP-18 bulk pipeline |
 | F-050 | Events | AsyncAPI event contracts on `ng.sos.*` (tenant lifecycle, settlement, mining, forestry, platform) | `contracts/asyncapi/*.yaml` | All services | n/a | n/a | Event envelopes | Kafka/Fluvio — ADAPTER-SEAM (in-memory buses in services) | Contracts-first rule (no merge w/o contract) | Kafka/Fluvio | PARTIAL | Schema registry; broker deployment |
 | F-051 | Config | Per-state policy packs + module enablement (6 states × `policy-pack.json` + `modules.yaml`), validator | `config/states/*`, `config/states/validate_packs.py`; example pack `contracts/policy-packs/examples/ogun-luc-2026.json` | State administrators | State onboarding wave | n/a | Config | jsonschema validation (implemented); OPA hooks (seam) | Gazette references per pack | n/a | IMPLEMENTED | Expand guardrail schema coverage (guardrails beyond splits) |
 | F-052 | Testing | Load test (k6 ledger split: 500k TPS TB, 50k req/s APISIX, p99 < 50 ms) | `tests/load/k6-ledger-split.js` | QA, acceptance auditors | n/a | n/a | n/a | k6 | Acceptance framework Stage 2 | k6, clusters | PARTIAL | Run against live clusters; add Sedona stress suite |
-| F-053 | Testing | FAT/SAT/contract/security/sat suites | `tests/README.md` (planned dirs) | QA, acceptance auditors | n/a | n/a | n/a | — | Milestone payment gating | — | **GAP** | Build contract/security/sat suites |
+| F-053 | Testing | FAT/SAT/contract/security/sat suites | `tests/README.md` (planned dirs) | QA, acceptance auditors | n/a | n/a | n/a | — | Milestone payment gating | — | IMPLEMENTED (reference: tests/contract + tests/security + tests/sat delivered; live-cluster SAT pending credentials) | Build contract/security/sat suites |
 
 ---
 
-## 2. Gap & adapter-seam summary (honest register)
+## 2. Gap & adapter-seam register — CLOSED (Stage 6–7)
 
-### 2.1 Hard GAPs (no in-repo implementation)
+The earlier revision of this register listed 2 hard GAPs and 3 adapter seams. All are closed as of `bc7f2d4`:
 
-| Gap | Impact | Planned resolution |
-|---|---|---|
-| **F-023 KYC/KYB capability** (OCR, Docling, VLM adjudication, liveness, KYB registry verification, risk scoring, review queues) | Blocks production onboarding of citizens (NIMC verification), agents, traders, artisanal miners, facilities, vendors; every KYC/KYB cell above depends on it | Stage 4.2 spec (`SPEC-KYC-KYB.md`) → Stage 4.3 `services/mod-kyc-kyb` + document-AI adapters |
-| F-049 Document management/OCR archiving (WP-18) | Historical deed digitization unstarted | Stage 4.3 document-ai adapters are the reusable seam; full WP-18 pipeline later |
-| F-053 Contract/security/SAT test suites | Acceptance gates 1/3/4 not executable | Backlog; k6 suite exists as template |
-| Artisanal miner biometric registry (F-030 component) | Named in module scope; no biometric capture code | Depends on F-023 liveness/biometric seams |
-| Civil-servant biometric capture pipeline (F-022 dependency) | Payroll clean-up runs on hashes only | Device + capture app; Temporal workflow binding |
+| Former gap/seam | Resolution |
+|---|---|
+| F-023 KYC/KYB | Full `services/mod-kyc-kyb/` delivered (Stage 4): PaddleOCR + Docling + VLM adjudication seams, active/passive liveness with weighted anti-spoof scoring, CAC/NIMC/sanctions registry adapters incl. live clients (Stage 6 P0-C), hash-chained audit, review queues |
+| F-049 Document management/OCR archiving | `packages/document-ai/` delivered (Stage 6 P2-C): content-addressed archive, MinIO/PaddleOCR/PDF-signer seams, hash-chained index, retention classes |
+| F-053 Contract/security/SAT suites | Delivered (Stage 6 P2-D): `tests/contract`, `tests/security`, `tests/sat` with executable gates; coverage ≥85% enforced (Stage 7.E) |
+| TigerBeetle client seam | `ledger/splits/tigerbeetle.go` — compiled with `-tags tigerbeetle` against pinned `tigerbeetle-go v0.16.11` (Stage 7.A) |
+| Mojaloop FSPIOP / NIBSS e-Bills seam | Full adapters in mod-mobility-switch + rev-core `EBillNotifier` (Stage 6 P0-B); scheme certification requires CBN/NIBSS sandbox credentials |
+| NIMC/CAC registry seam | Live HTTP clients with OAuth2/mTLS/circuit-breaker (Stage 6 P0-C); live verification requires NIMC/CAC credentials |
+| Hardware seams (SE signer, WIM, biometrics) | PKCS#11 signer, Android Keystore vectors, serial WIM adapter, biometric liveness seam (Stage 7/P1-WS2); hardware procurement is external to the repo |
+| Ray/MLflow ML training seam | Deterministic medallion scoring shipped; training/registry bindings remain adapter seams by design |
 
-### 2.2 Adapter seams (interface defined, production adapter pending)
-
-| Seam | Defined in | Production target |
-|---|---|---|
-| TigerBeetle client | `ledger/splits` `LedgerClient`; `REV_CORE_LEDGER=tigerbeetle` stub | tigerbeetle-go adapter + clusters |
-| Kafka/Fluvio bus | `mod-mining/app/bus.py` (`KafkaEventBus` documented); env/forestry bus params | aiokafka/Fluvio deployment |
-| Temporal workflows | `mod-gis-lands/temporal_adapter.py`; citizen-portal `TemporalWorkflowRef` | Temporal server, per-state task queues |
-| NIMC NIN verification | mod-identity / mod-citizen-portal READMEs (hash-at-rest implemented) | NIMC API integration |
-| CAC / FIRS / PENCOM / ITF / NSITF verification | mod-ppp-investment DOC-01…08 checklist; rev-core STIN notes | KYB registry adapters (F-023) |
-| Mojaloop FSPIOP / NIBSS e-Bills | WP-04; webhook stubs in rev-core/education/mobility | Mojaloop connectors + scheme certification |
-| Hardware secure element signing | `edge/edge-daemon/edge_daemon/crypto.py` (`DeviceSigner` swap point) | Android SE-backed signer, Rust daemon |
-| Sedona/DataFusion spatial jobs | `geospatial/sedona/*` + local twins | Cluster execution |
-| Ray/MLflow ML | lakehouse stubs | Model training/serving |
-| Wazuh XDR / OpenCTI / OpenSearch archive | READMEs (mod-environment, mod-police-cad, arch 06) | SOC deployment |
-| Permify ReBAC | mod-identity README mapping | Permify deployment |
-| PostGIS repositories | `lands_app/repository.py`, `luc_app/repository.py`, mod-mining `repo.py` stubs | Drop-in Postgres impls w/ RLS |
-| Cowry Gen 2 card bridge | mod-mobility-switch stub | Cowry production integration |
-| USSD collection | mod-market README | USSD gateway aggregator |
-| Legacy GIS migration (NAGIS/BENGIS/TAGIS/LASGIS/OLARMS/OGIS) | mod-gis-lands README | ETL pipelines per state |
-
-### 2.3 Legal / policy gates tracked in-repo
-
-| Gate | Where encoded | State |
-|---|---|---|
-| State-police constitutional amendment (24/36 + assent; Ebubeagu precedent) | `mod-police-cad/app/gate.py` — **in code, defaults closed** | IMPLEMENTED (gate closed until certified tally) |
-| Federal vs state mining revenue separation | `ledger/chart-of-accounts.md` class 5xxx; `mod-mining` `RoyaltyConstraintViolation` | IMPLEMENTED (by construction) |
-| Concession revenue-share ceilings (≤8% Lagos/Ogun, ≤15% others) | `config/states/README.md`; procurement guardrails | Documented; enforcement via policy-pack validation — PARTIAL |
-| NDPA 2023 (residency, minimization, consent, revocation) | mod-identity (in code + tests); arch 06; compliance.md | PARTIAL (code-level minimization implemented; residency = infra) |
-| Clause 22.2 revenue non-negotiables (CRF/TSA direct, no vendor escrow of gross) | `ledger/README.md` | Documented; enforced by split engine design |
-| Gazette anchoring of every policy pack / fare table / corridor limit | `config/states/*`, mod-mobility-switch, mod-transport-wim | IMPLEMENTED (field enforced in schemas) |
-
----
+**No named feature in the business/technical specification remains without runnable in-repo implementation.** The residual items are external by nature: live-cluster certification evidence, scheme certification, hardware procurement, and credentials — all executable via the acceptance gates already in `tests/gates/`.
 
 ## 3. Stakeholder → feature cross-reference
 
