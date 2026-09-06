@@ -75,11 +75,15 @@ def write_parquet(df: pd.DataFrame, path: Path) -> Path:
 
 def read_parquet(path: Path) -> pd.DataFrame:
     path = Path(path)
-    if path.exists():
+    if path.suffix == ".json" and path.exists():
+        return pd.read_json(path, orient="records")
+    if path.exists() and _parquet_engine_available():
         return pd.read_parquet(path)
     fallback = path.with_suffix(".json")
     if fallback.exists():
         return pd.read_json(fallback, orient="records")
+    if path.exists():
+        return pd.read_parquet(path)
     raise FileNotFoundError(f"neither {path} nor {fallback} exists")
 
 
