@@ -5,12 +5,15 @@ name: sbom
 # and CONTRIBUTING.md. All actions pinned to full-length commit SHAs.
 
 on:
+  pull_request:
+    branches: [main]
   release:
     types: [published]
   workflow_dispatch:
 
 permissions:
   contents: write # required to attach the SBOM to the release
+  id-token: write # cosign keyless signing (Sigstore OIDC) on release
 
 jobs:
   cyclonedx:
@@ -33,7 +36,60 @@ jobs:
           path: sbom.cyclonedx.json
           retention-days: 90
 
-      - name: Attach SBOM to release
+  grype-scan:
+    name: Vulnerability scan of SBOM (grype, blocking on High)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Generate SBOM for scanning
+        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
+        with:
+          format: cyclonedx-json
+          output-file: sbom.cyclonedx.json
+
+      - name: Scan SBOM with grype (fail on High+)
+        uses: anchore/scan-action@abae793926ec39a78ab18002bc7fc45bbbd94342 # v6.0.0
+        with:
+          path: sbom.cyclonedx.json
+          fail-build: true
+          severity-cutoff: high
+          output-format: table
+
+  sign-release-sbom:
+    name: Cosign keyless signing (release only)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    needs: [cyclonedx, grype-scan]
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
+
+      - name: Regenerate SBOM to sign
+        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
+        with:
+          format: cyclonedx-json
+          output-file: sbom.cyclonedx.json
+
+      - name: Keyless-sign SBOM with cosign
+        run: |
+          cosign sign-blob --yes \
+            --bundle sbom.cyclonedx.json.sigstore.json \
+            sbom.cyclonedx.json
+
+      - name: Attach signature bundle to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ github.event.release.tag_name }}"
+          gh release upload "$tag" sbom.cyclonedx.json.sigstore.json --clobber
         if: github.event_name == 'release'
         env:
           GH_TOKEN: ${{ github.token }}

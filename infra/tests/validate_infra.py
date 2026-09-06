@@ -495,9 +495,72 @@ def check_tigerbeetle() -> None:
             fail(f"{path.relative_to(REPO_ROOT)}: hostPath reference is forbidden")
 
 
+def check_openappsec_waf() -> None:
+    """OpenAppSec WAF policy pack must parse, keep a default-deny posture
+    aligned with the Cilium matrix (infra/k8s/base/networkpolicy-default-deny.yaml),
+    and ship a renderable Helm chart under infra/helm/openappsec."""
+    print("== openappsec WAF policy ==")
+    pack = REPO_ROOT / "contracts" / "policy-packs" / "examples" / "openappsec-waf-default-deny.yaml"
+    if not pack.exists():
+        fail(f"openappsec: missing policy pack {pack.relative_to(REPO_ROOT)}")
+        return
+    try:
+        docs = load_yaml_docs(pack)
+    except yaml.YAMLError as exc:
+        fail(f"openappsec policy pack: invalid YAML: {exc}")
+        return
+    policy = docs[0] if docs else {}
+    if policy.get("kind") != "Policy":
+        fail("openappsec: policy pack kind != Policy")
+    spec = policy.get("spec", {})
+    if spec.get("default") != "deny":
+        fail("openappsec: spec.default must be 'deny' (default-deny posture)")
+    rules = spec.get("rules") or []
+    terminal = rules[-1] if rules else {}
+    if not (terminal.get("action") == "deny" and terminal.get("match") == "true"):
+        fail("openappsec: last rule must be a catch-all deny (match: 'true', action: deny)")
+    if not any(r.get("action") in ("accept", "detect") for r in rules[:-1]):
+        fail("openappsec: no explicit allow/inspect rules before the catch-all deny")
+    # alignment with the Cilium default-deny matrix
+    cilium = INFRA / "k8s" / "base" / "networkpolicy-default-deny.yaml"
+    if not cilium.exists():
+        fail("openappsec: Cilium default-deny matrix file missing in infra/k8s/base")
+    elif "cilium" not in str(policy.get("metadata", {}).get("labels", {})).lower():
+        fail("openappsec: policy pack must label its alignment with the Cilium matrix")
+    else:
+        ok("openappsec: default-deny policy pack aligned with Cilium matrix")
+
+    chart = INFRA / "helm" / "openappsec"
+    for required in ("Chart.yaml", "values.yaml"):
+        if not (chart / required).exists():
+            fail(f"openappsec chart: missing {required}")
+    templates = sorted((chart / "templates").glob("*.yaml"))
+    if not templates:
+        fail("openappsec chart: no templates found")
+    for tpl in templates:
+        try:
+            docs = load_yaml_docs(tpl)
+        except yaml.YAMLError as exc:
+            fail(f"openappsec template {tpl.name}: does not parse: {exc}")
+            continue
+        for doc in docs:
+            if not doc.get("kind"):
+                fail(f"openappsec template {tpl.name}: document without kind")
+        ok(f"openappsec template {tpl.name}: parses ({len(docs)} doc(s))")
+    # The chart must actually render the default-deny policy.
+    policy_cm = chart / "templates" / "configmap-policy.yaml"
+    if policy_cm.exists():
+        text = policy_cm.read_text()
+        if "deny" not in text or "policy" not in text.lower():
+            fail("openappsec chart: configmap-policy.yaml does not embed the deny policy")
+    else:
+        fail("openappsec chart: missing templates/configmap-policy.yaml")
+
+
 def main() -> int:
     check_k8s_overlays()
     check_realm_drift()
+    check_openappsec_waf()
     check_helm_chart()
     check_helm_modules_rendered()
     check_terraform()

@@ -1,0 +1,32 @@
+# openappsec chart values — default-deny WAF posture.
+# The policy bundle is sourced from contracts/policy-packs/examples/
+# openappsec-waf-default-deny.yaml and rendered into a ConfigMap.
+
+namespace: sos-platform
+
+agent:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/openappsec/agent
+    tag: "latest"
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  # Learn-then-prevent: start in detect mode per environment, promote to
+  # prevent in staging/prod overlays.
+  mode: prevent
+
+policy:
+  # Must match contracts/policy-packs/examples/openappsec-waf-default-deny.yaml
+  defaultAction: deny
+  practice: prevent
+  trigger: log
+  exceptions: []
+
+service:
+  type: ClusterIP
+  port: 80

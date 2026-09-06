@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openappsec-agent
+  namespace: {{ .Values.namespace | default "sos-platform" }}
+  labels:
+    app.kubernetes.io/name: openappsec
+    app.kubernetes.io/component: agent
+spec:
+  replicas: {{ .Values.agent.replicaCount | default 2 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: openappsec
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: openappsec
+        app.kubernetes.io/component: agent
+    spec:
+      containers:
+        - name: agent
+          image: "{{ .Values.agent.image.repository }}:{{ .Values.agent.image.tag }}"
+          env:
+            - name: AGENT_MODE
+              value: {{ .Values.agent.mode | default "prevent" | quote }}
+            - name: POLICY_PATH
+              value: /etc/openappsec/policy.yaml
+          volumeMounts:
+            - name: waf-policy
+              mountPath: /etc/openappsec
+              readOnly: true
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: waf-policy
+          configMap:
+            name: openappsec-waf-policy

@@ -115,3 +115,75 @@ jobs:
               sys.exit(1)
           print("license whitelist gate passed (stub — full SBOM scan at release)")
           PY
+
+  dependency-review:
+    name: Dependency review (blocking)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Dependency review
+        uses: actions/dependency-review-action@ce3cf9537a52e8119d91fd484ab5b8a807627bf8 # v4.6.0
+        with:
+          fail-on-severity: high
+          deny-licenses: GPL-2.0, GPL-3.0, AGPL-1.0, AGPL-3.0, LGPL-2.0, LGPL-2.1, LGPL-3.0, SSPL-1.0
+
+  semgrep:
+    name: SAST — Semgrep OWASP ruleset (blocking)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Semgrep scan (OWASP Top 10)
+        uses: semgrep/semgrep-action@713efdd345b3035192eaa63f56867b88e63e4e5d # v1
+        with:
+          config: >-
+            p/owasp-top-ten
+            p/security-audit
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+  zap-baseline:
+    name: OWASP ZAP baseline scan (blocking on High)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Start ephemeral compose stack
+        run: |
+          docker compose -f deploy/docker-compose.yml \
+            up -d --build mod-citizen-portal
+
+      - name: Wait for citizen portal health
+        run: |
+          for i in $(seq 1 40); do
+            if curl -fsS http://localhost:8011/healthz >/dev/null 2>&1; then
+              echo "portal healthy"; exit 0
+            fi
+            sleep 5
+          done
+          echo "portal did not become healthy"; exit 1
+
+      - name: ZAP baseline scan
+        uses: zaproxy/action-baseline@7c4deb10e6261301961c86d65d54a516394f9aed # v0.14.0
+        with:
+          target: "http://localhost:8011"
+          rules_file_name: ".zap/rules.tsv"
+          cmd_options: "-a -j -m 5 -T 10"
+          fail_action: "true"
+        env:
+          # Exit code 1 on High findings is the ZAP baseline default
+          # (action fails the job when alerts at High severity are found).
+          ZAP_AUTH_HEADER: ""
+
+      - name: Tear down compose stack
+        if: always()
+        run: |
+          docker compose -f deploy/docker-compose.yml down -v
