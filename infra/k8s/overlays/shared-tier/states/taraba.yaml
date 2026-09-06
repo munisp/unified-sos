@@ -93,3 +93,26 @@ data:
     - TigerBeetle: shared 6-node cluster, partition keyed on state tenant ID
       0x0006 (see `ledger/chart-of-accounts.md`).
     - Kubecost: costs allocated pro-rata to the `sos-taraba` namespace.
+---
+# TigerBeetle ledger wiring for the Taraba tenant (ADR-002 / Clause 22.2).
+# mod-rev-core consumes these as REV_CORE_LEDGER=tigerbeetle + TB_ADDRESSES /
+# TB_CLUSTER_ID (fail-closed when unset).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sos-taraba-ledger
+  namespace: sos-taraba
+  labels:
+    sos.gov.ng/tenant-state: taraba
+data:
+  TB_ADDRESSES: "sos-shared-tier3-tigerbeetle-client.sos-data:3000"
+  TB_CLUSTER_ID: "1"
+  LEDGER_TENANCY_NOTES.md: |
+    # Taraba — TigerBeetle ledger plane
+    - Tier 3 Shared: shared 3-replica TigerBeetle VSR cluster; logical partition keyed on state tenant ID.
+    - Ledger ID: 1 (NG State Sovereign Ledger); state tenant ID 0x0006 in
+      account ID bits 0..15 (see `ledger/chart-of-accounts.md`).
+    - Replicas: 3 (odd, >= 3 for VSR quorum), per-replica NVMe PVCs —
+      no hostPath; provisioned via infra/terraform/modules/tigerbeetle or the
+      sos-platform Helm chart (`tigerbeetle.*` values).
+    - Bootstrap: `sosctl ledger init --state=taraba` (dry-run by default).

@@ -26,3 +26,18 @@ helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version }}
 sos.gov.ng/tenant-state: {{ .Values.global.tenantStateId }}
 sos.gov.ng/tenancy-tier: {{ .Values.global.tenancyTier }}
 {{- end -}}
+
+{{/*
+Comma-separated TigerBeetle replica addresses (headless Service DNS),
+in replica-index order — identical ordering required on all replicas.
+*/}}
+{{- define "sos-platform.tigerbeetleAddresses" -}}
+{{- $fullname := include "sos-platform.fullname" . -}}
+{{- $ns := .Release.Namespace -}}
+{{- $count := int .Values.tigerbeetle.replicaCount -}}
+{{- $addrs := list -}}
+{{- range $i, $e := until $count -}}
+{{- $addrs = append $addrs (printf "%s-tigerbeetle-%d.%s-tigerbeetle-headless.%s.svc.cluster.local:3000" $fullname $i $fullname $ns) -}}
+{{- end -}}
+{{- join "," $addrs -}}
+{{- end -}}

@@ -36,6 +36,12 @@ spec:
               value: {{ .Values.modRevCore.env.ledgerClusterAddress | quote }}
             - name: SOS_LEDGER_ID
               value: {{ .Values.modRevCore.env.ledgerId | quote }}
+            - name: REV_CORE_LEDGER
+              value: {{ .Values.modRevCore.env.ledgerBackend | quote }}
+            - name: TB_ADDRESSES
+              value: "{{ include "sos-platform.fullname" . }}-tigerbeetle:3000"
+            - name: TB_CLUSTER_ID
+              value: {{ .Values.tigerbeetle.clusterId | quote }}
           readinessProbe:
             httpGet:
               path: /healthz

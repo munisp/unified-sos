@@ -274,12 +274,87 @@ def check_terraform() -> None:
         ok(f"terraform env {env.name}: wiring ok")
 
 
+def check_tigerbeetle() -> None:
+    """TigerBeetle ledger-plane invariants (ADR-002 / Clause 22.2):
+
+      1. Replica count is odd and >= 3 (VSR quorum) everywhere it is set.
+      2. Ledger state lives on PVCs (volumeClaimTemplates) — hostPath is
+         forbidden anywhere under infra/.
+      3. The terraform module wires cluster/replica args and PVCs.
+    """
+    print("== tigerbeetle ledger plane ==")
+
+    # 1+2: helm chart
+    tpl = INFRA / "helm" / "sos-platform" / "templates" / "tigerbeetle-statefulset.yaml"
+    if not tpl.exists():
+        fail("tigerbeetle: missing helm template tigerbeetle-statefulset.yaml")
+    else:
+        text = tpl.read_text()
+        if "volumeClaimTemplates" not in text:
+            fail("tigerbeetle helm: StatefulSet has no volumeClaimTemplates (PVC required)")
+        if "hostPath:" in text:
+            fail("tigerbeetle helm: hostPath reference is forbidden")
+        docs = load_yaml_docs(tpl)
+        kinds = {d.get("kind") for d in docs}
+        if "StatefulSet" not in kinds:
+            fail("tigerbeetle helm: no StatefulSet document")
+        values = load_yaml_docs(INFRA / "helm" / "sos-platform" / "values.yaml")
+        replicas = (values[0].get("tigerbeetle", {}) or {}).get("replicaCount") if values else None
+        if not isinstance(replicas, int) or replicas < 3 or replicas % 2 == 0:
+            fail(f"tigerbeetle helm: replicaCount {replicas!r} must be odd and >= 3")
+        else:
+            ok(f"tigerbeetle helm: {replicas} replicas, PVC-backed, no hostPath")
+
+    # 3: terraform module
+    mod = INFRA / "terraform" / "modules" / "tigerbeetle"
+    if not mod.is_dir():
+        fail("tigerbeetle: missing terraform module infra/terraform/modules/tigerbeetle")
+    else:
+        main_tf = (mod / "main.tf").read_text()
+        var_tf = (mod / "variables.tf").read_text()
+        for needle in ("kubernetes_stateful_set", "volume_claim_template",
+                       "--cluster=", "--replica", "--addresses"):
+            if needle not in main_tf:
+                fail(f"tigerbeetle terraform: main.tf missing {needle!r}")
+        if "host_path" in main_tf or "hostPath:" in main_tf:
+            fail("tigerbeetle terraform: hostPath is forbidden")
+        if "replica_count % 2 == 1" not in var_tf or ">= 3" not in var_tf:
+            fail("tigerbeetle terraform: replica_count must validate odd >= 3")
+        ok("tigerbeetle terraform: module wiring ok")
+
+    # 4: per-tier overlay wiring
+    for state, overlay in STATES.items():
+        state_file = INFRA / "k8s" / "overlays" / overlay / "states" / f"{state}.yaml"
+        if not state_file.exists():
+            continue
+        docs = load_yaml_docs(state_file)
+        ledger_cm = [
+            d for d in docs
+            if d.get("kind") == "ConfigMap"
+            and d.get("metadata", {}).get("name") == f"sos-{state}-ledger"
+        ]
+        if not ledger_cm:
+            fail(f"{state}: overlay missing sos-{state}-ledger ConfigMap (TB wiring)")
+            continue
+        data = ledger_cm[0].get("data", {})
+        if not data.get("TB_ADDRESSES") or data.get("TB_CLUSTER_ID") != "1":
+            fail(f"{state}: sos-{state}-ledger ConfigMap must set TB_ADDRESSES and TB_CLUSTER_ID=1")
+        else:
+            ok(f"{state}: ledger wiring ok ({data['TB_ADDRESSES']})")
+
+    # Global hostPath ban across infra manifests.
+    for path in sorted(INFRA.rglob("*.yaml")):
+        if "hostPath:" in path.read_text():
+            fail(f"{path.relative_to(REPO_ROOT)}: hostPath reference is forbidden")
+
+
 def main() -> int:
     check_k8s_overlays()
     check_helm_chart()
     check_terraform()
     check_gitops()
     check_dedicated_isolation()
+    check_tigerbeetle()
 
     print()
     if FAILURES:

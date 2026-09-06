@@ -187,5 +187,62 @@ def ledger_init_chart(
     console.print(table)
 
 
+@ledger_app.command("init")
+def ledger_init(
+    state: str = StateOpt,
+    apply: bool = typer.Option(False, "--apply", help="Actually create accounts (default: dry-run)"),
+    addresses: Optional[str] = typer.Option(
+        None, "--addresses", help="Comma-separated TigerBeetle host:port list (default $TB_ADDRESSES)"
+    ),
+    cluster_id: int = typer.Option(1, "--cluster-id", help="TigerBeetle cluster ID (default $TB_CLUSTER_ID or 1)"),
+) -> None:
+    """Idempotently create the state's chart-of-accounts accounts.
+
+    DRY-RUN by default: prints the deterministic account plan without
+    touching any cluster. With --apply, connects to the cluster
+    (fail-closed: requires --addresses/$TB_ADDRESSES) and creates the
+    accounts; already-existing accounts are treated as success.
+    """
+    import os
+
+    state = _check_state(state)
+    raw_addresses = addresses if addresses is not None else os.environ.get("TB_ADDRESSES", "")
+    address_list = [a.strip() for a in raw_addresses.split(",") if a.strip()]
+    env_cluster = os.environ.get("TB_CLUSTER_ID")
+    if cluster_id == 1 and env_cluster:
+        cluster_id = int(env_cluster)
+
+    plan = ledger.build_account_plan(state)
+    table = Table(title=f"{state.title()} chart-of-accounts account plan (ledger 1)")
+    for col in ("Code", "Account", "128-bit account id"):
+        table.add_column(col)
+    for acct in plan:
+        table.add_row(str(acct["code"]), acct["name"], str(acct["account_id"]))
+    console.print(table)
+
+    if not apply:
+        console.print(
+            f"[yellow]dry-run:[/yellow] {len(plan)} account(s) would be created; "
+            "re-run with --apply to provision."
+        )
+        return
+
+    if not address_list:
+        err_console.print(
+            "[red]--apply requires TB_ADDRESSES or --addresses[/red] (fail-closed)"
+        )
+        raise typer.Exit(code=2)
+    try:
+        summary = ledger.provision_accounts(state, address_list, cluster_id=cluster_id)
+    except (RuntimeError, ValueError) as exc:
+        err_console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1)
+    console.print(
+        f"[green]Accounts provisioned[/green]: {summary['accounts_created']} created, "
+        f"{summary['accounts_already_existing']} already existed "
+        f"(cluster {summary['cluster_id']} @ {', '.join(summary['addresses'])})"
+    )
+
+
 if __name__ == "__main__":
     app()
