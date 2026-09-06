@@ -46,6 +46,7 @@
         "modPoliceCad": { "$ref": "#/$defs/module" },
         "modPppInvestment": { "$ref": "#/$defs/module" },
         "modRevCore": { "$ref": "#/$defs/module" },
+        "modTransparency": { "$ref": "#/$defs/module" },
         "modTransportWim": { "$ref": "#/$defs/module" }
       }
     },

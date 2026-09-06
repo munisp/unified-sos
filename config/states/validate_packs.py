@@ -46,7 +46,7 @@ KNOWN_MODULES = {
     "mod-forestry", "mod-transport-wim", "mod-agri-waybill", "mod-health",
     "mod-education", "mod-market", "mod-police-cad", "mod-mobility-switch",
     "mod-environment", "mod-citizen-portal", "mod-kyc-kyb",
-    "mod-geospatial", "mod-geospatial-gateway",
+    "mod-geospatial", "mod-geospatial-gateway", "mod-transparency",
     "lakehouse", "control-plane",
 }
 

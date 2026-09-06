@@ -34,3 +34,6 @@ modules:
 - name: mod-geospatial-gateway
   wave: 2
   rationale: 'GEO — Low-latency geospatial validation & job command gateway (Go; all states)'
+- name: mod-transparency
+  wave: 3
+  rationale: 'P2-E — Public read-only transparency views (trust-fund feed, concession escrow statements, procurement audit verification; aggregates mod-police-cad + mod-ppp-investment public audit surfaces; all states)'

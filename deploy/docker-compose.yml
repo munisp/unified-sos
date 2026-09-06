@@ -261,6 +261,27 @@ services:
       timeout: 5s
       retries: 5
 
+  # --- P2 Workstream E: public read-only transparency views ---------------
+
+  mod-transparency:
+    build:
+      context: ../services/mod-transparency
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-transparency:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+      # local default = deterministic in-memory fixture; production mode sets
+      # POLICE_CAD_BASE_URL + PPP_INVESTMENT_BASE_URL (fail closed otherwise).
+      POLICE_CAD_BASE_URL: ${POLICE_CAD_BASE_URL:-}
+      PPP_INVESTMENT_BASE_URL: ${PPP_INVESTMENT_BASE_URL:-}
+    ports:
+      - "8015:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
   mod-geospatial-gateway:
     build:
       context: ../services/mod-geospatial-gateway

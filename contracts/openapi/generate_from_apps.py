@@ -228,6 +228,25 @@ SERVICES: dict[str, dict] = {
             tags=["kyc-kyb", "identity-verification", "document-ai"],
         ),
     },
+    "mod-transparency": {
+        "package": "app.main",
+        "public": True,  # unauthenticated read-only transparency views
+        "info": dict(
+            title="SOS Public Transparency Views API (mod-transparency)",
+            description=(
+                "P2 Workstream E. Unauthenticated, tenant-scoped, read-only "
+                "public projections: security trust-fund feed (donations in, "
+                "disbursements out, kobo balances, per-entry hash-chain "
+                "cursors; mod-police-cad), concession escrow settlement "
+                "statements, and the hash-chained procurement audit log with "
+                "public recomputed verification (mod-ppp-investment). "
+                "Structural redaction: no donor, actor or concessionaire PII "
+                "— identities are salted SHA-256 pseudonyms. Unknown tenant "
+                "states return a generic 404 (no enumeration). Deploys: all 6."
+            ),
+            tags=["transparency", "trust-fund", "procurement-audit"],
+        ),
+    },
     "mod-geospatial": {
         "package": "app.main",
         "info": dict(
@@ -294,6 +313,9 @@ def build_openapi(service: str, cfg: dict) -> dict:
             op.setdefault("tags", meta["tags"][:1])
             if path.endswith("/health") or path.rstrip("/").endswith("/healthz"):
                 continue  # liveness probes are unauthenticated
+            if cfg.get("public"):
+                op.setdefault("security", [])  # public unauthenticated surface
+                continue
             op.setdefault("security", [{"bearerAuth": []}])
     return spec
 
