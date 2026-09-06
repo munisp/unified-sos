@@ -22,6 +22,63 @@ def _id(prefix: str) -> str:
     return f"{prefix}-{uuid4().hex[:10]}"
 
 
+#: Dispatch SLO (acceptance criterion): incident-created -> dispatch-assigned
+#: latency must stay under 30 s.
+DISPATCH_SLO_SECONDS = 30.0
+
+
+def _parse_ts(value: str) -> datetime:
+    return datetime.fromisoformat(value)
+
+
+class DispatchLatencyTracker:
+    """Thread-safe dispatch-latency recorder backing the <30 s dispatch SLO.
+
+    Records incident-reported -> dispatch-assigned latency (seconds) and
+    exposes p50/p95 percentiles plus the SLO breach count. Percentiles use
+    linear interpolation over sorted samples (numpy 'linear' method) so a
+    single sample yields itself.
+    """
+
+    def __init__(self, slo_seconds: float = DISPATCH_SLO_SECONDS) -> None:
+        self._lock = threading.Lock()
+        self._samples: list[float] = []
+        self._breaches = 0
+        self.slo_seconds = slo_seconds
+
+    def record(self, seconds: float) -> None:
+        with self._lock:
+            self._samples.append(float(seconds))
+            if seconds > self.slo_seconds:
+                self._breaches += 1
+
+    @staticmethod
+    def _percentile(samples: list[float], q: float) -> float:
+        if not samples:
+            return 0.0
+        ordered = sorted(samples)
+        if len(ordered) == 1:
+            return ordered[0]
+        rank = (len(ordered) - 1) * q
+        lo = int(rank)
+        hi = min(lo + 1, len(ordered) - 1)
+        return ordered[lo] + (ordered[hi] - ordered[lo]) * (rank - lo)
+
+    def summary(self) -> dict:
+        with self._lock:
+            samples = list(self._samples)
+            breaches = self._breaches
+        p95 = self._percentile(samples, 0.95)
+        return {
+            "sample_count": len(samples),
+            "p50_seconds": round(self._percentile(samples, 0.50), 3),
+            "p95_seconds": round(p95, 3),
+            "slo_seconds": self.slo_seconds,
+            "breach_count": breaches,
+            "within_slo": p95 <= self.slo_seconds,
+        }
+
+
 class CrossTenantError(ValueError):
     """Tenant-isolation violation — mapped to HTTP 403 at the API layer
 
@@ -104,6 +161,8 @@ class CadStore:
         self.dispatch_log: list[DispatchEvent] = []
         self.donations: list[Donation] = []
         self.disbursements: list[Disbursement] = []
+        self.stream_sessions: dict[str, dict] = {}
+        self.latency = DispatchLatencyTracker()
 
     # --- incident intake ----------------------------------------------------
     def intake_incident(self, tenant_state_id: str, agency: str, category: str,
@@ -159,7 +218,35 @@ class CadStore:
                                   dispatched_at=_now(), geofence_verified=True)
             inc.status = IncidentStatus.DISPATCHED
             self.dispatch_log.append(event)
-            return event
+        latency = (_parse_ts(event.dispatched_at) - _parse_ts(inc.reported_at)).total_seconds()
+        self.latency.record(max(latency, 0.0))
+        return event
+
+    # --- CCTV/drone stream sessions (metadata only) ---------------------------
+    def record_stream_session(self, session_id: str, camera_id: str,
+                              tenant_state_id: str, kind: str,
+                              started_at: str) -> dict:
+        record = {
+            "session_id": session_id,
+            "camera_id": camera_id,
+            "tenant_state_id": tenant_state_id,
+            "kind": kind,
+            "started_at": started_at,
+        }
+        with self._lock:
+            self.stream_sessions[session_id] = record
+        return record
+
+    def list_stream_sessions(self, tenant_state_id: str | None = None) -> list[dict]:
+        with self._lock:
+            sessions = list(self.stream_sessions.values())
+        if tenant_state_id is not None:
+            sessions = [s for s in sessions if s["tenant_state_id"] == tenant_state_id]
+        return sessions
+
+    def close_stream_session(self, session_id: str) -> dict | None:
+        with self._lock:
+            return self.stream_sessions.pop(session_id, None)
 
     # --- trust fund ------------------------------------------------------------
     def record_donation(self, tenant_state_id: str, donor_ref: str, amount_kobo: int) -> Donation:
