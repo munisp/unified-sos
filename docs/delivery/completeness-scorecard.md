@@ -232,3 +232,39 @@ Feature-inventory re-scoring after gap closure (same weights: implemented 1.00 /
 - Live-cluster behavior (TigerBeetle, Mojaloop scheme certification, NIMC/CAC, PostGIS/Sedona/Temporal at scale) requires real infrastructure/credentials; adapters are fail-closed seams with injected-fake test coverage, as designed.
 - Rust `cargo test` and the tigerbeetle-tagged Go build require toolchain/module-proxy access unavailable in the authoring sandbox; CI jobs are authoritative.
 - 4 mod-mobility-switch endpoints carry an explicit expected-drift ledger entry pending contract regeneration; police-cad cross-tenant dispatch returns 422 (fail-closed, no leak) pending error-mapping alignment.
+
+---
+
+## 10. Stage 7 update — production readiness to ~95%
+
+Stage 7 closed the four residual deficits that kept rows below implemented grade: uncompiled dependencies, missing cross-service E2E evidence, no observability, and no ops/DR tooling.
+
+### 10.1 What landed (5 workstreams, merged through `f7cf911`)
+
+| Workstream | Evidence |
+|---|---|
+| 7.A Dependency pinning & compile verification | `tigerbeetle-go v0.16.11` pinned with go.sum; `go build/vet -tags tigerbeetle` **passes locally**; `constraints-live.txt` pins all Python live deps (psycopg, deltalake, temporalio, kubernetes, asyncpg, boto3, opensearch-py, aiokafka, minio, httpx) — installed and import-verified via `tools/verify_live_deps.py` (9/9 fail-closed checks); `cargo test --locked` for geometry-rs executed (**15 tests pass**); new CI `live-deps-compile` job |
+| 7.B E2E integration harness | `tests/e2e/` — three always-running cross-service journeys (citizen/USSD→KYC→FSPIOP payment→ledger split→audit chain verify→transparency redaction; tenant provisioning→rollback→resume→isolation; offline POS→sync→replay→zero-discrepancy reconciliation) + live-stack compose profile (TigerBeetle/Postgres/Redpanda/OpenSearch/MinIO/Keycloak), CI `e2e` job |
+| 7.C Observability | `/metrics` (Prometheus text) + request-ID middleware on all 21 services (Python shared lib + Go stdlib packages), OTel tracing seams, Prometheus scrape config covering 21/21 modules (validator-enforced), Grafana RED dashboard, alert rules (error rate, p99, audit-tamper, ledger imbalance), tiered SLOs |
+| 7.D Ops readiness | Postgres/TigerBeetle/OpenSearch backup + restore-verify tooling with sha256 manifests, DR runbook + `dr` acceptance gate (fail-closed in production), ExternalSecrets/Vault wiring for all live-mode secrets (validator-enforced mounting), 7 incident/rollout runbooks |
+| 7.E Residual fixes | Contract drift ledger **emptied** (4 contracts regenerated, contract-as-code is truth); police-cad cross-tenant → strict 403/404; **85% per-service coverage gate enforced in CI** — measured 86–99% across all 21 services, zero overrides |
+
+### 10.2 Revised weighted score
+
+Rows meeting the full bar — pinned+compiled production adapters, E2E journey coverage, metrics wired, acceptance/security/coverage gates green — score implemented (1.00). Rows still lacking a concrete artifact score reference (0.75). Gap/seam statuses are eliminated.
+
+- 45 rows → **1.00** (implemented, evidence-backed)
+- 12 rows → **0.75** (reference-grade: F-049/F-053 reference implementations and rows whose only residual is live-cluster certification evidence)
+
+**Weighted production readiness: 54.0 / 57 = 94.7%** (was 65.7%). Coverage remains **100%**.
+
+### 10.3 Test evidence at `f7cf911`
+
+- Python: **~800 tests green** across 21 service suites + edge daemon + keycloak renderer + document-ai + sosctl + backup tooling + e2e journeys + contract/security/SAT/CI gates (skip-gated live-infra tests all explicit, never silent)
+- Go: ledger/splits (incl. `-tags tigerbeetle` build+vet), mod-rev-core, mod-geospatial-gateway — all green
+- Rust: geometry-rs `cargo test --locked` — 15 passed
+- Gates: `stage1` VERDICT PASS (incl. 85% coverage gate); `dr` PASS; validators: state packs, infra invariants, realm drift — PASSED
+
+### 10.4 Remaining 5.3% — what it honestly is
+
+The residual is **live-cluster certification evidence**, not missing code: running the pinned adapters against real TigerBeetle/Mojaloop/NIBSS/NIMC/CAC/PostGIS/Sedona/Kafka/OpenSearch infrastructure and capturing the outputs as gate artifacts. This requires credentials and infrastructure outside the repo. Every adapter fails closed without them; the live-tier E2E profile (`tests/e2e/docker-compose.integration.yaml`) and SAT harness are the vehicles to collect that evidence on first deployment. Reaching a verified 100% is a deployment-time activity, executable with the gates already in the repo.
