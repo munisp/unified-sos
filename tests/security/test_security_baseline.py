@@ -36,7 +36,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 SERVICES_WITH_APPS = [
     "mod-agri-waybill", "mod-citizen-portal", "mod-education", "mod-environment",
-    "mod-forestry", "mod-geospatial", "mod-health", "mod-identity", "mod-kyc-kyb",
+    "mod-erp-bridge", "mod-forestry", "mod-geospatial", "mod-health", "mod-identity", "mod-kyc-kyb",
     "mod-market", "mod-mining", "mod-mobility-switch", "mod-police-cad",
     "mod-ppp-investment", "mod-transparency", "mod-transport-wim",
 ]

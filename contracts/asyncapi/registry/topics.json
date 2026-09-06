@@ -19,6 +19,12 @@
       "topic": "ng.sos.environment.deforestation_alert_raised"
     },
     {
+      "channel": "ng.sos.erp.journal_pushed",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.erp.journal_pushed.json",
+      "topic": "ng.sos.erp.journal_pushed"
+    },
+    {
       "channel": "ng.sos.forestry.provenance_recorded",
       "contract": "forestry-events.yaml",
       "schema": "schemas/ng.sos.forestry.provenance_recorded.json",

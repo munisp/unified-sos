@@ -282,6 +282,29 @@ services:
       timeout: 5s
       retries: 5
 
+  # --- ERP integration bridge (Odoo / ERPNext / IFMIS export) ------------
+
+  mod-erp-bridge:
+    build:
+      context: ../services/mod-erp-bridge
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-erp-bridge:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+      # local default = deterministic fixture adapter; production sets
+      # ERP_BACKEND=odoo|erpnext|ifmis_export + the backend env vars
+      # (fail closed otherwise — see services/mod-erp-bridge/README.md).
+      ERP_BACKEND: ${ERP_BACKEND:-local}
+      EVENT_BUS: ${EVENT_BUS:-memory}
+      IFMIS_EXPORT_DIR: ${IFMIS_EXPORT_DIR:-/tmp/ifmis-export}
+    ports:
+      - "8016:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
   mod-geospatial-gateway:
     build:
       context: ../services/mod-geospatial-gateway

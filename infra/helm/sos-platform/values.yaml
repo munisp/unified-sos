@@ -122,6 +122,20 @@ modules:
       port: 8000
     env: {}
     resources: {}
+  modErpBridge:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-erp-bridge
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env:
+      # ERP backend: local | ifmis_export | odoo | erpnext. Production
+      # backends fail closed at boot without their full configuration.
+      ERP_BACKEND: "local"
+      EVENT_BUS: "memory"
+    resources: {}
   modForestry:
     enabled: false
     replicaCount: 1

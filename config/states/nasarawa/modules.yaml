@@ -40,3 +40,6 @@ modules:
 - name: mod-transparency
   wave: 3
   rationale: 'P2-E — Public read-only transparency views (trust-fund feed, concession escrow statements, procurement audit verification; aggregates mod-police-cad + mod-ppp-investment public audit surfaces; all states)'
+- name: mod-erp-bridge
+  wave: 2
+  rationale: 'ERP-BRIDGE — ERP/IFMIS journal bridge (Odoo/ERPNext/GIFMIS export, settlement-event ingestion, hash-chained outbound log; all states)'

@@ -79,6 +79,20 @@ scrape_configs:
     action: keep
   - target_label: service
     replacement: mod-environment
+- job_name: mod-erp-bridge
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-erp-bridge
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: mod-erp-bridge
 - job_name: mod-forestry
   kubernetes_sd_configs:
   - role: endpoints

@@ -1,0 +1,534 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-erp-bridge/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS ERP Integration Bridge API (mod-erp-bridge)
+  version: 0.1.0
+  description: 'v3.0 / ERP-BRIDGE. Tenant-isolated bridge to state ERP/PFM systems: balanced double-entry journal ingestion
+    (integer kobo; API + ng.sos.payments.settlement_completed event subscription), per-state chart-of-accounts mapping, fail-closed
+    ERP backends (Odoo XML-RPC, ERPNext REST, GIFMIS/IFMIS CSV+JSON export, deterministic fixture), source-event dedupe, retry
+    with backoff and dead-letter, and a hash-chained outbound journal log with public re-verification. Unknown tenant states
+    return 404. Deploys: all 6 states.'
+paths:
+  /healthz:
+    get:
+      summary: Healthz
+      operationId: healthz_healthz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+      tags:
+      - erp-bridge
+  /erp/v1/states/{state}/journals:
+    post:
+      summary: Push Journal
+      operationId: pushJournalEntry
+      parameters:
+      - name: state
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PushJournalRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JournalResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - erp-bridge
+      security:
+      - bearerAuth: []
+    get:
+      summary: List Journals
+      operationId: listJournalEntries
+      parameters:
+      - name: state
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JournalEntry'
+                title: Response Listjournalentries
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - erp-bridge
+      security:
+      - bearerAuth: []
+  /erp/v1/states/{state}/journals/{entry_id}:
+    get:
+      summary: Get Journal
+      operationId: getJournalEntry
+      parameters:
+      - name: state
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State
+      - name: entry_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Entry Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JournalDetailResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - erp-bridge
+      security:
+      - bearerAuth: []
+  /erp/v1/states/{state}/coa-mapping:
+    get:
+      summary: Get Coa Mapping
+      operationId: getCoaMapping
+      parameters:
+      - name: state
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoaMapping'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - erp-bridge
+      security:
+      - bearerAuth: []
+    put:
+      summary: Put Coa Mapping
+      operationId: putCoaMapping
+      parameters:
+      - name: state
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CoaMappingPut'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoaMapping'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - erp-bridge
+      security:
+      - bearerAuth: []
+  /erp/v1/states/{state}/outbound-log/verify:
+    get:
+      summary: Verify Outbound Log
+      operationId: verifyOutboundLog
+      parameters:
+      - name: state
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OutboundVerifyResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - erp-bridge
+      security:
+      - bearerAuth: []
+components:
+  schemas:
+    CoaMapping:
+      properties:
+        tenant_state_id:
+          type: string
+          enum:
+          - lagos
+          - ogun
+          - osun
+          - benue
+          - nasarawa
+          - taraba
+          title: Tenant State Id
+        mapping:
+          additionalProperties:
+            type: string
+          type: object
+          title: Mapping
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - tenant_state_id
+      title: CoaMapping
+      description: State chart-of-accounts code -> ERP account code mapping.
+    CoaMappingPut:
+      properties:
+        mapping:
+          additionalProperties:
+            type: string
+          type: object
+          title: Mapping
+      type: object
+      required:
+      - mapping
+      title: CoaMappingPut
+    ErpBackend:
+      type: string
+      enum:
+      - fixture
+      - odoo
+      - erpnext
+      - ifmis_export
+      title: ErpBackend
+    ErpReceipt:
+      properties:
+        receipt_id:
+          type: string
+          title: Receipt Id
+        backend:
+          $ref: '#/components/schemas/ErpBackend'
+        external_ref:
+          type: string
+          title: External Ref
+        entry_hash:
+          type: string
+          title: Entry Hash
+        posted_at:
+          type: string
+          format: date-time
+          title: Posted At
+        detail:
+          type: string
+          title: Detail
+          default: ''
+      type: object
+      required:
+      - receipt_id
+      - backend
+      - external_ref
+      - entry_hash
+      title: ErpReceipt
+      description: Acknowledgement returned by an ERP backend after posting.
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    JournalDetailResponse:
+      properties:
+        entry:
+          $ref: '#/components/schemas/JournalEntry'
+        receipt:
+          anyOf:
+          - {}
+          - type: 'null'
+          title: Receipt
+      type: object
+      required:
+      - entry
+      title: JournalDetailResponse
+    JournalEntry:
+      properties:
+        entry_id:
+          type: string
+          minLength: 1
+          title: Entry Id
+        tenant_state_id:
+          type: string
+          enum:
+          - lagos
+          - ogun
+          - osun
+          - benue
+          - nasarawa
+          - taraba
+          title: Tenant State Id
+        date:
+          type: string
+          format: date
+          title: Date
+        memo:
+          type: string
+          title: Memo
+          default: ''
+        lines:
+          items:
+            $ref: '#/components/schemas/JournalLine'
+          type: array
+          minItems: 2
+          title: Lines
+        source_event_id:
+          type: string
+          minLength: 1
+          title: Source Event Id
+        hash:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Hash
+      type: object
+      required:
+      - entry_id
+      - tenant_state_id
+      - date
+      - lines
+      - source_event_id
+      title: JournalEntry
+      description: A balanced double-entry journal destined for the state ERP.
+    JournalLine:
+      properties:
+        account_code:
+          type: string
+          minLength: 1
+          title: Account Code
+        debit_kobo:
+          type: integer
+          minimum: 0.0
+          title: Debit Kobo
+          default: 0
+        credit_kobo:
+          type: integer
+          minimum: 0.0
+          title: Credit Kobo
+          default: 0
+      type: object
+      required:
+      - account_code
+      title: JournalLine
+      description: One leg of a double-entry journal posting (kobo, XOR debit/credit).
+    JournalResponse:
+      properties:
+        entry:
+          $ref: '#/components/schemas/JournalEntry'
+        record:
+          $ref: '#/components/schemas/OutboundRecord'
+      type: object
+      required:
+      - entry
+      - record
+      title: JournalResponse
+    OutboundRecord:
+      properties:
+        event_id:
+          type: string
+          title: Event Id
+        tenant_state_id:
+          type: string
+          enum:
+          - lagos
+          - ogun
+          - osun
+          - benue
+          - nasarawa
+          - taraba
+          title: Tenant State Id
+        entry_id:
+          type: string
+          title: Entry Id
+        source_event_id:
+          type: string
+          title: Source Event Id
+        entry_hash:
+          type: string
+          title: Entry Hash
+        receipt:
+          anyOf:
+          - $ref: '#/components/schemas/ErpReceipt'
+          - type: 'null'
+        status:
+          $ref: '#/components/schemas/PushStatus'
+        prev_hash:
+          type: string
+          title: Prev Hash
+        event_hash:
+          type: string
+          title: Event Hash
+        timestamp:
+          type: string
+          format: date-time
+          title: Timestamp
+      type: object
+      required:
+      - event_id
+      - tenant_state_id
+      - entry_id
+      - source_event_id
+      - entry_hash
+      - status
+      - prev_hash
+      - event_hash
+      title: OutboundRecord
+      description: One hash-chained record of an outbound journal push.
+    OutboundVerifyResponse:
+      properties:
+        valid:
+          type: boolean
+          title: Valid
+        records:
+          type: integer
+          title: Records
+        errors:
+          items:
+            type: string
+          type: array
+          title: Errors
+      type: object
+      required:
+      - valid
+      - records
+      - errors
+      title: OutboundVerifyResponse
+    PushJournalRequest:
+      properties:
+        entry_id:
+          type: string
+          minLength: 1
+          title: Entry Id
+        date:
+          type: string
+          format: date
+          title: Date
+        memo:
+          type: string
+          title: Memo
+          default: ''
+        lines:
+          items:
+            $ref: '#/components/schemas/JournalLine'
+          type: array
+          minItems: 2
+          title: Lines
+        source_event_id:
+          type: string
+          minLength: 1
+          title: Source Event Id
+      type: object
+      required:
+      - entry_id
+      - date
+      - lines
+      - source_event_id
+      title: PushJournalRequest
+      description: Journal push body; tenant comes from the path (no cross-tenant post).
+    PushStatus:
+      type: string
+      enum:
+      - PUSHED
+      - DEDUPED
+      - RETRY_PENDING
+      - DEAD_LETTERED
+      title: PushStatus
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: erp-bridge
+- name: journals
+- name: coa-mapping

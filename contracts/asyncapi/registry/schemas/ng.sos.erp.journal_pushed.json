@@ -1,0 +1,61 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.erp.journal_pushed.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.erp.journal_pushed' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "backend": {
+      "enum": [
+        "fixture",
+        "odoo",
+        "erpnext",
+        "ifmis_export"
+      ],
+      "type": "string"
+    },
+    "entry_hash": {
+      "description": "SHA-256 of the canonical journal payload",
+      "type": "string"
+    },
+    "entry_id": {
+      "type": "string"
+    },
+    "event_hash": {
+      "description": "Hash-chain link of the outbound log record",
+      "type": "string"
+    },
+    "receipt_id": {
+      "type": "string"
+    },
+    "source_event_id": {
+      "description": "Dedupe key of the originating platform event",
+      "type": "string"
+    },
+    "state_id": {
+      "enum": [
+        "lagos",
+        "ogun",
+        "osun",
+        "benue",
+        "nasarawa",
+        "taraba"
+      ],
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "entry_id",
+    "source_event_id",
+    "entry_hash",
+    "backend",
+    "receipt_id",
+    "event_hash",
+    "timestamp"
+  ],
+  "title": "ng.sos.erp.journal_pushed",
+  "type": "object"
+}

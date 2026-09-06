@@ -32,6 +32,7 @@
         "modCitizenPortal": { "$ref": "#/$defs/module" },
         "modEducation": { "$ref": "#/$defs/module" },
         "modEnvironment": { "$ref": "#/$defs/module" },
+        "modErpBridge": { "$ref": "#/$defs/module" },
         "modForestry": { "$ref": "#/$defs/module" },
         "modGeospatial": { "$ref": "#/$defs/module" },
         "modGeospatialGateway": { "$ref": "#/$defs/module" },

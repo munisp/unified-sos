@@ -247,6 +247,25 @@ SERVICES: dict[str, dict] = {
             tags=["transparency", "trust-fund", "procurement-audit"],
         ),
     },
+    "mod-erp-bridge": {
+        "package": "app.main",
+        "info": dict(
+            title="SOS ERP Integration Bridge API (mod-erp-bridge)",
+            description=(
+                "v3.0 / ERP-BRIDGE. Tenant-isolated bridge to state ERP/PFM "
+                "systems: balanced double-entry journal ingestion (integer "
+                "kobo; API + ng.sos.payments.settlement_completed event "
+                "subscription), per-state chart-of-accounts mapping, "
+                "fail-closed ERP backends (Odoo XML-RPC, ERPNext REST, "
+                "GIFMIS/IFMIS CSV+JSON export, deterministic fixture), "
+                "source-event dedupe, retry with backoff and dead-letter, and "
+                "a hash-chained outbound journal log with public "
+                "re-verification. Unknown tenant states return 404. Deploys: "
+                "all 6 states."
+            ),
+            tags=["erp-bridge", "journals", "coa-mapping"],
+        ),
+    },
     "mod-geospatial": {
         "package": "app.main",
         "info": dict(

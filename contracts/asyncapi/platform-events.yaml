@@ -294,3 +294,24 @@ channels:
             records_synced: { type: integer, nullable: true }
             content_hash: { type: string, nullable: true }
             timestamp: { type: string, format: date-time }
+  ng.sos.erp.journal_pushed:
+    publish:
+      operationId: erpJournalPushed
+      description: >-
+        Emitted by mod-erp-bridge after a balanced journal entry is pushed to
+        the state ERP backend (Odoo / ERPNext / IFMIS export) and recorded in
+        the hash-chained outbound log. Carries only references and hashes —
+        no journal line detail beyond COA codes and kobo totals.
+      message:
+        payload:
+          type: object
+          required: [state_id, entry_id, source_event_id, entry_hash, backend, receipt_id, event_hash, timestamp]
+          properties:
+            state_id: { type: string, enum: [lagos, ogun, osun, benue, nasarawa, taraba] }
+            entry_id: { type: string }
+            source_event_id: { type: string, description: Dedupe key of the originating platform event }
+            entry_hash: { type: string, description: SHA-256 of the canonical journal payload }
+            backend: { type: string, enum: [fixture, odoo, erpnext, ifmis_export] }
+            receipt_id: { type: string }
+            event_hash: { type: string, description: Hash-chain link of the outbound log record }
+            timestamp: { type: string, format: date-time }

@@ -1,0 +1,7 @@
+# mod-erp-bridge — runtime dependencies (exact pins).
+# app/adapters/erpnext_adapter.py imports httpx unconditionally, so it is a
+# runtime (not optional) dependency; production ERP backends fail closed
+# without explicit endpoint configuration (see README).
+# Mirrored in repo-root constraints-live.txt.
+httpx==0.28.1  # BSD-3-Clause — ERPNext REST client
+PyYAML==6.0.2  # MIT — per-state erp-coa.yaml override loader

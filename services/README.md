@@ -22,6 +22,7 @@ One canonical codebase, configured per state via policy packs (80/20 rule). Each
 | [mod-kyc-kyb/](mod-kyc-kyb/) | KYC-KYB: KYC/KYB case management, document AI (PaddleOCR/Docling/VLM), liveness anti-spoof, CAC/NIMC/tax/sanctions registry verification, review queues, hash-chained audit | v3.0 / KYC-KYB | Lot 1/7 | All 6 |
 | [mod-geospatial/](mod-geospatial/) | GEO/LND: geospatial dataset registry, H3 indexing, processing jobs, GeoLibre self-hosted workbench projects, lakehouse publication seams | Stage 5 / GEO | Lot 4-6 | All 6 |
 | [mod-geospatial-gateway/](mod-geospatial-gateway/) | GEO/LND: low-latency geospatial validation & job command gateway (Go) | Stage 5 / GEO | Lot 4-6 | All 6 |
+| [mod-erp-bridge/](mod-erp-bridge/) | ERP-BRIDGE: tenant-isolated ERP/IFMIS journal bridge (Odoo XML-RPC, ERPNext REST, GIFMIS CSV/JSON export), settlement-event ingestion, COA mapping, hash-chained outbound log | v3.0 / ERP-BRIDGE | Lot 7 | All 6 |
 | [lakehouse/](lakehouse/) | Delta Lake medallion, Flink streaming, Ray AI | WP-15 / EPIC-17/18 | Lot 7 | All 6 |
 
 ## Module Anatomy (standard layout)
