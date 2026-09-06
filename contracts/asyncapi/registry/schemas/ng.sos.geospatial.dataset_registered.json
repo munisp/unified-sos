@@ -1,0 +1,53 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.geospatial.dataset_registered.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.geospatial.dataset_registered' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "crs": {
+      "type": "string"
+    },
+    "dataset_id": {
+      "type": "string"
+    },
+    "dataset_type": {
+      "enum": [
+        "PARCEL",
+        "RASTER",
+        "VECTOR",
+        "H3_INDEX",
+        "GEOPARQUET"
+      ],
+      "type": "string"
+    },
+    "h3_resolution": {
+      "nullable": true,
+      "type": "integer"
+    },
+    "source_uri": {
+      "type": "string"
+    },
+    "state_id": {
+      "enum": [
+        "lagos",
+        "ogun",
+        "osun",
+        "benue",
+        "nasarawa",
+        "taraba"
+      ],
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "dataset_id",
+    "dataset_type",
+    "timestamp"
+  ],
+  "title": "ng.sos.geospatial.dataset_registered",
+  "type": "object"
+}

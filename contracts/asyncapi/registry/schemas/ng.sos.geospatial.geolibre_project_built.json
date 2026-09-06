@@ -1,0 +1,57 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.geospatial.geolibre_project_built.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.geospatial.geolibre_project_built' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "project_hash": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "project_uri": {
+      "type": "string"
+    },
+    "redaction_level": {
+      "enum": [
+        "FULL",
+        "PARTIAL",
+        "NONE"
+      ],
+      "type": "string"
+    },
+    "source_job_id": {
+      "nullable": true,
+      "type": "string"
+    },
+    "state_id": {
+      "enum": [
+        "lagos",
+        "ogun",
+        "osun",
+        "benue",
+        "nasarawa",
+        "taraba"
+      ],
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "project_id",
+    "name",
+    "project_uri",
+    "project_hash",
+    "redaction_level",
+    "timestamp"
+  ],
+  "title": "ng.sos.geospatial.geolibre_project_built",
+  "type": "object"
+}

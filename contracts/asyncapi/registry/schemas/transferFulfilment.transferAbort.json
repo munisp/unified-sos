@@ -1,0 +1,32 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/transferFulfilment.transferAbort.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'transferFulfilment' message 'transferAbort' (derived from contracts/asyncapi/mojaloop-transfers.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "errorInformation": {
+      "properties": {
+        "errorCode": {
+          "type": "string"
+        },
+        "errorDescription": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "transferId": {
+      "format": "uuid",
+      "type": "string"
+    },
+    "transferState": {
+      "const": "ABORTED",
+      "type": "string"
+    }
+  },
+  "required": [
+    "transferId",
+    "transferState"
+  ],
+  "title": "transferFulfilment/transferAbort",
+  "type": "object"
+}

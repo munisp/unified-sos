@@ -1,0 +1,132 @@
+{
+  "channels": [
+    {
+      "channel": "ng.sos.citizen.payroll_audit_completed",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.citizen.payroll_audit_completed.json",
+      "topic": "ng.sos.citizen.payroll_audit_completed"
+    },
+    {
+      "channel": "ng.sos.environment.compliance_violation_raised",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.environment.compliance_violation_raised.json",
+      "topic": "ng.sos.environment.compliance_violation_raised"
+    },
+    {
+      "channel": "ng.sos.environment.deforestation_alert_raised",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.environment.deforestation_alert_raised.json",
+      "topic": "ng.sos.environment.deforestation_alert_raised"
+    },
+    {
+      "channel": "ng.sos.forestry.provenance_recorded",
+      "contract": "forestry-events.yaml",
+      "schema": "schemas/ng.sos.forestry.provenance_recorded.json",
+      "topic": "ng.sos.forestry.provenance_recorded"
+    },
+    {
+      "channel": "ng.sos.forestry.untagged_timber_alert",
+      "contract": "forestry-events.yaml",
+      "schema": "schemas/ng.sos.forestry.untagged_timber_alert.json",
+      "topic": "ng.sos.forestry.untagged_timber_alert"
+    },
+    {
+      "channel": "ng.sos.forestry.untagged_timber_alert",
+      "contract": "mining-events.yaml",
+      "schema": "schemas/ng.sos.forestry.untagged_timber_alert.json",
+      "topic": "ng.sos.forestry.untagged_timber_alert"
+    },
+    {
+      "channel": "ng.sos.geospatial.agency_sync_completed",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.geospatial.agency_sync_completed.json",
+      "topic": "ng.sos.geospatial.agency_sync_completed"
+    },
+    {
+      "channel": "ng.sos.geospatial.dataset_registered",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.geospatial.dataset_registered.json",
+      "topic": "ng.sos.geospatial.dataset_registered"
+    },
+    {
+      "channel": "ng.sos.geospatial.geolibre_project_built",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.geospatial.geolibre_project_built.json",
+      "topic": "ng.sos.geospatial.geolibre_project_built"
+    },
+    {
+      "channel": "ng.sos.geospatial.processing_job_completed",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.geospatial.processing_job_completed.json",
+      "topic": "ng.sos.geospatial.processing_job_completed"
+    },
+    {
+      "channel": "ng.sos.gis.unassessed_property_discovered",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.gis.unassessed_property_discovered.json",
+      "topic": "ng.sos.gis.unassessed_property_discovered"
+    },
+    {
+      "channel": "ng.sos.kyb.case_decision_made",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.kyb.case_decision_made.json",
+      "topic": "ng.sos.kyb.case_decision_made"
+    },
+    {
+      "channel": "ng.sos.kyb.registry_verification_completed",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.kyb.registry_verification_completed.json",
+      "topic": "ng.sos.kyb.registry_verification_completed"
+    },
+    {
+      "channel": "ng.sos.kyc.case_decision_made",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.kyc.case_decision_made.json",
+      "topic": "ng.sos.kyc.case_decision_made"
+    },
+    {
+      "channel": "ng.sos.kyc.liveness_failed",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.kyc.liveness_failed.json",
+      "topic": "ng.sos.kyc.liveness_failed"
+    },
+    {
+      "channel": "ng.sos.mining.consignment_dispatched",
+      "contract": "mining-events.yaml",
+      "schema": "schemas/ng.sos.mining.consignment_dispatched.json",
+      "topic": "ng.sos.mining.consignment_dispatched"
+    },
+    {
+      "channel": "ng.sos.mining.weighbridge_reading",
+      "contract": "mining-events.yaml",
+      "schema": "schemas/ng.sos.mining.weighbridge_reading.json",
+      "topic": "ng.sos.mining.weighbridge_reading"
+    },
+    {
+      "channel": "ng.sos.payments.settlement_completed",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.payments.settlement_completed.json",
+      "topic": "ng.sos.payments.settlement_completed"
+    },
+    {
+      "channel": "ng.sos.tenant.provisioned",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.tenant.provisioned.json",
+      "topic": "ng.sos.tenant.provisioned"
+    },
+    {
+      "channel": "transferFulfilment",
+      "contract": "mojaloop-transfers.yaml",
+      "schema": "schemas/transferFulfilment.transferAbort.json",
+      "topic": "transferFulfilment"
+    },
+    {
+      "channel": "transferFulfilment",
+      "contract": "mojaloop-transfers.yaml",
+      "schema": "schemas/transferFulfilment.transferFulfilment.json",
+      "topic": "transferFulfilment"
+    }
+  ],
+  "description": "AsyncAPI channel -> topic map generated from contracts/asyncapi/*.yaml by contracts/asyncapi/registry/generate.py; do not edit by hand.",
+  "version": 1
+}

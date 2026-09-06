@@ -1,0 +1,80 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.mining.consignment_dispatched.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.mining.consignment_dispatched' (derived from contracts/asyncapi/mining-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "consignment_id": {
+      "example": "MIN-NAS-2026-0819",
+      "type": "string"
+    },
+    "destination_corridor": {
+      "example": "PORT_LAGOS_APAPA",
+      "type": "string"
+    },
+    "gross_weight_kg": {
+      "type": "number"
+    },
+    "lithium_oxide_grade_pct": {
+      "description": "XRF assay purity grade",
+      "type": "number"
+    },
+    "mine_lease_id": {
+      "example": "ML-NAS-KOKO-04",
+      "type": "string"
+    },
+    "mineral_type": {
+      "enum": [
+        "LITHIUM_SPODUMENE",
+        "COLUMBITE",
+        "TANTALITE",
+        "GOLD_ORE",
+        "GRANITE",
+        "SAPPHIRE",
+        "BARITE"
+      ],
+      "type": "string"
+    },
+    "net_weight_kg": {
+      "type": "number"
+    },
+    "rfid_seal_id": {
+      "example": "RFID-881290-09",
+      "type": "string"
+    },
+    "royalty_due_kobo": {
+      "description": "State levy (NOT federal royalty) due, computed from tonnage + assay",
+      "type": "integer"
+    },
+    "state_id": {
+      "enum": [
+        "nasarawa",
+        "osun",
+        "taraba",
+        "ogun"
+      ],
+      "type": "string"
+    },
+    "tare_weight_kg": {
+      "type": "number"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "truck_registration": {
+      "example": "NSR-412-XA",
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "consignment_id",
+    "mine_lease_id",
+    "mineral_type",
+    "net_weight_kg",
+    "royalty_due_kobo",
+    "timestamp"
+  ],
+  "title": "ng.sos.mining.consignment_dispatched",
+  "type": "object"
+}

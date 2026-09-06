@@ -9,7 +9,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from . import audit, gitops, ledger, policy
+from . import audit, gitops, ledger, policy, schema_registry
 from .registry import TenantRegistry
 from .states import STATE_TENANT_IDS, TIERS
 
@@ -22,10 +22,12 @@ tenant_app = typer.Typer(help="Tenant lifecycle management.", no_args_is_help=Tr
 policy_app = typer.Typer(help="Dynamic policy-pack management.", no_args_is_help=True)
 ledger_app = typer.Typer(help="TigerBeetle ledger bootstrap.", no_args_is_help=True)
 audit_app = typer.Typer(help="Immutable audit archive operations.", no_args_is_help=True)
+schema_app = typer.Typer(help="AsyncAPI schema registry operations.", no_args_is_help=True)
 app.add_typer(tenant_app, name="tenant")
 app.add_typer(policy_app, name="policy")
 app.add_typer(ledger_app, name="ledger")
 app.add_typer(audit_app, name="audit")
+app.add_typer(schema_app, name="schema")
 
 console = Console()
 err_console = Console(stderr=True)
@@ -276,6 +278,62 @@ def audit_verify_chain(
         f"[green]audit chain intact[/green] tenant={tenant} events={len(events)} "
         f"(genesis → {events[-1]['event_hash'] if events else 'n/a'})"
     )
+
+
+@schema_app.command("publish")
+def schema_publish(
+    registry_dir: Path = typer.Option(
+        schema_registry.DEFAULT_REGISTRY_DIR, "--registry-dir",
+        help="Generated registry dir (contracts/asyncapi/registry)",
+    ),
+) -> None:
+    """Publish committed AsyncAPI JSON Schemas to the schema registry.
+
+    Targets a Confluent-compatible registry (default) or Apicurio v2
+    (SCHEMA_REGISTRY_TYPE=apicurio). Fail-closed: requires SCHEMA_REGISTRY_URL.
+    """
+    try:
+        results = schema_registry.publish_schemas(registry_dir)
+    except schema_registry.SchemaRegistryConfigError as exc:
+        err_console.print(f"[red]config error:[/red] {exc}")
+        raise typer.Exit(code=2)
+    except schema_registry.SchemaRegistryError as exc:
+        err_console.print(f"[red]registry error:[/red] {exc}")
+        raise typer.Exit(code=1)
+    for subject, summary in results:
+        console.print(f"[green]published[/green] {subject} ({summary})")
+    console.print(f"[green]{len(results)} schema(s) published[/green]")
+
+
+@schema_app.command("check-compat")
+def schema_check_compat(
+    registry_dir: Path = typer.Option(
+        schema_registry.DEFAULT_REGISTRY_DIR, "--registry-dir",
+        help="Generated registry dir (contracts/asyncapi/registry)",
+    ),
+) -> None:
+    """Check committed schemas are compatible with the registry's latest.
+
+    Exit 0 when every subject is compatible (or not yet registered);
+    exit 1 listing incompatible subjects otherwise.
+    Fail-closed: requires SCHEMA_REGISTRY_URL.
+    """
+    try:
+        results = schema_registry.check_compatibility(registry_dir)
+    except schema_registry.SchemaRegistryConfigError as exc:
+        err_console.print(f"[red]config error:[/red] {exc}")
+        raise typer.Exit(code=2)
+    except schema_registry.SchemaRegistryError as exc:
+        err_console.print(f"[red]registry error:[/red] {exc}")
+        raise typer.Exit(code=1)
+    bad = [(s, ok) for s, ok in results if not ok]
+    for subject, ok in results:
+        mark = "[green]compatible[/green]" if ok else "[red]INCOMPATIBLE[/red]"
+        console.print(f"{mark} {subject}")
+    if bad:
+        err_console.print(f"[red]{len(bad)} incompatible schema(s)[/red]")
+        raise typer.Exit(code=1)
+    console.print(f"[green]{len(results)} schema(s) compatible[/green]")
 
 
 if __name__ == "__main__":
