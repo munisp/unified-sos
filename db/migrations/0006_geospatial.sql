@@ -86,6 +86,23 @@ CREATE TABLE geospatial.agency_sync_links (
     metadata         JSONB NOT NULL DEFAULT '{}'
 );
 
+-- Hash-only, hash-chained audit projection for the geospatial domain.
+-- Mirrors the in-memory AuditEntry model in services/mod-geospatial:
+-- payload_hash + entry_hash chaining only; raw geometry/PII never stored.
+CREATE TABLE geospatial.audit_log (
+    sequence         BIGINT NOT NULL,
+    tenant_state_id  VARCHAR(10) NOT NULL,
+    action           VARCHAR(64) NOT NULL,
+    resource_type    VARCHAR(48) NOT NULL,
+    resource_id      VARCHAR(128) NOT NULL,
+    payload_hash     VARCHAR(128) NOT NULL,
+    object_uri       VARCHAR(512),
+    prev_hash        VARCHAR(128) NOT NULL,
+    entry_hash       VARCHAR(128) NOT NULL,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (tenant_state_id, sequence)
+);
+
 CREATE INDEX idx_geo_datasets_tenant_type   ON geospatial.datasets (tenant_state_id, dataset_type);
 CREATE INDEX idx_geo_features_tenant        ON geospatial.dataset_features (tenant_state_id, dataset_id);
 CREATE INDEX idx_geo_features_geom          ON geospatial.dataset_features USING GiST (geom);
@@ -104,6 +121,7 @@ ALTER TABLE geospatial.processing_jobs     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE geospatial.job_results         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE geospatial.geolibre_projects   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE geospatial.agency_sync_links   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE geospatial.audit_log           ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY datasets_tenant_isolation ON geospatial.datasets
     FOR ALL USING (tenant_state_id = current_setting('app.current_state_tenant'));
@@ -116,4 +134,6 @@ CREATE POLICY job_results_tenant_isolation ON geospatial.job_results
 CREATE POLICY geolibre_projects_tenant_isolation ON geospatial.geolibre_projects
     FOR ALL USING (tenant_state_id = current_setting('app.current_state_tenant'));
 CREATE POLICY agency_sync_links_tenant_isolation ON geospatial.agency_sync_links
+    FOR ALL USING (tenant_state_id = current_setting('app.current_state_tenant'));
+CREATE POLICY audit_log_tenant_isolation ON geospatial.audit_log
     FOR ALL USING (tenant_state_id = current_setting('app.current_state_tenant'));

@@ -11,4 +11,7 @@ pytest>=8.0           # MIT
 #   geopandas>=1.0     # BSD-3-Clause — GeoParquet export
 #   pyarrow>=15.0      # Apache-2.0  — GeoParquet export
 #   psycopg[binary]>=3.1  # LGPL-3.0 — PostGIS repository seam
+#   deltalake>=0.20  # Apache-2.0 — Delta Lake lakehouse write path
+#   pyspark>=3.5 + apache-sedona>=1.6  # Apache-2.0 — Sedona cluster submission
+#   temporalio>=1.10  # MIT — durable workflow worker (worker image only)
 #   geolibre / geolibre-wasm — GeoLibre project & WASM processing adapters
