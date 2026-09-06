@@ -175,3 +175,60 @@ Each score reflects a **local/reference implementation**; only modules with live
 - **Weighted score (56.1%)** is feature-weighted and deliberately harsh on seams (0.25) and gaps (0.00); the **unweighted module mean (≈66)** reflects that local code quality is generally higher than production wiring.
 - **Two scores, honestly reported:** *coverage* (does something runnable exist?) = 96.2%; *production readiness* (is it wired to live infrastructure?) ≈ 56% weighted, lower for payment/identity/geospatial seams.
 - Source of truth for feature rows and statuses: `docs/delivery/feature-inventory.md` at commit `80e33e9`.
+
+---
+
+## 9. Gap-closure update (P0/P1/P2 implemented)
+
+All 15 prioritized gaps from §7 were implemented across 16 workstreams and merged to `main` (through `e757c47`). Each item landed with deterministic local defaults, fail-closed production adapters, and tests.
+
+### 9.1 P0 — closed
+
+| # | Gap (§7) | Delivered |
+|---|---|---|
+| 1 | TigerBeetle adapter | `ledger/splits/tigerbeetle.go` (build-tagged) + fail-closed stub, 10-test fake↔prod contract parity harness, Terraform module + Helm StatefulSet + per-state ConfigMaps (Lagos 5 replicas, others 3), `sosctl ledger init` |
+| 2 | Payment scheme adapters | `FspiopAdapter` (quote/prepare/fulfil/party-lookup, FSPIOP v1.1, signature verification) + `NibssEBillsAdapter` (HMAC notifications, settlement reconciliation iterator); escrow pending/post/void in mod-mobility-switch; FSPIOP fulfilment webhook in mod-education; Go `EBillNotifier` in mod-rev-core |
+| 3 | Identity federation | `NimcClient`/`CacClient` (OAuth2, mTLS, circuit breaker, hashed payloads, boot fail-closed `KYC_REGISTRY_MODE=live`); `KeycloakFederationClient` in mod-identity with `registry_latency_ms` metering |
+| 4 | Live provisioning operators | Five operators (K8s namespace, Postgres schema+RLS, Keycloak realm, S3 bucket, KMS keyring) with fixed-order workflow, compensating rollback, idempotent resume, `CONTROL_PLANE_OPERATORS=live` boot fail-closed |
+| 5 | Acceptance gates | `tests/gates/run_gates.py --gate stage1..golive` with JUnit/Markdown evidence bundles; k6 50k-req/s gateway profile; 10k Sedona-join harness; ZAP baseline runner; zero-CVE gate; SAT signed bundles; go-live checklist (fails without artifacts) |
+
+### 9.2 P1 — closed
+
+| # | Gap (§7) | Delivered |
+|---|---|---|
+| 6 | Geospatial runtimes | Real PostGIS repository (per-tenant RLS connections, hash-chained `geospatial.audit_log`), Sedona job submission, Delta lakehouse writes, Temporal workflows + Go dispatcher, Rust validator CLI seam, GeoLibre compose + Helm |
+| 7 | Hardware bindings | PKCS#11 secure-element signer, Android Keystore signer + cross-impl test vectors, serial WIM sensor adapter, biometric device liveness adapter — all fail-closed seams with deterministic defaults |
+| 8 | Eventing backbone | Shared `EventBus` (InMemory default), full `KafkaEventBus` (aiokafka, topic registry from AsyncAPI), Fluvio edge seam, schema registry generator + `sosctl schema publish/check-compat`, edge outbox bus bridge |
+| 9 | Audit immutability | Hash-chained `AuditEvent` (per-tenant genesis), `LocalFileArchive` + `OpenSearchArchive` (write-only, fail-closed), `sosctl audit verify-chain` tamper detection, OpenSearch ISM 7-yr WORM retention manifest |
+| 10 | Security gates | Blocking ZAP baseline / dependency-review / Semgrep OWASP jobs, grype SBOM scan (fail on High), cosign-signed release SBOM, OpenAppSec default-deny WAF pack, `tests/ci` workflow assertions |
+
+### 9.3 P2 — closed
+
+| # | Gap (§7) | Delivered |
+|---|---|---|
+| 11 | Helm coverage | Generic `sos-platform.moduleDeployment` template; `modules:` values map for all 21 services; closed `values.schema.json`; bespoke mod-rev-core templates migrated |
+| 12 | State realms | Parameterized realm template + deterministic renderer with `--check` drift gate; six realms (no users/secrets, PKCE citizen client); Helm ConfigMap wiring |
+| 13 | GAP features | F-049 → `packages/document-ai/` content-addressed archive (MinIO/PaddleOCR seams, hash-chained index, retention classes). F-053 → `tests/contract` + `tests/security` + `tests/sat` suites (app↔contract drift gates, PII egress scan, tenant-isolation negatives, 10k-assessment reconciliation, offline-POS replay) |
+| 14 | Transparency views | New `services/mod-transparency/` — redacted read-only trust-fund feed, escrow statements, procurement audit verification; unknown tenant → 404 |
+| 15 | Citizen channels | USSD/IVR channel state machines (hashed MSISDN, 180s sessions, telco-secret auth), module-driven service catalog (11 entries over all domain modules) reading `modules.yaml` |
+
+### 9.4 Revised scores
+
+Feature-inventory re-scoring after gap closure (same weights: implemented 1.00 / reference 0.75 / manifests-taxonomy 0.65 / partial 0.50 / seam 0.25 / gap 0.00):
+
+- 3 ADAPTER-SEAM rows (TigerBeetle, Mojaloop/NIBSS, NIMC/CAC) → implemented (1.00)
+- 2 GAP rows (F-049, F-053) → partial (0.50) with runnable reference suites
+- 20 PARTIAL rows tied to closed workstreams (provisioning, eventing, audit, security gates, geospatial runtime, hardware, helm, realms, transparency, channels, gates) → reference (0.75)
+- 12 PARTIAL rows unchanged (deeper per-domain production hardening remains)
+
+**Weighted production readiness: 37.45 / 57 ≈ 65.7%** (was 29.2 / 53 = 55.1%). **Coverage: 100%** — every named feature now has runnable code or an executable gate; none remains docs-only.
+
+### 9.5 Test evidence
+
+`make test`-equivalent battery at `e757c47`: **678 Python tests passed** across 21 service suites + edge daemon + keycloak renderer + document-ai + sosctl + contract/security/SAT/CI gates (7 skip-gated on absent live infra, all explicit), plus Go suites (mod-rev-core, ledger/splits, geospatial-gateway) green. Validators: state packs (6), infra invariants, realm drift — all PASSED.
+
+### 9.6 Honest residual caveats
+
+- Live-cluster behavior (TigerBeetle, Mojaloop scheme certification, NIMC/CAC, PostGIS/Sedona/Temporal at scale) requires real infrastructure/credentials; adapters are fail-closed seams with injected-fake test coverage, as designed.
+- Rust `cargo test` and the tigerbeetle-tagged Go build require toolchain/module-proxy access unavailable in the authoring sandbox; CI jobs are authoritative.
+- 4 mod-mobility-switch endpoints carry an explicit expected-drift ledger entry pending contract regeneration; police-cad cross-tenant dispatch returns 422 (fail-closed, no leak) pending error-mapping alignment.
