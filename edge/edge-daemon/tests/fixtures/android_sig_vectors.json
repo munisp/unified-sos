@@ -1,0 +1,48 @@
+{
+  "contract": "Android Keystore/StrongBox signers (edge/android/) must sign exactly signing_bytes_utf8 = json.dumps({device_id, sequence, payload}, sort_keys=True, separators=(',', ':')).encode('utf-8') \u2014 identical to SignedRecord.signing_bytes() in edge_daemon/models.py. Signature is raw Ed25519 over those bytes, base64url-encoded. public_key_b64 is the base64url raw 32-byte Ed25519 public key.",
+  "format_version": 1,
+  "reference": "Generated deterministically by SoftwareSigner.from_private_bytes(bytes(range(32)), 'POS-AND-REF-001') (test-only key).",
+  "vectors": [
+    {
+      "device_id": "POS-AND-REF-001",
+      "name": "vector-1-revenue_ticket",
+      "payload": {
+        "amount_kobo": 50000,
+        "bill_reference": "BILL-2026-000001",
+        "collector_id": "AGT-01",
+        "issued_at": "2026-01-15T10:30:00Z",
+        "kind": "revenue_ticket",
+        "levy_code": "130",
+        "location": "SAGAMU",
+        "payer_id": "TIN-00112233",
+        "state_id": "ogun"
+      },
+      "public_key_b64": "A6EHv_POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+      "sequence": 1,
+      "signature_b64": "s-tVrDDTg2gWqI6J2cH7-qBHlOCkOb9N7JWjey1lisSQIX1rd8Lr5C3MkP7v8oKqfjFoU00vl7yyLipJf5xlBw==",
+      "signing_bytes_utf8": "{\"device_id\":\"POS-AND-REF-001\",\"payload\":{\"amount_kobo\":50000,\"bill_reference\":\"BILL-2026-000001\",\"collector_id\":\"AGT-01\",\"issued_at\":\"2026-01-15T10:30:00Z\",\"kind\":\"revenue_ticket\",\"levy_code\":\"130\",\"location\":\"SAGAMU\",\"payer_id\":\"TIN-00112233\",\"state_id\":\"ogun\"},\"sequence\":1}"
+    },
+    {
+      "device_id": "POS-AND-REF-001",
+      "name": "vector-2-e_waybill",
+      "payload": {
+        "consignee_id": "MKT-LAG-MILE12",
+        "consignor_id": "FARM-COOP-12",
+        "destination": "LAGOS_MILE12",
+        "issued_at": "2026-01-15T11:00:00Z",
+        "kind": "e_waybill",
+        "levy_kobo": 250000,
+        "origin": "GBOKO",
+        "produce_type": "YAM_TUBERS",
+        "quantity_kg": 8200.0,
+        "state_id": "benue",
+        "vehicle_plate": "BEN-221-ZX",
+        "waybill_number": "WB-BEN-2026-0001"
+      },
+      "public_key_b64": "A6EHv_POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+      "sequence": 2,
+      "signature_b64": "wXk5f--KwM45PnzUtiXIjrDDDbv31yLFw4sFyfvIccZAgvDL02sQdFWC7kQ8hmgH2C63S94LZYz96El7SCBUBA==",
+      "signing_bytes_utf8": "{\"device_id\":\"POS-AND-REF-001\",\"payload\":{\"consignee_id\":\"MKT-LAG-MILE12\",\"consignor_id\":\"FARM-COOP-12\",\"destination\":\"LAGOS_MILE12\",\"issued_at\":\"2026-01-15T11:00:00Z\",\"kind\":\"e_waybill\",\"levy_kobo\":250000,\"origin\":\"GBOKO\",\"produce_type\":\"YAM_TUBERS\",\"quantity_kg\":8200.0,\"state_id\":\"benue\",\"vehicle_plate\":\"BEN-221-ZX\",\"waybill_number\":\"WB-BEN-2026-0001\"},\"sequence\":2}"
+    }
+  ]
+}
