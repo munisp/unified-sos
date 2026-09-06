@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Protocol
 
 from .domain import (
     BiometricVerification,
+    ChannelSession,
     CivilServant,
     IdentityWallet,
     PayrollAudit,
@@ -42,6 +43,9 @@ class CitizenPortalRepository(Protocol):
     def get_payroll_audit(self, audit_id: str) -> Optional[PayrollAudit]: ...
     def save_settlement(self, settlement: SettlementRecord) -> SettlementRecord: ...
     def list_settlements(self, state_id: str) -> List[SettlementRecord]: ...
+    def save_channel_session(self, session: ChannelSession) -> ChannelSession: ...
+    def get_channel_session(self, session_id: str) -> Optional[ChannelSession]: ...
+    def delete_channel_session(self, session_id: str) -> None: ...
 
 
 class InMemoryCitizenPortalRepository:
@@ -55,6 +59,7 @@ class InMemoryCitizenPortalRepository:
         self._verifications: List[BiometricVerification] = []
         self._audits: Dict[str, PayrollAudit] = {}
         self._settlements: List[SettlementRecord] = []
+        self._channel_sessions: Dict[str, ChannelSession] = {}
 
     def save_wallet(self, wallet: IdentityWallet) -> IdentityWallet:
         self._wallets[wallet.wallet_id] = wallet
@@ -128,3 +133,13 @@ class InMemoryCitizenPortalRepository:
 
     def list_settlements(self, state_id: str) -> List[SettlementRecord]:
         return [s for s in self._settlements if s.state_id == state_id]
+
+    def save_channel_session(self, session: ChannelSession) -> ChannelSession:
+        self._channel_sessions[session.session_id] = session
+        return session
+
+    def get_channel_session(self, session_id: str) -> Optional[ChannelSession]:
+        return self._channel_sessions.get(session_id)
+
+    def delete_channel_session(self, session_id: str) -> None:
+        self._channel_sessions.pop(session_id, None)

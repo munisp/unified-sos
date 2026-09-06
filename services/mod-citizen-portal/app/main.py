@@ -7,10 +7,17 @@ the portal APIs and records workflow references only. See README.md.
 """
 from __future__ import annotations
 
+import os
 from typing import Dict, List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
+
+from .channels.gateway_seam import verify_shared_secret
+from .channels.ivr import IvrChannelAdapter
+from .channels.ussd import UssdChannelAdapter
+from .domain import hash_msisdn
 
 from .domain import (
     BiometricVerification,
@@ -213,6 +220,66 @@ def create_app(repo: Optional[CitizenPortalRepository] = None) -> FastAPI:
     @app.get("/healthz")
     def healthz():
         return {"status": "ok", "module": "mod-citizen-portal"}
+
+    # -- citizen channels (USSD / IVR telco webhooks) ---------------------------
+    # Fail-closed auth: every callback must carry the shared telco secret in
+    # the X-Telco-Secret header; when CITIZEN_PORTAL_TELCO_SECRET is unset the
+    # endpoints reject all traffic. Raw MSISDNs are hashed at the edge and
+    # never reach the session store.
+
+    TELCO_SECRET_HEADER = "x-telco-secret"
+
+    def _check_telco_secret(request: Request) -> None:
+        expected = os.environ.get("CITIZEN_PORTAL_TELCO_SECRET", "")
+        if not verify_shared_secret(request.headers.get(TELCO_SECRET_HEADER, ""), expected):
+            raise HTTPException(403, "invalid or missing telco shared secret")
+
+    async def _webhook_payload(request: Request) -> Dict[str, str]:
+        """Africa's Talking posts form-encoded; generic gateways may post JSON."""
+        content_type = request.headers.get("content-type", "")
+        if "application/json" in content_type:
+            body = await request.json()
+            return {str(k): str(v) for k, v in (body or {}).items()}
+        form = await request.form()
+        return {str(k): str(v) for k, v in form.items()}
+
+    async def _channel_callback(
+        request: Request,
+        adapter,
+        state_id: str,
+    ) -> PlainTextResponse:
+        _check_telco_secret(request)
+        payload = await _webhook_payload(request)
+        session_id = payload.get("sessionId") or payload.get("session_id") or ""
+        phone = payload.get("phoneNumber") or payload.get("phone_number") or ""
+        text = payload.get("text", "")
+        if not session_id or not phone:
+            raise HTTPException(400, "sessionId and phoneNumber are required")
+        response = adapter.handle_session(
+            state_id=state_id,
+            session_id=session_id,
+            msisdn_hash=hash_msisdn(phone),
+            input_text=text.split("*")[-1],  # AT sends the full USSD input chain
+        )
+        prefix = "END " if response.end_session else "CON "
+        return PlainTextResponse(prefix + response.text)
+
+    @app.post("/channels/ussd/callback", response_class=PlainTextResponse)
+    async def ussd_callback(
+        request: Request,
+        state_id: str,
+        svc: CitizenPortalService = Depends(service),
+    ):
+        return await _channel_callback(request, UssdChannelAdapter(svc), state_id)
+
+    @app.post("/channels/ivr/callback", response_class=PlainTextResponse)
+    async def ivr_callback(
+        request: Request,
+        state_id: str,
+        locale: str = "en",
+        svc: CitizenPortalService = Depends(service),
+    ):
+        return await _channel_callback(request, IvrChannelAdapter(svc, locale=locale), state_id)
 
     return app
 

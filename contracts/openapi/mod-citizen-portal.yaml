@@ -413,6 +413,69 @@ paths:
               schema: {}
       tags:
       - citizen-portal
+  /channels/ussd/callback:
+    post:
+      summary: Ussd Callback
+      operationId: ussd_callback_channels_ussd_callback_post
+      parameters:
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/plain:
+              schema:
+                type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - citizen-portal
+      security:
+      - bearerAuth: []
+  /channels/ivr/callback:
+    post:
+      summary: Ivr Callback
+      operationId: ivr_callback_channels_ivr_callback_post
+      parameters:
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: State Id
+      - name: locale
+        in: query
+        required: false
+        schema:
+          type: string
+          default: en
+          title: Locale
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/plain:
+              schema:
+                type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - citizen-portal
+      security:
+      - bearerAuth: []
 components:
   schemas:
     AdvanceRequest:
@@ -760,6 +823,16 @@ components:
           type: boolean
           title: Active
           default: true
+        module:
+          type: string
+          title: Module
+          description: owning SOS module, e.g. mod-mining
+          default: ''
+        endpoint_hint:
+          type: string
+          title: Endpoint Hint
+          description: owning module API hint for channel deep-links
+          default: ''
       type: object
       required:
       - service_code
@@ -768,7 +841,16 @@ components:
       - category
       - mda
       title: ServiceCatalogEntry
-      description: One MDA service offered through the portal, seeded per state.
+      description: 'One MDA service offered through the portal, seeded per state.
+
+
+        ``module`` names the owning SOS module (e.g. ``mod-mining``); the
+
+        :mod:`app.catalog` providers use it to filter the catalog against the
+
+        state''s enabled-module config. ``endpoint_hint`` is the owning module''s
+
+        API hint used by channel adapters (USSD/IVR) when deep-linking.'
     ServiceCategory:
       type: string
       enum:
@@ -777,6 +859,12 @@ components:
       - HEALTH
       - EDUCATION
       - MARKET
+      - MINING
+      - AGRICULTURE
+      - TRANSPORT
+      - ENVIRONMENT
+      - FORESTRY
+      - INVESTMENT
       title: ServiceCategory
     ServiceRequest:
       properties:

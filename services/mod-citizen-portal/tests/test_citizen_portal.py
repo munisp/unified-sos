@@ -116,7 +116,20 @@ def test_sso_session_endpoint_and_tenant_guard(client, wallet):
 def test_catalog_seeded_with_all_categories(svc):
     catalog = svc.ensure_catalog("lagos")
     cats = {e.category.value for e in catalog}
-    assert cats == {"REVENUE", "LANDS", "HEALTH", "EDUCATION", "MARKET"}
+    assert cats == {
+        "REVENUE",
+        "LANDS",
+        "HEALTH",
+        "EDUCATION",
+        "MARKET",
+        "MINING",
+        "AGRICULTURE",
+        "TRANSPORT",
+        "ENVIRONMENT",
+        "FORESTRY",
+        "INVESTMENT",
+    }
+    assert all(e.module and e.endpoint_hint for e in catalog)
     # idempotent
     assert len(svc.ensure_catalog("lagos")) == len(catalog)
     # per-state isolation of catalogs
