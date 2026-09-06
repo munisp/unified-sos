@@ -42,3 +42,38 @@ The local runners accept GeoJSON always, and GeoParquet when `geopandas` +
 masking, TorchGeo classification, distributed scheduling) are documented in
 the module docstrings — do not treat local heuristic outputs as production
 classifications.
+
+## v3.0 alignment — SedonaDB, H3, GeoParquet/Delta storage
+
+The v3.0 business specification extends the dual-engine architecture
+(ADR-004) with the following components **[DERIVED]** (targets from the v3.0
+pack + geospatial research summary; adoption is tracked in
+`docs/delivery/rtm-v3.md` GEO-02/03/04):
+
+- **SedonaDB (Rust + Apache DataFusion)** — embedded single-node spatial
+  analytics engine complementing the Sedona/Spark cluster. Intended for
+  lakehouse-edge and per-state analytic jobs where a full Spark cluster is
+  not justified.
+- **H3 hexagonal indexing** — deforestation alerts and industrial telemetry
+  geofences carry H3 cell IDs alongside polygon geometry, enabling
+  cell-based aggregation, cross-source dedup, and SLA bucketing.
+- **GeoParquet / Delta Lake (WKB geometry)** — canonical Silver→Gold
+  lakehouse storage for spatial tables (`sedona_building_footprints`,
+  `sedona_cadastral_parcels`, NDVI alert polygons). Geometry is stored as
+  WKB per the GeoParquet 1.x specification with CRS metadata.
+- **State GIS agency integration (seams)**: **NAGIS** (Nasarawa), **TAGIS**
+  (Taraba), **LASGIS** (Lagos), **BENGIS** (Benue) — parcel, orthophoto and
+  ground-control exchange is an adapter seam; no live agency feed is
+  connected in this repository **[GAP]**.
+
+### v3.0 spatial join benchmark **[DERIVED]**
+
+From the v3.0 geospatial research summary; not re-executed in this repo —
+treat as projection until a reproducible benchmark harness is committed:
+
+| Workload | PostGIS R-Tree | SedonaDB | Speedup |
+|---|---|---|---|
+| 10M-row spatial join (footprints ↔ parcels) | ~6.4 s | ~0.24 s | ~26× |
+
+The committed acceptance metric for the production Sedona/Spark job remains
+the WP-14 figure above (1.2M-polygon join in 0.24 s).

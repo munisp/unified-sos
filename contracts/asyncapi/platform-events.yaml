@@ -62,3 +62,66 @@ channels:
               enum: [UNREGISTERED_ENCROACHMENT, UNASSESSED_IMPROVEMENT, COMPLIANT]
             estimated_area_sqm: { type: number }
             timestamp: { type: string, format: date-time }
+  ng.sos.environment.deforestation_alert_raised:
+    publish:
+      operationId: deforestationAlertRaised
+      description: >-
+        Emitted by mod-environment (ENV-09) when the lakehouse NDVI job raises a
+        deforestation alert. Carries H3 cells and the 4-hour response SLA deadline;
+        dispatch publishes an SEC-10 enforcement ticket reference.
+      message:
+        payload:
+          type: object
+          required: [state_id, alert_id, h3_cells, area_hectares, source, sla_deadline, timestamp]
+          properties:
+            state_id: { type: string }
+            alert_id: { type: string }
+            h3_cells:
+              type: array
+              items: { type: string }
+            ndvi_delta: { type: number }
+            area_hectares: { type: number }
+            source: { type: string, enum: [SENTINEL2, LANDSAT] }
+            sla_deadline: { type: string, format: date-time }
+            enforcement_ticket_ref: { type: string, nullable: true }
+            timestamp: { type: string, format: date-time }
+  ng.sos.environment.compliance_violation_raised:
+    publish:
+      operationId: complianceViolationRaised
+      description: >-
+        Emitted by mod-environment (ENV-09) when an industrial telemetry reading
+        breaches the per-state compliance limit and a violation incident is created.
+      message:
+        payload:
+          type: object
+          required: [state_id, incident_id, facility_id, medium, parameter, fine_estimate_kobo, timestamp]
+          properties:
+            state_id: { type: string }
+            incident_id: { type: string }
+            reading_id: { type: string }
+            facility_id: { type: string }
+            medium: { type: string, enum: [AIR, WATER, NOISE] }
+            parameter: { type: string }
+            value: { type: number }
+            fine_estimate_kobo: { type: integer }
+            timestamp: { type: string, format: date-time }
+  ng.sos.citizen.payroll_audit_completed:
+    publish:
+      operationId: payrollAuditCompleted
+      description: >-
+        Emitted by mod-citizen-portal (CIT-11) when a civil-service biometric
+        payroll audit completes, summarising ghost-worker findings and
+        recoverable savings in kobo.
+      message:
+        payload:
+          type: object
+          required: [state_id, audit_id, period, staff_scanned, findings_count, recoverable_kobo, timestamp]
+          properties:
+            state_id: { type: string }
+            audit_id: { type: string }
+            period: { type: string }
+            staff_scanned: { type: integer }
+            findings_count: { type: integer }
+            recoverable_kobo: { type: integer }
+            workflow_ref: { type: string, nullable: true, description: Temporal durable cleanup workflow reference }
+            timestamp: { type: string, format: date-time }

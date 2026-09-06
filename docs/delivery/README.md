@@ -8,6 +8,7 @@ Execution-layer documentation translating the SOS architecture into an engineeri
 | [release-trains.md](release-trains.md) | RT-01…RT-05 release trains, engineering pod topology, environment readiness checklist | Implementation Backlog Pack |
 | [rollout-matrix.md](rollout-matrix.md) | 5-pillar readiness model, 4-wave rollout, wave gates, per-state deployment plans | Cross-State Rollout Matrix |
 | [90-day-playbook.md](90-day-playbook.md) | Day 1–90 executive playbook for state leadership | Master Executive Pack |
+| [rtm-v3.md](rtm-v3.md) | v3.0 requirement traceability matrix (REV-01…PPP-12 + geospatial/lakehouse/financial core) | SOS Business Specification Pack v3.0.0 |
 
 ## Program Delivery Strategy
 

@@ -17,6 +17,8 @@ One canonical codebase, configured per state via policy packs (80/20 rule). Each
 | [mod-education/](mod-education/) | Tertiary consolidated billing & bursary | WP-11 / EPIC-13 | Lot 7 | Osun, all 6 |
 | [mod-market/](mod-market/) | Market stall cadastre, micro-tenancy billing | WP-12 / EPIC-14 | Lot 7 | Osun, Nasarawa, all 6 |
 | [mod-police-cad/](mod-police-cad/) | 112 CAD dispatch, patrol geofencing | WP-13 / EPIC-15 | Lot 8 | All 6 (ratification-gated) |
+| [mod-environment/](mod-environment/) | ENV-09: emissions telemetry compliance, effluent/timber permits, deforestation surveillance, carbon registry, EIA | v3.0 / ENV-09 | Lot 5 | Lagos, Ogun, Taraba (+ shared config Osun, Benue, Nasarawa) |
+| [mod-citizen-portal/](mod-citizen-portal/) | CIT-11: citizen portal, Keycloak SSO wallet, e-petitions, payroll ghost-worker audit | v3.0 / CIT-11 | Lot 7 | All 6 |
 | [lakehouse/](lakehouse/) | Delta Lake medallion, Flink streaming, Ray AI | WP-15 / EPIC-17/18 | Lot 7 | All 6 |
 
 ## Module Anatomy (standard layout)
