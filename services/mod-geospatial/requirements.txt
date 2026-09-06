@@ -1,0 +1,14 @@
+# mod-geospatial — runtime/test dependencies (all permissive licenses)
+fastapi>=0.110        # MIT
+pydantic>=2.6         # MIT
+shapely>=2.0          # BSD-3-Clause
+numpy>=1.26           # BSD-3-Clause
+httpx>=0.27           # BSD-3-Clause (test client)
+pytest>=8.0           # MIT
+
+# Optional production extras (install explicitly; adapters fail closed without them):
+#   h3>=4.1            # Apache-2.0  — real H3 indexing
+#   geopandas>=1.0     # BSD-3-Clause — GeoParquet export
+#   pyarrow>=15.0      # Apache-2.0  — GeoParquet export
+#   psycopg[binary]>=3.1  # LGPL-3.0 — PostGIS repository seam
+#   geolibre / geolibre-wasm — GeoLibre project & WASM processing adapters
