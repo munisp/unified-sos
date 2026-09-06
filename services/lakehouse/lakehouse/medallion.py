@@ -42,16 +42,45 @@ def ingest_raw_events(raw_json_path: Path) -> pd.DataFrame:
     return df
 
 
+def _parquet_engine_available() -> bool:
+    try:
+        import pyarrow.parquet  # noqa: F401
+
+        return True
+    except ImportError:
+        try:
+            import fastparquet  # noqa: F401
+
+            return True
+        except ImportError:
+            return False
+
+
 def write_parquet(df: pd.DataFrame, path: Path) -> Path:
-    """Persist a layer to parquet (local stand-in for a Delta table)."""
+    """Persist a layer to parquet (local stand-in for a Delta table).
+
+    Falls back to JSON records when no parquet engine (pyarrow/fastparquet)
+    is installed, so the reference pipeline stays runnable in minimal
+    environments. Production writes Delta tables via Spark/Flink — see README.
+    """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(path, index=False)
-    return path
+    if _parquet_engine_available():
+        df.to_parquet(path, index=False)
+        return path
+    fallback = path.with_suffix(".json")
+    df.to_json(fallback, orient="records")
+    return fallback
 
 
 def read_parquet(path: Path) -> pd.DataFrame:
-    return pd.read_parquet(path)
+    path = Path(path)
+    if path.exists():
+        return pd.read_parquet(path)
+    fallback = path.with_suffix(".json")
+    if fallback.exists():
+        return pd.read_json(fallback, orient="records")
+    raise FileNotFoundError(f"neither {path} nor {fallback} exists")
 
 
 # ---------------------------------------------------------------- silver ---
