@@ -1,0 +1,88 @@
+openapi: 3.1.0
+info:
+  title: SOS Control Plane — Tenant Provisioning API
+  version: 1.0.0
+  description: >-
+    WP-01 / EPIC-01. Global control plane: zero-downtime onboarding of state
+    tenants and MDA sub-tenants with automated resource provisioning, KMS keyring
+    generation, and policy-pack ingestion. Contains ZERO citizen PII.
+paths:
+  /control/v1/tenants:
+    post:
+      operationId: createTenant
+      summary: Provision a new state tenant (equivalent to `sosctl tenant create`)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantCreate'
+            example:
+              state: nasarawa
+              tier: shared
+              realms: [sos-nasarawa]
+      responses:
+        '202':
+          description: Provisioning accepted; completes in < 90 seconds
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantOperation'
+  /control/v1/tenants/{tenant_id}/policy-packs:
+    post:
+      operationId: ingestPolicyPack
+      summary: Ingest a dynamic state policy pack (validated against contracts/policy-packs schema)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PolicyPackRef' }
+      responses:
+        '200': { description: Policy pack validated and activated }
+        '422': { description: Schema/OPA validation failure }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    TenantCreate:
+      type: object
+      required: [state, tier]
+      properties:
+        state:
+          type: string
+          enum: [lagos, ogun, osun, benue, nasarawa, taraba]
+        tier:
+          type: string
+          enum: [dedicated, hybrid, shared]
+          description: Tier 1 dedicated | Tier 2 hybrid | Tier 3 shared multi-tenant
+        realms:
+          type: array
+          items: { type: string }
+    TenantOperation:
+      type: object
+      properties:
+        tenant_id: { type: string }
+        status: { type: string, enum: [provisioning, active, failed] }
+        provisioned_resources:
+          type: object
+          properties:
+            k8s_namespace: { type: string }
+            postgres_schema: { type: string }
+            keycloak_realm: { type: string }
+            s3_bucket: { type: string }
+            kms_keyring: { type: string }
+    PolicyPackRef:
+      type: object
+      required: [policy_id, document]
+      properties:
+        policy_id: { type: string }
+        document:
+          type: object
+          description: Policy pack document conforming to contracts/policy-packs/revenue-split.schema.json

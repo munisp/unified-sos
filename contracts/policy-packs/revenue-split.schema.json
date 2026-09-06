@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sos.gov.ng/contracts/policy-packs/revenue-split.schema.json",
+  "title": "SOS Dynamic Policy Pack — Statutory Revenue Split",
+  "description": "Declarative multi-leg statutory revenue split formulas injected per state without recompiling microservices. Enforced at the TigerBeetle ledger layer (ADR-002/ADR-003, Clause 22.2). Percentages across INSTANT legs must sum to <= 100; remainder stays in the payer clearing account until END_OF_MONTH sweeps.",
+  "type": "object",
+  "required": ["tenant_state_id", "policy_id", "revenue_head", "statutory_split_rules"],
+  "properties": {
+    "tenant_state_id": {
+      "type": "string",
+      "enum": ["lagos", "ogun", "osun", "benue", "nasarawa", "taraba"]
+    },
+    "policy_id": { "type": "string", "pattern": "^POL_[A-Z0-9_]+$" },
+    "revenue_head": { "type": "string", "pattern": "^REV_[A-Z0-9_]+$" },
+    "effective_date": { "type": "string", "format": "date" },
+    "gazette_reference": {
+      "type": "string",
+      "description": "Gazetted statutory instrument backing this split (mandatory per 90-day playbook, Days 1-30)"
+    },
+    "statutory_split_rules": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["beneficiary", "tigerbeetle_account_code", "split_percentage", "deduction_timing"],
+        "properties": {
+          "beneficiary": {
+            "type": "string",
+            "enum": [
+              "STATE_CONSOLIDATED_REVENUE_FUND",
+              "MDA_RETENTION_ACCOUNT",
+              "PPP_TECH_CONCESSIONAIRE_ESCROW",
+              "LOCAL_GOVERNMENT_SHARE_POOL",
+              "TRANSPORT_UNION_COMMISSION",
+              "SECURITY_TRUST_FUND"
+            ]
+          },
+          "beneficiary_detail": { "type": "string" },
+          "tigerbeetle_account_code": { "type": "integer", "minimum": 1000, "maximum": 9999 },
+          "split_percentage": { "type": "number", "minimum": 0, "maximum": 100 },
+          "deduction_timing": { "type": "string", "enum": ["INSTANT", "END_OF_MONTH"] }
+        }
+      }
+    },
+    "concession_guardrails": {
+      "type": "object",
+      "properties": {
+        "revenue_share_ceiling_pct": {
+          "type": "number",
+          "description": "Max 15 (agrarian/extractive states) or 8 (Ogun/Lagos) per procurement guardrails"
+        },
+        "irr_cap_pct": { "type": "number", "maximum": 22 },
+        "step_down_schedule": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "up_to_cumulative_igr_kobo": { "type": "integer" },
+              "share_pct": { "type": "number" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,77 @@
+asyncapi: 2.6.0
+info:
+  title: SOS Mining & Extractives Events (mod-mining)
+  version: 1.0.0
+  description: >-
+    WP-07 / EPIC-07. Kafka/Fluvio event contracts for mineral custody: every load
+    (lithium spodumene, columbite, tantalite, gold) is weighed, assay-sampled, and
+    cryptographically registered before transit dispatch. HARD CONSTRAINT: state
+    levies only — federal royalty lines are separated by construction.
+channels:
+  ng.sos.mining.consignment_dispatched:
+    publish:
+      operationId: consignmentDispatched
+      message:
+        payload:
+          type: object
+          required: [state_id, consignment_id, mine_lease_id, mineral_type, net_weight_kg, royalty_due_kobo, timestamp]
+          properties:
+            state_id: { type: string, enum: [nasarawa, osun, taraba, ogun] }
+            consignment_id: { type: string, example: MIN-NAS-2026-0819 }
+            mine_lease_id: { type: string, example: ML-NAS-KOKO-04 }
+            mineral_type:
+              type: string
+              enum: [LITHIUM_SPODUMENE, COLUMBITE, TANTALITE, GOLD_ORE, GRANITE, SAPPHIRE, BARITE]
+            gross_weight_kg: { type: number }
+            tare_weight_kg: { type: number }
+            net_weight_kg: { type: number }
+            lithium_oxide_grade_pct: { type: number, description: XRF assay purity grade }
+            truck_registration: { type: string, example: NSR-412-XA }
+            rfid_seal_id: { type: string, example: RFID-881290-09 }
+            royalty_due_kobo:
+              type: integer
+              description: State levy (NOT federal royalty) due, computed from tonnage + assay
+            destination_corridor: { type: string, example: PORT_LAGOS_APAPA }
+            timestamp: { type: string, format: date-time }
+        examples:
+          - payload:
+              state_id: nasarawa
+              consignment_id: MIN-NAS-2026-0819
+              mine_lease_id: ML-NAS-KOKO-04
+              mineral_type: LITHIUM_SPODUMENE
+              gross_weight_kg: 32450.00
+              tare_weight_kg: 12100.00
+              net_weight_kg: 20350.00
+              lithium_oxide_grade_pct: 5.85
+              truck_registration: NSR-412-XA
+              rfid_seal_id: RFID-881290-09
+              royalty_due_kobo: 42500000
+              destination_corridor: PORT_LAGOS_APAPA
+              timestamp: '2026-09-06T12:30:00Z'
+  ng.sos.mining.weighbridge_reading:
+    publish:
+      operationId: weighbridgeReading
+      message:
+        payload:
+          type: object
+          properties:
+            state_id: { type: string }
+            station_id: { type: string }
+            axle_weights_kg: { type: array, items: { type: number } }
+            gross_weight_kg: { type: number }
+            anpr_plate: { type: string }
+            overload_detected: { type: boolean }
+            timestamp: { type: string, format: date-time }
+  ng.sos.forestry.untagged_timber_alert:
+    publish:
+      operationId: untaggedTimberAlert
+      description: Automated alert on un-tagged timber haulage (WP-07 acceptance)
+      message:
+        payload:
+          type: object
+          properties:
+            state_id: { type: string, enum: [taraba, ogun, osun, benue] }
+            checkpoint_id: { type: string }
+            vehicle_plate: { type: string }
+            gps: { type: object, properties: { lat: { type: number }, lon: { type: number } } }
+            timestamp: { type: string, format: date-time }

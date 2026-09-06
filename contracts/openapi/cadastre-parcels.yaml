@@ -1,0 +1,117 @@
+openapi: 3.1.0
+info:
+  title: SOS Cadastral Land Administration API (mod-gis-lands)
+  version: 1.0.0
+  description: >-
+    WP-06 / EPIC-06. Cadastral parcel registry, deed verification, and e-C-of-O
+    titling workflow entry points. Spatial CRUD served by PostGIS; batch analytics
+    by Apache Sedona. Surveyor beacons in UTM Minna Datum (EPSG:26391/26392/26393)
+    and WGS84 (EPSG:4326). Zero overlapping-polygon tolerance on new parcels.
+paths:
+  /api/v1/states/{state_id}/cadastre/parcels:
+    post:
+      operationId: registerParcel
+      summary: Register a new cadastral parcel (with topological overlap validation)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/StateId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParcelRegistration'
+      responses:
+        '201':
+          description: Parcel registered; e-C-of-O Temporal workflow initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Parcel'
+        '409':
+          description: Boundary overlaps gazetted reserve, setback, or existing title
+    get:
+      operationId: searchParcels
+      summary: Spatial/attribute parcel search (GiST-accelerated)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/StateId'
+        - name: lga_id
+          in: query
+          schema: { type: string }
+        - name: within
+          in: query
+          description: WKT polygon (EPSG:4326) for spatial filter
+          schema: { type: string }
+      responses:
+        '200':
+          description: Matching parcels
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Parcel' }
+  /api/v1/states/{state_id}/cadastre/deeds/verify:
+    post:
+      operationId: verifyDeed
+      summary: Cryptographic verification of a digital land title deed
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/StateId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [c_of_o_number]
+              properties:
+                c_of_o_number: { type: string }
+                parcel_uin: { type: string }
+      responses:
+        '200':
+          description: Deed verification result with signature chain
+components:
+  parameters:
+    StateId:
+      name: state_id
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [lagos, ogun, osun, benue, nasarawa, taraba]
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ParcelRegistration:
+      type: object
+      required: [lga_id, parcel_uin, owner_stin, land_use_type, survey_plan_no, beacon_count, area_sqm, boundary_geojson]
+      properties:
+        lga_id: { type: string }
+        parcel_uin: { type: string, description: Unique Identification Number }
+        owner_stin: { type: string }
+        land_use_type:
+          type: string
+          enum: [RESIDENTIAL, COMMERCIAL, INDUSTRIAL, AGRI]
+        survey_plan_no: { type: string }
+        beacon_count: { type: integer, minimum: 3 }
+        area_sqm: { type: number }
+        boundary_geojson:
+          type: object
+          description: GeoJSON Polygon, WGS84 (EPSG:4326)
+    Parcel:
+      type: object
+      properties:
+        parcel_id: { type: string, format: uuid }
+        parcel_uin: { type: string }
+        title_type:
+          type: string
+          enum: [UNREGISTERED, C_OF_O, GOV_CONSENT, R_OF_O]
+        c_of_o_number: { type: string, nullable: true }
+        status: { type: string }
+        titling_workflow_id:
+          type: string
+          description: Temporal CadastralTitlingWorkflow ID (Surveyor → Town Planning → AG → Governor signature)

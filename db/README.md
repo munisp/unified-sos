@@ -1,0 +1,14 @@
+# Database Migrations
+
+PostgreSQL 16+ / PostGIS 3.4+ schema migrations for the SOS data plane. All state-data tables carry `tenant_state_id` + **Row-Level Security** keyed on `app.current_state_tenant` — tenancy isolation is enforced at the database layer (acceptance REQ-SEC-01: zero cross-tenant leakage verified by automated pen-tests).
+
+| Migration | Scope |
+|---|---|
+| [0001_cadastre.sql](migrations/0001_cadastre.sql) | Cadastral parcels (PostGIS geometry, GiST indexes, RLS) — WP-06 |
+| [0002_revenue_core.sql](migrations/0002_revenue_core.sql) | STIN taxpayers, assessments, bills — WP-05 |
+
+## Conventions
+
+- Migrations are forward-only, applied per-tenant-schema by the Tenant Schema Migrator (EP-CP-03).
+- Monetary columns are `BIGINT` kobo — balances never mutated here; the TigerBeetle ledger is the balance source of truth.
+- Spatial columns use `GEOMETRY(..., 4326)` with GiST indexes; cadastral precision validated against UTM Minna Datum (EPSG:26391/26392/26393) at ingest.

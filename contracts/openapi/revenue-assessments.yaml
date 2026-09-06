@@ -1,0 +1,98 @@
+openapi: 3.1.0
+info:
+  title: SOS Core Revenue & Assessment API (mod-rev-core)
+  version: 1.0.0
+  description: >-
+    WP-05 / EPIC-05. STIN taxpayer registry, dynamic tax assessment, NIBSS e-Bill
+    generation, and real-time double-entry posting to the TigerBeetle ledger.
+    Non-functional targets: 99.999% availability; API latency < 25ms (p99);
+    2,500 bill settlements/sec per state at peak.
+servers:
+  - url: https://api.{state}.gov.ng/sos
+    description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+paths:
+  /api/v1/states/{state_id}/revenue/assessments:
+    post:
+      operationId: createTaxAssessment
+      summary: Create tax assessment & issue bill
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: state_id
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [lagos, ogun, osun, benue, nasarawa, taraba]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssessmentRequest'
+            example:
+              taxpayer_stin: NG-NAS-2026-892104
+              mda_code: MDA-BIR-001
+              revenue_head: REV_DIRECT_ASSESSMENT
+              tax_period_year: 2026
+              gross_income_kobo: 1200000000
+              allowable_deductions_kobo: 240000000
+              calculated_tax_kobo: 192000000
+              metadata:
+                lga_code: LGA-KARU
+                assessment_officer_id: USR-OFF-410
+      responses:
+        '201':
+          description: Assessment created; TigerBeetle pending transfer reserved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentResponse'
+              example:
+                assessment_id: ASM-NAS-2026-0091823
+                bill_reference: BILL-9081-7712-4410
+                tigerbeetle_transfer_pending_id: '18446744073709551615'
+                amount_due_kobo: 192000000
+                payment_qr_payload: https://pay.nasarawa.gov.ng/pay/BILL-9081-7712-4410
+                created_at: '2026-09-06T10:14:22Z'
+        '400':
+          description: Validation error (amount mismatch, unknown revenue head)
+        '401':
+          description: Missing/invalid JWT
+        '403':
+          description: Cross-tenant access attempt (realm/tenant mismatch)
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Keycloak realm-issued JWT carrying state tenant ID and MDA boundary claims
+  schemas:
+    AssessmentRequest:
+      type: object
+      required: [taxpayer_stin, mda_code, revenue_head, tax_period_year, gross_income_kobo, calculated_tax_kobo]
+      properties:
+        taxpayer_stin:
+          type: string
+          pattern: '^NG-[A-Z]{3}-[0-9]{4}-[0-9]{6}$'
+        mda_code: { type: string }
+        revenue_head: { type: string }
+        tax_period_year: { type: integer, minimum: 2020 }
+        gross_income_kobo: { type: integer, minimum: 0 }
+        allowable_deductions_kobo: { type: integer, minimum: 0 }
+        calculated_tax_kobo: { type: integer, minimum: 0 }
+        metadata:
+          type: object
+          properties:
+            lga_code: { type: string }
+            assessment_officer_id: { type: string }
+    AssessmentResponse:
+      type: object
+      properties:
+        assessment_id: { type: string }
+        bill_reference: { type: string }
+        tigerbeetle_transfer_pending_id: { type: string, description: 128-bit ID as decimal string }
+        amount_due_kobo: { type: integer }
+        payment_qr_payload: { type: string, format: uri }
+        created_at: { type: string, format: date-time }

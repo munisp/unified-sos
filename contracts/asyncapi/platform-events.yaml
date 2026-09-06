@@ -1,0 +1,64 @@
+asyncapi: 2.6.0
+info:
+  title: SOS Platform Lifecycle & Settlement Events
+  version: 1.0.0
+  description: Control-plane tenant lifecycle events and financial settlement events.
+channels:
+  ng.sos.tenant.provisioned:
+    publish:
+      operationId: tenantProvisioned
+      description: Emitted by the control plane when a state tenant completes provisioning (WP-01)
+      message:
+        payload:
+          type: object
+          required: [tenant_id, state, tier, timestamp]
+          properties:
+            tenant_id: { type: string }
+            state: { type: string, enum: [lagos, ogun, osun, benue, nasarawa, taraba] }
+            tier: { type: string, enum: [dedicated, hybrid, shared] }
+            keycloak_realm: { type: string }
+            postgres_schema: { type: string }
+            timestamp: { type: string, format: date-time }
+  ng.sos.payments.settlement_completed:
+    publish:
+      operationId: settlementCompleted
+      description: >-
+        Emitted after Mojaloop clearing and TigerBeetle atomic statutory split
+        (WP-04 flow step 5: real-time webhook confirms MDA). Clause 22.2:
+        vendor share distributed strictly via ledger execution.
+      message:
+        payload:
+          type: object
+          required: [state_id, bill_reference, gross_amount_kobo, splits, tigerbeetle_transfer_ids, timestamp]
+          properties:
+            state_id: { type: string }
+            bill_reference: { type: string }
+            gross_amount_kobo: { type: integer }
+            splits:
+              type: array
+              items:
+                type: object
+                properties:
+                  beneficiary: { type: string, description: e.g. STATE_CONSOLIDATED_REVENUE_FUND, MDA_RETENTION, PPP_CONCESSIONAIRE_ESCROW }
+                  tigerbeetle_account_code: { type: integer }
+                  amount_kobo: { type: integer }
+            tigerbeetle_transfer_ids:
+              type: array
+              items: { type: string, description: 128-bit ID as decimal string }
+            timestamp: { type: string, format: date-time }
+  ng.sos.gis.unassessed_property_discovered:
+    publish:
+      operationId: unassessedPropertyDiscovered
+      description: Sedona satellite footprint ↔ cadastre join findings (WP-06/WP-14)
+      message:
+        payload:
+          type: object
+          properties:
+            state_id: { type: string }
+            building_footprint_id: { type: string }
+            parcel_uin: { type: string, nullable: true }
+            audit_status:
+              type: string
+              enum: [UNREGISTERED_ENCROACHMENT, UNASSESSED_IMPROVEMENT, COMPLIANT]
+            estimated_area_sqm: { type: number }
+            timestamp: { type: string, format: date-time }
