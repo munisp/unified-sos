@@ -5,8 +5,10 @@ from __future__ import annotations
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from pydantic import BaseModel
 
+from .adapters.base import AdapterUnavailableError
 from .domain import (
     ClearingRecord,
+    EscrowRecord,
     FareRule,
     FareTable,
     MobilityStore,
@@ -36,14 +38,32 @@ class CowryAuthRequest(BaseModel):
     fare_kobo: int
 
 
+class EscrowPrepareRequest(BaseModel):
+    transfer_id: str
+    batch_id: str
+    amount_kobo: int
+    condition: str = ""
+
+
+class NibssBillNotification(BaseModel):
+    bill_reference: str
+    amount_kobo: int
+    channel: str = "NIP"
+    provider_reference: str = ""
+
+
 def get_store(request: Request) -> MobilityStore:
     return request.app.state.store
 
 
-def create_app(store: MobilityStore | None = None) -> FastAPI:
+def create_app(store: MobilityStore | None = None, fspiop=None, nibss=None) -> FastAPI:
+    """App factory. `fspiop` / `nibss` are scheme adapters (FSPIOP / NIBSS
+    e-Bills); when None the scheme seams fail closed on use."""
     app = FastAPI(title="SOS mod-mobility-switch — Multimodal Transit Clearing",
                   version="0.1.0")
     app.state.store = store or MobilityStore()
+    app.state.fspiop = fspiop
+    app.state.nibss = nibss
 
     @app.put("/mobility/v1/fares/{tenant_state_id}", response_model=FareTable)
     def put_fare_table(tenant_state_id: str, req: FareTableRequest,
@@ -93,6 +113,82 @@ def create_app(store: MobilityStore | None = None) -> FastAPI:
     @app.get("/mobility/v1/settlements", response_model=list[SettlementBatch])
     def list_batches(store: MobilityStore = Depends(get_store)):
         return list(store.batches.values())
+
+    # --- pending-transfer escrow (Mojaloop FSPIOP seam) ----------------------
+    @app.post("/mobility/v1/escrow", status_code=status.HTTP_201_CREATED,
+              response_model=EscrowRecord)
+    def prepare_escrow(req: EscrowPrepareRequest, request: Request,
+                       store: MobilityStore = Depends(get_store)):
+        """Begin a pending-transfer escrow: reserves the batch gross on the
+        escrow account and (when an FSPIOP adapter is wired) POSTs
+        /transfers prepare to the scheme. Idempotent on transfer_id."""
+        fspiop = request.app.state.fspiop
+        if fspiop is not None:
+            try:
+                fspiop.transfer_prepare(req.transfer_id, req.amount_kobo,
+                                        req.condition, "")
+            except AdapterUnavailableError as exc:
+                raise HTTPException(status_code=503, detail=str(exc))
+        try:
+            return store.begin_escrow(req.transfer_id, req.batch_id,
+                                      req.amount_kobo, req.condition)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=exc.args[0])
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+
+    @app.post("/mobility/v1/escrow/{transfer_id}/fulfil", response_model=EscrowRecord)
+    def fulfil_escrow(transfer_id: str, request: Request,
+                      store: MobilityStore = Depends(get_store)):
+        """Post a pending escrow (FSPIOP COMMITTED fulfilment)."""
+        fspiop = request.app.state.fspiop
+        fulfilment = ""
+        if fspiop is not None:
+            try:
+                fulfilment = fspiop.transfer_fulfil(transfer_id, "")["fulfilment"]
+            except AdapterUnavailableError as exc:
+                raise HTTPException(status_code=503, detail=str(exc))
+            except KeyError as exc:
+                raise HTTPException(status_code=404, detail=exc.args[0])
+        try:
+            return store.fulfil_escrow(transfer_id, fulfilment)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=exc.args[0])
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+
+    @app.post("/mobility/v1/escrow/{transfer_id}/abort", response_model=EscrowRecord)
+    def abort_escrow(transfer_id: str, store: MobilityStore = Depends(get_store)):
+        """Void a pending escrow (FSPIOP ABORTED / expiry)."""
+        try:
+            return store.abort_escrow(transfer_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=exc.args[0])
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+
+    @app.post("/mobility/v1/webhooks/nibss/ebills")
+    def nibss_bill_notification(req: NibssBillNotification, request: Request,
+                                store: MobilityStore = Depends(get_store)):
+        """NIBSS e-Bills payment notification; HMAC signature checked via the
+        adapter. Idempotent on bill_reference. Without a configured adapter
+        the seam fails closed (503) — no unsigned notifications accepted."""
+        nibss = request.app.state.nibss
+        if nibss is None:
+            raise HTTPException(
+                status_code=503,
+                detail="NIBSS e-Bills adapter not configured (fail closed)")
+        body = req.model_dump_json().encode("utf-8")
+        if not nibss.verify_notification_signature(request.headers, body):
+            raise HTTPException(status_code=401, detail="invalid NIBSS signature")
+        event = store.record_bill_event(req.bill_reference, {
+            "bill_reference": req.bill_reference,
+            "amount_kobo": req.amount_kobo,
+            "channel": req.channel,
+            "provider_reference": req.provider_reference,
+            "received_at": _now(),
+        })
+        return {"status": "recorded", "event": event}
 
     @app.post("/mobility/v1/cowry/authorize")
     def cowry_authorization(req: CowryAuthRequest):

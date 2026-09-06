@@ -96,3 +96,69 @@ def test_404s(client: TestClient) -> None:
     assert client.post("/education/v1/registrations", json={
         "student_id": "stu-ghost", "session": "s", "courses": ["X"],
     }).status_code == 404
+
+
+# --- FSPIOP fulfilment mode (adapter wired) ------------------------------------
+
+import hashlib
+import hmac
+import json
+
+_TEST_SECRET = "test-callback-secret"
+
+
+class _FakeFspiopVerifier:
+    """Duck-typed stand-in for FspiopAdapter (HMAC sim profile)."""
+
+    def verify_inbound_signature(self, headers, body: bytes) -> bool:
+        sig = headers.get("fspiop-signature", "")
+        expected = "sha256=" + hmac.new(
+            _TEST_SECRET.encode(), body, hashlib.sha256).hexdigest()
+        return hmac.compare_digest(expected, sig)
+
+
+def _signed_fulfilment(client: TestClient, invoice_id: str, amount: int,
+                       transfer_id: str = "mjl-tx-900", state: str = "COMMITTED",
+                       sign: bool = True):
+    body = json.dumps({
+        "transfer_id": transfer_id, "invoice_id": invoice_id,
+        "amount_kobo": amount, "transfer_state": state,
+        "fulfilment": "Zml4dHVyZQ==", "completed_timestamp": "2026-01-01T00:00:00Z",
+    }, sort_keys=True).encode()
+    headers = {"Content-Type": "application/json"}
+    if sign:
+        headers["FSPIOP-Signature"] = "sha256=" + hmac.new(
+            _TEST_SECRET.encode(), body, hashlib.sha256).hexdigest()
+    return client.post("/education/v1/webhooks/mojaloop", content=body,
+                       headers=headers)
+
+
+@pytest.fixture()
+def adapter_client() -> TestClient:
+    return TestClient(create_app(fspiop=_FakeFspiopVerifier()))
+
+
+def test_fulfilment_mode_credits_committed_transfer(adapter_client: TestClient) -> None:
+    sid = _student(adapter_client)
+    inv = _invoice(adapter_client, sid, amount=1000000)
+    resp = _signed_fulfilment(adapter_client, inv["invoice_id"], 1000000)
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "paid"
+
+
+def test_fulfilment_mode_rejects_unsigned_callback(adapter_client: TestClient) -> None:
+    sid = _student(adapter_client)
+    inv = _invoice(adapter_client, sid, amount=1000000)
+    resp = _signed_fulfilment(adapter_client, inv["invoice_id"], 1000000,
+                              sign=False)
+    assert resp.status_code == 401
+    assert adapter_client.get(
+        f"/education/v1/students/{sid}/billing").json()["registration_locked"]
+
+
+def test_fulfilment_mode_rejects_aborted_transfer(adapter_client: TestClient) -> None:
+    sid = _student(adapter_client)
+    inv = _invoice(adapter_client, sid, amount=1000000)
+    resp = _signed_fulfilment(adapter_client, inv["invoice_id"], 1000000,
+                              state="ABORTED")
+    assert resp.status_code == 409

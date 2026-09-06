@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from .domain import (
     EducationStore,
@@ -33,7 +33,10 @@ class RegisterRequest(BaseModel):
 
 
 class MojaloopWebhook(BaseModel):
-    """Stub of a Mojaloop clearing transfer notification (FSPIOP-style)."""
+    """Local-mode stub of a Mojaloop clearing transfer notification.
+
+    Used only when no FSPIOP adapter is wired (deterministic local default).
+    """
 
     transfer_id: str
     invoice_id: str
@@ -41,13 +44,32 @@ class MojaloopWebhook(BaseModel):
     payer_msisdn_alias: str | None = None  # opaque alias only
 
 
+class TransferFulfilmentWebhook(BaseModel):
+    """FSPIOP PUT /transfers/{id} fulfilment callback (adapter mode).
+
+    Requires a valid FSPIOP-Signature header, verified via the injected
+    scheme adapter (fail closed: no adapter/signature → 401/503).
+    """
+
+    transfer_id: str
+    invoice_id: str
+    amount_kobo: int = Field(..., ge=0)
+    transfer_state: str = "COMMITTED"  # COMMITTED | ABORTED
+    fulfilment: str | None = None
+    completed_timestamp: str | None = None
+
+
 def get_store(request: Request) -> EducationStore:
     return request.app.state.store
 
 
-def create_app(store: EducationStore | None = None) -> FastAPI:
+def create_app(store: EducationStore | None = None, fspiop=None) -> FastAPI:
+    """App factory. `fspiop` is an optional Mojaloop FSPIOP scheme adapter
+    (duck-typed: verify_inbound_signature(headers, body) -> bool); when None
+    the webhook runs in deterministic local stub mode."""
     app = FastAPI(title="SOS mod-education — Tertiary Consolidated Billing", version="0.1.0")
     app.state.store = store or EducationStore()
+    app.state.fspiop = fspiop
 
     @app.post("/education/v1/students", status_code=status.HTTP_201_CREATED,
               response_model=Student)
@@ -97,8 +119,34 @@ def create_app(store: EducationStore | None = None) -> FastAPI:
             raise HTTPException(status_code=status.HTTP_423_LOCKED, detail=str(exc))
 
     @app.post("/education/v1/webhooks/mojaloop", response_model=StudentInvoice)
-    def mojaloop_webhook(req: MojaloopWebhook, store: EducationStore = Depends(get_store)):
-        """Mojaloop-clearing webhook stub: completed transfer credits an invoice."""
+    async def mojaloop_webhook(request: Request, store: EducationStore = Depends(get_store)):
+        """Mojaloop clearing webhook.
+
+        Adapter mode: FSPIOP PUT /transfers/{id} fulfilment — the
+        FSPIOP-Signature header is verified via the injected adapter and the
+        transfer must be COMMITTED. Local mode (no adapter): deterministic
+        stub payload (MojaloopWebhook), kept for offline development.
+        """
+        fspiop = request.app.state.fspiop
+        body = await request.body()
+        if fspiop is not None:
+            if not fspiop.verify_inbound_signature(request.headers, body):
+                raise HTTPException(status_code=401,
+                                    detail="invalid or missing FSPIOP-Signature")
+            try:
+                req = TransferFulfilmentWebhook.model_validate_json(body)
+            except ValidationError as exc:
+                raise HTTPException(status_code=422, detail=exc.errors())
+            if req.transfer_state.upper() != "COMMITTED":
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"transfer {req.transfer_id} is {req.transfer_state}; "
+                           "only COMMITTED fulfilments credit invoices")
+        else:
+            try:
+                req = MojaloopWebhook.model_validate_json(body)
+            except ValidationError as exc:
+                raise HTTPException(status_code=422, detail=exc.errors())
         try:
             return store.apply_mojaloop_transfer(req.transfer_id, req.invoice_id,
                                                  req.amount_kobo)

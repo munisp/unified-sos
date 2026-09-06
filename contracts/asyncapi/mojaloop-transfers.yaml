@@ -1,0 +1,67 @@
+# Mojaloop FSPIOP v1.1 transfer callbacks into the SOS platform.
+# Covers the transfer lifecycle events consumed by mod-education (invoice
+# credit) and mod-mobility-switch (pending-transfer escrow post/void).
+asyncapi: 3.0.0
+info:
+  title: SOS Mojaloop Transfers Callbacks
+  version: 0.1.0
+  description: >-
+    FSPIOP v1.1 transfer lifecycle callbacks emitted by the Mojaloop scheme
+    adapter. Inbound messages MUST carry an FSPIOP-Signature header (JWS in
+    production; HMAC-SHA256 "sha256=<hex>" in the deterministic sim profile).
+    Receivers fail closed: unsigned or mis-signed callbacks are rejected (401)
+    and non-COMMITTED fulfilments never credit/settle (409).
+channels:
+  transferFulfilment:
+    address: /fspiop/transfers/{transferId}
+    description: PUT /transfers/{transferId} fulfilment callback.
+    messages:
+      transferFulfilment:
+        $ref: '#/components/messages/TransferFulfilment'
+      transferAbort:
+        $ref: '#/components/messages/TransferAbort'
+operations:
+  onTransferFulfilment:
+    action: receive
+    channel:
+      $ref: '#/channels/transferFulfilment'
+components:
+  messages:
+    TransferFulfilment:
+      payload:
+        type: object
+        required: [transferId, transferState, completedTimestamp]
+        properties:
+          transferId:
+            type: string
+            format: uuid
+          fulfilment:
+            type: string
+            description: Base64 fulfilment satisfying the prepare condition.
+          transferState:
+            type: string
+            const: COMMITTED
+          completedTimestamp:
+            type: string
+            format: date-time
+          extensionList:
+            type: object
+            description: Platform extension (invoice_id / bill_reference, amount_kobo).
+    TransferAbort:
+      payload:
+        type: object
+        required: [transferId, transferState]
+        properties:
+          transferId:
+            type: string
+            format: uuid
+          transferState:
+            type: string
+            const: ABORTED
+          errorInformation:
+            type: object
+            properties:
+              errorCode:
+                type: string
+              errorDescription:
+                type: string
