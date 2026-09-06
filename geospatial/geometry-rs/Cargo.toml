@@ -1,0 +1,16 @@
+[package]
+name = "geometry-rs"
+version = "0.1.0"
+edition = "2021"
+description = "Deterministic high-performance geometry validation primitives (WKT POLYGON/MULTIPOLYGON)"
+license = "Apache-2.0"
+
+[lib]
+name = "geometry_rs"
+path = "src/lib.rs"
+
+[[bin]]
+name = "geometry-rs"
+path = "src/main.rs"
+
+[dependencies]
