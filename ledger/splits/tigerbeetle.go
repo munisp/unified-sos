@@ -161,14 +161,14 @@ func (l *TigerBeetleLedger) ledgerOrDefault(ledger uint32) uint32 {
 // mapTransferResult maps a TigerBeetle transfer result code back onto
 // the fake's error vocabulary. Unknown codes are a hard error: silently
 // relabeling a rejection would break the atomicity contract.
-func mapTransferResult(r tb_types.TransferResult) (TransferResultCode, error) {
+func mapTransferResult(r tb_types.CreateTransferResult) (TransferResultCode, error) {
 	switch r {
 	case tb_types.TransferOK:
 		return ResultOK, nil
 	case tb_types.TransferExists:
 		return ResultExists, nil
 	case tb_types.TransferIDMustNotBeZero,
-		tb_types.TransferAmountMustBeNonZero:
+		tb_types.TransferAmountMustNotBeZero:
 		return ResultZeroAmount, nil
 	case tb_types.TransferDebitAccountNotFound,
 		tb_types.TransferCreditAccountNotFound:

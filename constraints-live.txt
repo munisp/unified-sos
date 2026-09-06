@@ -1,0 +1,32 @@
+# constraints-live.txt — exact pins for every optional "live" production
+# adapter dependency in the monorepo (Stage 7.A dependency pinning).
+#
+# Usage:
+#   pip install -c constraints-live.txt -r services/mod-geospatial/requirements-live.txt ...
+#   pip install -r constraints-live.txt   # install the full union
+#
+# Every entry must match the corresponding service requirements-live.txt /
+# pyproject `live` extra exactly. Bumps go through CI job `live-deps-compile`.
+
+# services/mod-geospatial (PostGIS / Delta Lake / Temporal)
+psycopg[binary]==3.2.3
+deltalake==0.22.3
+temporalio==1.9.0
+
+# services/control-plane (K8s operator / Postgres schemas / S3 / OpenSearch)
+kubernetes==31.0.0
+asyncpg==0.30.0
+boto3==1.35.76
+opensearch-py==2.8.0
+
+# services/_shared/eventbus (Kafka)
+aiokafka==0.12.0
+
+# packages/document-ai (MinIO object store; boto3 shared with control-plane)
+minio==7.2.12
+# NOTE: paddleocr is intentionally NOT pinned here — it is a heavyweight
+# engine with native deps, installed only in the document-ai worker image.
+# See packages/document-ai/requirements-live.txt for the pinned note.
+
+# services/mod-kyc-kyb (live registry HTTP clients)
+httpx==0.28.1

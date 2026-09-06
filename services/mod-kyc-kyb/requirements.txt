@@ -1,0 +1,6 @@
+# mod-kyc-kyb — runtime dependencies (exact pins).
+# app/adapters/registry_clients.py imports httpx unconditionally, so it is a
+# runtime (not optional) dependency; live registry clients fail closed
+# without explicit endpoint configuration.
+# Mirrored in repo-root constraints-live.txt.
+httpx==0.28.1  # BSD-3-Clause — live registry HTTP clients (CAC/NIMC/sanctions)

@@ -1,0 +1,5 @@
+# services/_shared/eventbus — optional production "live" adapter dependency.
+# Exact pin; mirrored in repo-root constraints-live.txt.
+# KafkaEventBus is import-guarded and fails closed without this package or
+# without a bootstrap server configured.
+aiokafka==0.12.0  # Apache-2.0 — Kafka producer/consumer for the shared event bus

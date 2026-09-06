@@ -1,0 +1,12 @@
+# packages/document-ai — optional production "live" adapter dependencies.
+# Exact pins; mirrored in repo-root constraints-live.txt.
+# Adapters are import-guarded and fail closed without these packages or
+# without endpoint/model configuration.
+boto3==1.35.76   # Apache-2.0 — S3-compatible object stores (shared pin with control-plane)
+minio==7.2.12    # Apache-2.0 — MinIO object store adapter
+
+# paddleocr is intentionally NOT pinned here: it is a heavyweight OCR engine
+# (pulls paddlepaddle native wheels) installed only in the dedicated worker
+# image. When added there, pin exactly (e.g. paddleocr==X.Y.Z) and mirror the
+# pin in constraints-live.txt. The PaddleOcrEngine adapter fails closed
+# without it.
