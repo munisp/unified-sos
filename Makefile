@@ -6,7 +6,7 @@ GO_SERVICES := services/mod-rev-core ledger/splits services/mod-geospatial-gatew
 PY_SERVICES := $(wildcard services/*/ edge/edge-daemon/ deploy/keycloak/ packages/*/)
 RUST_COMPONENTS := geospatial/geometry-rs
 
-.PHONY: help test test-go test-python test-rust validate contracts lint lint-rust compose-up compose-down
+.PHONY: help test test-go test-python test-rust validate contracts lint lint-rust compose-up compose-down gates
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -86,3 +86,7 @@ compose-up: ## Boot the local development stack (deploy/docker-compose.yml)
 
 compose-down: ## Stop the local development stack
 	$(COMPOSE) down
+
+GATE ?= stage1
+gates: ## Run an acceptance gate (GATE=stage1|stage2|stage3|sat|golive); evidence in tests/evidence/
+	python3 tests/gates/run_gates.py --gate $(GATE)

@@ -71,3 +71,6 @@ out/
 sbom*.json
 !sbom/*.json
 *.log
+
+# Acceptance gate evidence artifacts
+tests/evidence/

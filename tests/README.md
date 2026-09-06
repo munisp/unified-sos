@@ -5,10 +5,28 @@ Executable verification mapped to the procurement acceptance framework (`docs/pr
 | Suite | Maps To | Key Thresholds |
 |---|---|---|
 | [load/k6-ledger-split.js](load/k6-ledger-split.js) | Stage 2 (Performance/Stress) | 500,000 TPS TigerBeetle; 50,000 req/s APISIX; p99 < 50 ms split |
-| `load/` (planned) | Sedona stress | 10,000 concurrent spatial joins without error |
+| [load/k6-apisix-gateway.js](load/k6-apisix-gateway.js) | Stage 2 (Performance/Stress) | 50,000 req/s APISIX sustained; p99 < 100 ms; zero errors |
+| [load/sedona_joins.py](load/sedona_joins.py) | Sedona stress | 10,000 concurrent spatial joins without error (deterministic local profile; `--profile sedona` for real Spark/Sedona) |
 | `contract/` (planned) | Stage 1 (FAT) | OpenAPI schema validation; Dapr bindings; > 85% coverage |
-| `security/` (planned) | Stage 3 (Pen-test) | OWASP Top 10 100% block; zero critical/high CVEs |
-| `sat/` (planned) | Stage 4 (SAT) | Hardware integration + live bank clearing settlement |
+| [security/owasp_zap_baseline.sh](security/owasp_zap_baseline.sh) + [security/check_cves.py](security/check_cves.py) | Stage 3 (Pen-test) | OWASP Top 10 100% block; zero critical/high CVEs |
+| [sat/run_sat.py](sat/run_sat.py) | Stage 4 (SAT) | Hardware integration + live bank clearing settlement |
+
+## Executable Gates (P0 Workstream E)
+
+Single entrypoint: `python3 tests/gates/run_gates.py --gate stage1|stage2|stage3|sat|golive`
+(or `make gates GATE=...`). Each gate writes JUnit XML + Markdown evidence to
+`tests/evidence/<gate>-<timestamp>/` and exits non-zero on failure. Unmet live
+dependencies are explicit `SKIPPED_NO_CREDENTIALS` / `SKIPPED_NO_TOOL` markers —
+never silent passes; with `SOS_ENV=production` a missing dependency fails the gate.
+CI wiring: `.github/workflows/gates.yml` (stage1 + contracts per PR; stage2/3/sat nightly/dispatch).
+
+| Gate | Checks |
+|---|---|
+| `stage1` (FAT) | OpenAPI contract validation (tests/contract, else tests/contracts); per-service `pytest --cov --cov-fail-under=85` when pytest-cov available; trivy image scan over [gates/trivy-images.txt](gates/trivy-images.txt) |
+| `stage2` | k6 ledger-split + APISIX gateway scripts (skip-gated without k6); deterministic 10k Sedona join harness |
+| `stage3` | OWASP ZAP baseline per target (`SOS_ZAP_TARGETS`); zero critical/high CVE gate over trivy JSON (`SOS_TRIVY_JSON`) |
+| `sat` (Stage 4) | Credential-free harness booting compose profiles ledger/payments/controlplane, integration suites when present, sha256-signed evidence bundle |
+| `golive` (Stage 5) | [gates/go_live_checklist.py](gates/go_live_checklist.py) — artifact checks for the four gates below; exits non-zero unless all present |
 
 ## Go-Live Gates (Stage 5)
 
