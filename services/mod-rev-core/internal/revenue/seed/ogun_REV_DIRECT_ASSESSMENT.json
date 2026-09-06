@@ -1,0 +1,38 @@
+{
+  "tenant_state_id": "ogun",
+  "policy_id": "POL_REVENUE_SPLIT_DIRECT_ASSESSMENT_2026",
+  "revenue_head": "REV_DIRECT_ASSESSMENT",
+  "effective_date": "2026-01-01",
+  "gazette_reference": "Ogun State Revenue Administration Law (2026 assessment split)",
+  "statutory_split_rules": [
+    {
+      "beneficiary": "STATE_CONSOLIDATED_REVENUE_FUND",
+      "tigerbeetle_account_code": 3001,
+      "split_percentage": 72.0,
+      "deduction_timing": "INSTANT"
+    },
+    {
+      "beneficiary": "MDA_RETENTION_ACCOUNT",
+      "beneficiary_detail": "OGUN_BIR_RETENTION",
+      "tigerbeetle_account_code": 2010,
+      "split_percentage": 20.0,
+      "deduction_timing": "INSTANT"
+    },
+    {
+      "beneficiary": "PPP_TECH_CONCESSIONAIRE_ESCROW",
+      "tigerbeetle_account_code": 2099,
+      "split_percentage": 8.0,
+      "deduction_timing": "INSTANT"
+    },
+    {
+      "beneficiary": "LOCAL_GOVERNMENT_SHARE_POOL",
+      "tigerbeetle_account_code": 2020,
+      "split_percentage": 2.0,
+      "deduction_timing": "END_OF_MONTH"
+    }
+  ],
+  "concession_guardrails": {
+    "revenue_share_ceiling_pct": 8.0,
+    "irr_cap_pct": 22
+  }
+}

@@ -27,7 +27,7 @@ Revenue leakage frequently occurs during post-payment manual reconciliation. SOS
 15% (₦15,000) → PPP CONCESSIONAIRE ESCROW
 ```
 
-Reference implementation (Go, linked-transfer atomic chain): [`ledger/splits/atomic_split.go`](../../../ledger/splits/atomic_split.go).
+Reference implementation (Go, linked-transfer atomic chain): [`ledger/splits/cmd/atomic-split/main.go`](../../../ledger/splits/cmd/atomic-split/main.go).
 
 ## Mojaloop Interoperable Payment Switch
 
