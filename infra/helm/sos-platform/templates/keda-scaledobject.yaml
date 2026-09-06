@@ -1,0 +1,25 @@
+{{- if .Values.keda.enabled }}
+# KEDA ScaledObject: scales mod-rev-core on Kafka queue depth (assessment
+# ingestion) per the architecture blueprint autoscaling model.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: "{{ include "sos-platform.fullname" . }}-mod-rev-core"
+  labels:
+    app.kubernetes.io/component: mod-rev-core
+{{ include "sos-platform.labels" . | indent 4 }}
+spec:
+  scaleTargetRef:
+    name: "{{ include "sos-platform.fullname" . }}-mod-rev-core"
+  minReplicaCount: {{ .Values.keda.scaledObject.minReplicaCount }}
+  maxReplicaCount: {{ .Values.keda.scaledObject.maxReplicaCount }}
+  pollingInterval: {{ .Values.keda.scaledObject.pollingInterval }}
+  cooldownPeriod: {{ .Values.keda.scaledObject.cooldownPeriod }}
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: {{ .Values.keda.scaledObject.kafka.bootstrapServers | quote }}
+        topic: {{ .Values.keda.scaledObject.kafka.topic | quote }}
+        consumerGroup: {{ .Values.keda.scaledObject.kafka.consumerGroup | quote }}
+        lagThreshold: {{ .Values.keda.scaledObject.kafka.lagThreshold | quote }}
+{{- end }}

@@ -1,0 +1,57 @@
+{
+  "tenant_state_id": "lagos",
+  "policy_id": "POL_REVENUE_SPLIT_TRANSIT_2026",
+  "revenue_head": "REV_MULTIMODAL_TRANSIT_TICKETING",
+  "effective_date": "2026-04-01",
+  "gazette_reference": "Lagos State Transport Sector Reform Law; LAMATA Unified Ticketing Harmonization Gazette",
+  "statutory_split_rules": [
+    {
+      "beneficiary": "STATE_CONSOLIDATED_REVENUE_FUND",
+      "tigerbeetle_account_code": 3001,
+      "split_percentage": 70.0,
+      "deduction_timing": "INSTANT"
+    },
+    {
+      "beneficiary": "MDA_RETENTION_ACCOUNT",
+      "beneficiary_detail": "LAMATA_TRANSIT_OPERATIONS_RETENTION",
+      "tigerbeetle_account_code": 2010,
+      "split_percentage": 10.0,
+      "deduction_timing": "END_OF_MONTH"
+    },
+    {
+      "beneficiary": "PPP_TECH_CONCESSIONAIRE_ESCROW",
+      "tigerbeetle_account_code": 2099,
+      "split_percentage": 8.0,
+      "deduction_timing": "INSTANT"
+    },
+    {
+      "beneficiary": "TRANSPORT_UNION_COMMISSION",
+      "beneficiary_detail": "ROAD_TRANSPORT_UNION_WELFARE_COMMISSION_POOL",
+      "tigerbeetle_account_code": 4002,
+      "split_percentage": 6.0,
+      "deduction_timing": "INSTANT"
+    },
+    {
+      "beneficiary": "SECURITY_TRUST_FUND",
+      "beneficiary_detail": "LAGOS_STATE_SECURITY_TRUST_FUND_LSSTF",
+      "tigerbeetle_account_code": 4001,
+      "split_percentage": 4.0,
+      "deduction_timing": "INSTANT"
+    },
+    {
+      "beneficiary": "LOCAL_GOVERNMENT_SHARE_POOL",
+      "tigerbeetle_account_code": 2020,
+      "split_percentage": 2.0,
+      "deduction_timing": "END_OF_MONTH"
+    }
+  ],
+  "concession_guardrails": {
+    "revenue_share_ceiling_pct": 8,
+    "irr_cap_pct": 22,
+    "step_down_schedule": [
+      { "up_to_cumulative_igr_kobo": 1000000000000, "share_pct": 8.0 },
+      { "up_to_cumulative_igr_kobo": 3000000000000, "share_pct": 5.0 },
+      { "up_to_cumulative_igr_kobo": 0, "share_pct": 3.0 }
+    ]
+  }
+}

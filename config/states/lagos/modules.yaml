@@ -1,0 +1,24 @@
+# Enabled SOS modules for Lagos — see README.md for the state profile.
+# Waves per docs/delivery/rollout-matrix.md; fit per docs/ppp-pipeline/module-state-fit.md.
+tenant_state_id: lagos
+tenancy_tier: dedicated
+rollout_wave: 0/1
+modules:
+- name: mod-rev-core
+  wave: 1
+  rationale: L4 — LAWMA PSP billing digitization (cashless collection for 420+ PSPs)
+- name: mod-mobility-switch
+  wave: 1
+  rationale: '#26 — Unified multimodal smart transit (Cowry Gen 2 clearing)'
+- name: mod-gis-luc
+  wave: 1
+  rationale: '#27 — High-density cadastre & 3D LUC AI valuation'
+- name: mod-police-cad
+  wave: 2
+  rationale: '#29 — Safe City traffic & space violations (LASTMA e-fines)'
+- name: mod-transport-wim
+  wave: 2
+  rationale: '#28 — Port access smart corridor (Lekki & Apapa gantries)'
+- name: mod-agri-waybill
+  wave: 3
+  rationale: '#30 — Waterways & wharf cargo waybills (LASWA)'

@@ -1,0 +1,21 @@
+# Enabled SOS modules for Ogun — see README.md for the state profile.
+# Waves per docs/delivery/rollout-matrix.md; fit per docs/ppp-pipeline/module-state-fit.md.
+tenant_state_id: ogun
+tenancy_tier: hybrid
+rollout_wave: '1'
+modules:
+- name: mod-transport-wim
+  wave: 1
+  rationale: '#18 — Haulage corridor WIM & RFID (Sagamu/Ewekoro corridors)'
+- name: mod-rev-core
+  wave: 1
+  rationale: '#19/O3 — Commercial vehicle auto-ticketing + OGIRS informal-sector collection'
+- name: mod-forestry
+  wave: 2
+  rationale: '#16 — Industrial continuous emissions & effluent monitoring (OGEPA)'
+- name: mod-gis-lands
+  wave: 2
+  rationale: '#17/O2 — Automated industrial land titling (OLARMS commuter belt)'
+- name: mod-gis-luc
+  wave: 3
+  rationale: '#20 — Digital building approvals & LUC'

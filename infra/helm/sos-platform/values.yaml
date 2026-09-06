@@ -1,0 +1,90 @@
+# SOS platform umbrella values — one release per state tenant.
+# State variation belongs in config/states/<state>/ policy packs (80/20 rule);
+# this chart only carries tenant identity + sizing knobs.
+
+global:
+  # One of: lagos | ogun | osun | benue | nasarawa | taraba
+  tenantStateId: osun
+  # One of: dedicated | hybrid | shared (must match infra/k8s/overlays/)
+  tenancyTier: shared
+  domain: sos.gov.ng
+  # Keycloak realm for this tenant; empty means "sos-<tenantStateId>"
+  keycloakRealm: ""
+  # Postgres host for this tier — shared cluster for Tier 3, dedicated for
+  # Tier 1/2. Injected per-tenant by the ArgoCD Application.
+  postgresHost: sos-postgres-shared.sos-data
+  policyPackPath: config/states/osun/policy-pack.json
+
+apisix:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: apache/apisix
+    tag: "3.9.1-debian" # Apache-2.0
+  service:
+    type: ClusterIP
+    port: 80
+  tls:
+    # TLS 1.3 termination; certificate issued per-state via cert-manager/OpenBao
+    secretName: sos-gateway-tls
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+keycloak:
+  enabled: true
+  image:
+    repository: quay.io/keycloak/keycloak
+    tag: "26.0" # Apache-2.0
+  realmImport:
+    enabled: true
+    # ConfigMap holding realm JSON rendered from config/states/<state>/
+    realmsConfigMap: sos-keycloak-realms
+    backoffLimit: 3
+
+modRevCore:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: ghcr.io/munisp/mod-rev-core
+    tag: "0.1.0"
+  service:
+    port: 8080
+  env:
+    ledgerClusterAddress: tigerbeetle.sos-data:3000
+    ledgerId: "1"
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+kubecost:
+  enabled: true
+  image:
+    repository: gcr.io/kubecost1/cost-model
+    tag: "2.5.2" # Apache-2.0 core
+  service:
+    port: 9090
+  # Label used for per-tenant pro-rata allocation
+  tenantLabel: sos.gov.ng/tenant-state
+
+keda:
+  enabled: true
+  scaledObject:
+    minReplicaCount: 2
+    maxReplicaCount: 20
+    pollingInterval: 15
+    cooldownPeriod: 300
+    # Kafka queue-depth driven scaling (per docs/architecture blueprint)
+    kafka:
+      bootstrapServers: kafka.sos-data:9092
+      topic: ng.sos.revenue.assessments
+      consumerGroup: mod-rev-core
+      lagThreshold: "1000"

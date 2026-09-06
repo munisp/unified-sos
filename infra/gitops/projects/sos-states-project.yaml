@@ -1,0 +1,33 @@
+# ArgoCD project scoping all SOS state-tenant deployments.
+# Restricts deployable namespaces to sos-* and sources to the monorepo,
+# so no tenant pipeline can escape its tenancy boundary.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: sos-states
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: sos-platform
+spec:
+  description: SOS state tenant deployments (6 pilot states, 3 tenancy tiers)
+  sourceRepos:
+    - https://github.com/munisp/unified-sos.git
+  destinations:
+    - namespace: "sos-*"
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+    - group: networking.k8s.io
+      kind: NetworkPolicy
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  syncWindows:
+    - kind: deny
+      schedule: "0 0 * * 0"
+      duration: 6h
+      applications:
+        - "sos-*"
+      manualSync: false
+      timeZone: Africa/Lagos

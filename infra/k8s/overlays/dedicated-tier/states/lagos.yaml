@@ -1,0 +1,93 @@
+# Tier 1 dedicated sovereign data plane for Lagos State.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sos-lagos
+  labels:
+    app.kubernetes.io/part-of: sos-platform
+    sos.gov.ng/tenant-state: lagos
+    sos.gov.ng/tenancy-tier: dedicated
+    pod-security.kubernetes.io/enforce: restricted
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: sos-lagos-quota
+  namespace: sos-lagos
+spec:
+  hard:
+    requests.cpu: "96"
+    requests.memory: 384Gi
+    limits.cpu: "192"
+    limits.memory: 768Gi
+    pods: "800"
+    persistentvolumeclaims: "120"
+    services.loadbalancers: "8"
+---
+# Lagos runs on its own cluster with an isolated VPC; in-cluster policy still
+# restricts traffic to the Lagos namespace, platform components and DNS.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sos-lagos-tenant-isolation
+  namespace: sos-lagos
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              sos.gov.ng/tenant-state: lagos
+        - namespaceSelector:
+            matchLabels:
+              sos.gov.ng/platform-component: "true"
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              sos.gov.ng/tenant-state: lagos
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              sos.gov.ng/platform-component: "true"
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# RLS-enforcing Postgres notes for the Lagos dedicated tenant.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sos-lagos-postgres-tenancy
+  namespace: sos-lagos
+  labels:
+    sos.gov.ng/tenant-state: lagos
+data:
+  TENANCY_NOTES.md: |
+    # Lagos — Tier 1 Dedicated Sovereign Postgres Tenancy
+    - Cluster: `sos-postgres-lagos.sos-lagos` — standalone Patroni HA cluster
+      on dedicated NVMe nodes; physical + cryptographic isolation.
+    - Object storage: dedicated MinIO buckets (`sos-lagos-*`); keys from the
+      Lagos-only KMS keyring (air-gapped per architecture blueprint).
+    - TigerBeetle: STANDALONE 6-node cluster (Ledger ID 1, state tenant ID
+      0x0001) — see `ledger/chart-of-accounts.md`.
+    - Row-Level Security still applied on all tenant tables
+      (`app.current_state_tenant=lagos`) as defense-in-depth and to keep the
+      DDL identical across tiers (canonical-core guarantee).
+    - Keycloak realm: `sos-lagos`, federated with NIMC NIN and CAC.
+    - No dependency on any shared data-plane service: this overlay contains
+      no references to shared database, lakehouse or object-storage hosts.
+    - DR: synchronous replication across 3 AZs; RPO=0 ledger, RPO<5s Postgres
+      per docs/architecture/07-resilience-dr.md.

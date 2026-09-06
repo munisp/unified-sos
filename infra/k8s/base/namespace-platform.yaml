@@ -1,0 +1,12 @@
+# Shared platform namespace hosting cross-tenant control components
+# (APISIX gateway, Keycloak operator, Kubecost, KEDA). State data planes
+# live in their own sos-<state> namespaces; only namespaces labelled
+# sos.gov.ng/platform-component=true may be reached by tenant workloads.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sos-platform
+  labels:
+    app.kubernetes.io/part-of: sos-platform
+    sos.gov.ng/platform-component: "true"
+    pod-security.kubernetes.io/enforce: restricted

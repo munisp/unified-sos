@@ -1,0 +1,49 @@
+# ArgoCD Application for the taraba state tenant (Tier 3 — Shared Multi-Tenant).
+# Kustomize overlay: infra/k8s/overlays/shared-tier + sos-platform Helm release
+# with tenant values. Automated sync with prune + selfHeal; namespace created
+# declaratively by the k8s overlay.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sos-taraba
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: sos-platform
+    sos.gov.ng/tenant-state: taraba
+    sos.gov.ng/tenancy-tier: shared
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sos-states
+  sources:
+    - repoURL: https://github.com/munisp/unified-sos.git
+      targetRevision: main
+      path: infra/k8s/overlays/shared-tier
+    - repoURL: https://github.com/munisp/unified-sos.git
+      targetRevision: main
+      path: infra/helm/sos-platform
+      helm:
+        valueFiles:
+          - values.yaml
+        values: |
+          global:
+            tenantStateId: taraba
+            tenancyTier: shared
+            postgresHost: sos-postgres-shared.sos-data
+            policyPackPath: config/states/taraba/policy-pack.json
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sos-taraba
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m

@@ -1,0 +1,95 @@
+# Tier 3 tenant data plane for Benue State (schema-isolated on the shared cluster).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sos-benue
+  labels:
+    app.kubernetes.io/part-of: sos-platform
+    sos.gov.ng/tenant-state: benue
+    sos.gov.ng/tenancy-tier: shared
+    pod-security.kubernetes.io/enforce: restricted
+---
+# Pro-rata cost allocation is metered by Kubecost against this quota.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: sos-benue-quota
+  namespace: sos-benue
+spec:
+  hard:
+    requests.cpu: "8"
+    requests.memory: 16Gi
+    limits.cpu: "16"
+    limits.memory: 32Gi
+    pods: "120"
+    persistentvolumeclaims: "10"
+    services.loadbalancers: "0"
+---
+# Tenant isolation: Benue workloads may only talk to their own namespace,
+# to labelled platform components (APISIX gateway / Keycloak / control plane)
+# and to cluster DNS. All cross-state egress is denied by omission.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sos-benue-tenant-isolation
+  namespace: sos-benue
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              sos.gov.ng/tenant-state: benue
+        - namespaceSelector:
+            matchLabels:
+              sos.gov.ng/platform-component: "true"
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              sos.gov.ng/tenant-state: benue
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              sos.gov.ng/platform-component: "true"
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# RLS-enforcing Postgres notes for the Benue tenant.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sos-benue-postgres-tenancy
+  namespace: sos-benue
+  labels:
+    sos.gov.ng/tenant-state: benue
+data:
+  TENANCY_NOTES.md: |
+    # Benue — Tier 3 Shared Postgres Tenancy
+    - Cluster: `sos-postgres-shared.sos-data` (HA Patroni, shared with the
+      other Tier-3 states).
+    - Isolation unit: dedicated schema `benue.*`; no Benue table lives outside it.
+    - Row-Level Security is MANDATORY on every tenant table:
+      `CREATE POLICY tenant_isolation ON <table>
+       USING (tenant_state_id = current_setting('app.current_state_tenant'));`
+      (reference DDL: `db/migrations/0001_cadastre.sql`).
+    - Dapr / the service mesh injects `app.current_state_tenant=benue` per
+      connection after Keycloak realm (`sos-benue`) token validation; the
+      application role is not a superuser and cannot bypass RLS.
+    - Connection pooling via PgBouncer with per-tenant user `sos_benue_app`.
+    - TigerBeetle: shared 6-node cluster, partition keyed on state tenant ID
+      0x0004 (see `ledger/chart-of-accounts.md`).
+    - Kubecost: costs allocated pro-rata to the `sos-benue` namespace.

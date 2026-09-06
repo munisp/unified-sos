@@ -1,0 +1,43 @@
+{
+  "tenant_state_id": "benue",
+  "policy_id": "POL_REVENUE_SPLIT_AGRI_2026",
+  "revenue_head": "REV_AGRI_PRODUCE_CESS",
+  "effective_date": "2026-05-01",
+  "gazette_reference": "Benue State BIRS Produce Tax Harmonization Edict (illegal roadblock prohibition)",
+  "statutory_split_rules": [
+    {
+      "beneficiary": "STATE_CONSOLIDATED_REVENUE_FUND",
+      "tigerbeetle_account_code": 3001,
+      "split_percentage": 65.0,
+      "deduction_timing": "INSTANT"
+    },
+    {
+      "beneficiary": "MDA_RETENTION_ACCOUNT",
+      "beneficiary_detail": "BIRS_PRODUCE_TAX_RETENTION",
+      "tigerbeetle_account_code": 2010,
+      "split_percentage": 15.0,
+      "deduction_timing": "INSTANT"
+    },
+    {
+      "beneficiary": "PPP_TECH_CONCESSIONAIRE_ESCROW",
+      "tigerbeetle_account_code": 2099,
+      "split_percentage": 15.0,
+      "deduction_timing": "INSTANT"
+    },
+    {
+      "beneficiary": "LOCAL_GOVERNMENT_SHARE_POOL",
+      "tigerbeetle_account_code": 2020,
+      "split_percentage": 5.0,
+      "deduction_timing": "END_OF_MONTH"
+    }
+  ],
+  "concession_guardrails": {
+    "revenue_share_ceiling_pct": 15,
+    "irr_cap_pct": 20,
+    "step_down_schedule": [
+      { "up_to_cumulative_igr_kobo": 80000000000, "share_pct": 15.0 },
+      { "up_to_cumulative_igr_kobo": 300000000000, "share_pct": 10.0 },
+      { "up_to_cumulative_igr_kobo": 0, "share_pct": 7.0 }
+    ]
+  }
+}

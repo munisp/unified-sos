@@ -1,0 +1,95 @@
+# Tier 3 tenant data plane for Taraba State (schema-isolated on the shared cluster).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sos-taraba
+  labels:
+    app.kubernetes.io/part-of: sos-platform
+    sos.gov.ng/tenant-state: taraba
+    sos.gov.ng/tenancy-tier: shared
+    pod-security.kubernetes.io/enforce: restricted
+---
+# Pro-rata cost allocation is metered by Kubecost against this quota.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: sos-taraba-quota
+  namespace: sos-taraba
+spec:
+  hard:
+    requests.cpu: "8"
+    requests.memory: 16Gi
+    limits.cpu: "16"
+    limits.memory: 32Gi
+    pods: "120"
+    persistentvolumeclaims: "10"
+    services.loadbalancers: "0"
+---
+# Tenant isolation: Taraba workloads may only talk to their own namespace,
+# to labelled platform components (APISIX gateway / Keycloak / control plane)
+# and to cluster DNS. All cross-state egress is denied by omission.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sos-taraba-tenant-isolation
+  namespace: sos-taraba
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              sos.gov.ng/tenant-state: taraba
+        - namespaceSelector:
+            matchLabels:
+              sos.gov.ng/platform-component: "true"
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              sos.gov.ng/tenant-state: taraba
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              sos.gov.ng/platform-component: "true"
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# RLS-enforcing Postgres notes for the Taraba tenant.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sos-taraba-postgres-tenancy
+  namespace: sos-taraba
+  labels:
+    sos.gov.ng/tenant-state: taraba
+data:
+  TENANCY_NOTES.md: |
+    # Taraba — Tier 3 Shared Postgres Tenancy
+    - Cluster: `sos-postgres-shared.sos-data` (HA Patroni, shared with the
+      other Tier-3 states).
+    - Isolation unit: dedicated schema `taraba.*`; no Taraba table lives outside it.
+    - Row-Level Security is MANDATORY on every tenant table:
+      `CREATE POLICY tenant_isolation ON <table>
+       USING (tenant_state_id = current_setting('app.current_state_tenant'));`
+      (reference DDL: `db/migrations/0001_cadastre.sql`).
+    - Dapr / the service mesh injects `app.current_state_tenant=taraba` per
+      connection after Keycloak realm (`sos-taraba`) token validation; the
+      application role is not a superuser and cannot bypass RLS.
+    - Connection pooling via PgBouncer with per-tenant user `sos_taraba_app`.
+    - TigerBeetle: shared 6-node cluster, partition keyed on state tenant ID
+      0x0006 (see `ledger/chart-of-accounts.md`).
+    - Kubecost: costs allocated pro-rata to the `sos-taraba` namespace.

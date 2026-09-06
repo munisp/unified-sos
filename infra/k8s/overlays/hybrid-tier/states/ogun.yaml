@@ -1,0 +1,92 @@
+# Tier 2 hybrid data plane for Ogun State.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sos-ogun
+  labels:
+    app.kubernetes.io/part-of: sos-platform
+    sos.gov.ng/tenant-state: ogun
+    sos.gov.ng/tenancy-tier: hybrid
+    pod-security.kubernetes.io/enforce: restricted
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: sos-ogun-quota
+  namespace: sos-ogun
+spec:
+  hard:
+    requests.cpu: "24"
+    requests.memory: 64Gi
+    limits.cpu: "48"
+    limits.memory: 128Gi
+    pods: "300"
+    persistentvolumeclaims: "30"
+    services.loadbalancers: "2"
+---
+# Ogun workloads may only talk to their own namespace, labelled platform
+# components and cluster DNS. Cross-state egress is denied by omission.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sos-ogun-tenant-isolation
+  namespace: sos-ogun
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              sos.gov.ng/tenant-state: ogun
+        - namespaceSelector:
+            matchLabels:
+              sos.gov.ng/platform-component: "true"
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              sos.gov.ng/tenant-state: ogun
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              sos.gov.ng/platform-component: "true"
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# RLS-enforcing Postgres notes for the Ogun hybrid tenant.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sos-ogun-postgres-tenancy
+  namespace: sos-ogun
+  labels:
+    sos.gov.ng/tenant-state: ogun
+data:
+  TENANCY_NOTES.md: |
+    # Ogun — Tier 2 Hybrid Postgres Tenancy
+    - Transactional/OLTP: DEDICATED cluster `sos-postgres-ogun.sos-ogun`
+      (Patroni HA, PostGIS-enabled) — not shared with any other state.
+    - Analytical processing only (Sedona spatial joins, lakehouse Flink/Ray
+      jobs) runs on the shared analytical plane; it reads CDC-replicated,
+      PII-masked extracts — never live transactional rows.
+    - Row-Level Security remains enabled as defense-in-depth even on the
+      dedicated cluster (`app.current_state_tenant=ogun`), so a future
+      consolidation cannot silently weaken isolation.
+    - Keycloak realm: `sos-ogun`; tokens carry the `ogun` tenant claim only.
+    - TigerBeetle: shared 6-node cluster, partition keyed on state tenant ID
+      0x0002 (see `ledger/chart-of-accounts.md`).
+    - Kubecost: dedicated node pool labelled `sos.gov.ng/node-pool=ogun`
+      for direct allocation; shared analytics metered pro-rata.

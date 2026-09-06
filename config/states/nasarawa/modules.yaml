@@ -1,0 +1,24 @@
+# Enabled SOS modules for Nasarawa — see README.md for the state profile.
+# Waves per docs/delivery/rollout-matrix.md; fit per docs/ppp-pipeline/module-state-fit.md.
+tenant_state_id: nasarawa
+tenancy_tier: shared
+rollout_wave: '1'
+modules:
+- name: mod-mining
+  wave: 1
+  rationale: '#1/N1 — Mining digital custody & lithium haulage e-waybill'
+- name: mod-gis-lands
+  wave: 1
+  rationale: '#2/N2 — Karu GIS high-density land titling (NAGIS)'
+- name: mod-market
+  wave: 1
+  rationale: N3/N4 — Market & levy digitization (fastest quick win)
+- name: mod-rev-core
+  wave: 1
+  rationale: N3/N5 — Revenue core reference for informal-sector collection
+- name: mod-health
+  wave: 2
+  rationale: '#5 — Unified hospital billing & drug POS'
+- name: mod-agri-waybill
+  wave: 2
+  rationale: '#4 — Agro-hub warehouse receipts & transit'

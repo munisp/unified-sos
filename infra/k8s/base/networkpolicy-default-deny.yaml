@@ -1,0 +1,13 @@
+# Zero-trust posture: deny all ingress/egress inside the shared platform
+# namespace unless a more specific policy allows it. Tenant namespaces get
+# their own isolation policies in the tier overlays.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sos-platform-default-deny
+  namespace: sos-platform
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress

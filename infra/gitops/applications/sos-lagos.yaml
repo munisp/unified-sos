@@ -1,0 +1,49 @@
+# ArgoCD Application for the lagos state tenant (Tier 1 — Dedicated Sovereign).
+# Kustomize overlay: infra/k8s/overlays/dedicated-tier + sos-platform Helm release
+# with tenant values. Automated sync with prune + selfHeal; namespace created
+# declaratively by the k8s overlay.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sos-lagos
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: sos-platform
+    sos.gov.ng/tenant-state: lagos
+    sos.gov.ng/tenancy-tier: dedicated
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sos-states
+  sources:
+    - repoURL: https://github.com/munisp/unified-sos.git
+      targetRevision: main
+      path: infra/k8s/overlays/dedicated-tier
+    - repoURL: https://github.com/munisp/unified-sos.git
+      targetRevision: main
+      path: infra/helm/sos-platform
+      helm:
+        valueFiles:
+          - values.yaml
+        values: |
+          global:
+            tenantStateId: lagos
+            tenancyTier: dedicated
+            postgresHost: sos-postgres-lagos.sos-lagos
+            policyPackPath: config/states/lagos/policy-pack.json
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sos-lagos
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m

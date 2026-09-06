@@ -1,0 +1,21 @@
+# Enabled SOS modules for Taraba — see README.md for the state profile.
+# Waves per docs/delivery/rollout-matrix.md; fit per docs/ppp-pipeline/module-state-fit.md.
+tenant_state_id: taraba
+tenancy_tier: shared
+rollout_wave: 2/3
+modules:
+- name: mod-gis-lands
+  wave: 1
+  rationale: T1 — TAGIS recertification (first overall build in the program)
+- name: mod-rev-core
+  wave: 1
+  rationale: T2 — TSIRS expansion (Revenue Core reference configuration)
+- name: mod-forestry
+  wave: 1
+  rationale: '#11 — Forestry & rosewood provenance RFID'
+- name: mod-agri-waybill
+  wave: 2
+  rationale: '#12/#13 — Mambilla tea traceability & cross-border trade waybills'
+- name: mod-mining
+  wave: 3
+  rationale: '#15 — Solid minerals digital asset tracking (sapphire/barite)'

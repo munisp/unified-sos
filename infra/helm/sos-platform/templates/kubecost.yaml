@@ -1,0 +1,51 @@
+{{- if .Values.kubecost.enabled }}
+# Kubecost cost-model scaffolding: meters this tenant's namespace so the
+# concessionaire can produce pro-rata allocation reports (Tier 3) and direct
+# allocation reports (Tier 1/2 dedicated node pools).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ include "sos-platform.fullname" . }}-kubecost"
+  labels:
+    app.kubernetes.io/component: kubecost
+{{ include "sos-platform.labels" . | indent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: kubecost
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: kubecost
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        sos.gov.ng/tenant-state: {{ .Values.global.tenantStateId }}
+    spec:
+      containers:
+        - name: cost-model
+          image: "{{ .Values.kubecost.image.repository }}:{{ .Values.kubecost.image.tag }}"
+          ports:
+            - name: http
+              containerPort: 9090
+          env:
+            - name: SOS_TENANT_LABEL
+              value: {{ .Values.kubecost.tenantLabel | quote }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ include "sos-platform.fullname" . }}-kubecost"
+  labels:
+    app.kubernetes.io/component: kubecost
+{{ include "sos-platform.labels" . | indent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: {{ .Values.kubecost.service.port }}
+      targetPort: http
+  selector:
+    app.kubernetes.io/component: kubecost
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

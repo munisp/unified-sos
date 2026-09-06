@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Tier 3 — Shared Multi-Tenant overlay (Osun, Benue, Nasarawa, Taraba).
+# One shared HA PostgreSQL/PostGIS cluster (sos-postgres-shared.sos-data),
+# schema-per-tenant isolation (osun.*, benue.*, ...) enforced by PostgreSQL
+# Row-Level Security keyed on app.current_state_tenant, plus namespace-level
+# NetworkPolicies blocking all cross-state egress.
+
+commonLabels:
+  sos.gov.ng/tenancy-tier: shared
+
+resources:
+  - ../../base
+  - states/osun.yaml
+  - states/benue.yaml
+  - states/nasarawa.yaml
+  - states/taraba.yaml

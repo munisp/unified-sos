@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Common platform-wide resources shared by every tenancy tier overlay.
+# Tier overlays add their state namespaces, quotas and tenant NetworkPolicies.
+
+commonLabels:
+  app.kubernetes.io/part-of: sos-platform
+
+resources:
+  - namespace-platform.yaml
+  - networkpolicy-default-deny.yaml
+  - networkpolicy-allow-dns.yaml

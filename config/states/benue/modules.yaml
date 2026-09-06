@@ -1,0 +1,21 @@
+# Enabled SOS modules for Benue — see README.md for the state profile.
+# Waves per docs/delivery/rollout-matrix.md; fit per docs/ppp-pipeline/module-state-fit.md.
+tenant_state_id: benue
+tenancy_tier: shared
+rollout_wave: '2'
+modules:
+- name: mod-rev-core
+  wave: 1
+  rationale: B1 — Unified IGR platform (BIRS + BDIC)
+- name: mod-agri-waybill
+  wave: 1
+  rationale: '#6 — Agricultural produce e-taxation & corridor waybills'
+- name: mod-gis-lands
+  wave: 2
+  rationale: '#7 — Makurdi & Gboko land cadastre (BENGIS)'
+- name: mod-market
+  wave: 2
+  rationale: B2 — Zaki Biam yam market digitization (security-gated)
+- name: mod-mining
+  wave: 3
+  rationale: '#8 — River Benue sand-mining royalties & dredging tracking'

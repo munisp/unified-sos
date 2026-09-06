@@ -1,0 +1,18 @@
+{{- if .Values.apisix.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ include "sos-platform.fullname" . }}-apisix"
+  labels:
+    app.kubernetes.io/component: api-gateway
+{{ include "sos-platform.labels" . | indent 4 }}
+spec:
+  type: {{ .Values.apisix.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.apisix.service.port }}
+      targetPort: http
+  selector:
+    app.kubernetes.io/component: api-gateway
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

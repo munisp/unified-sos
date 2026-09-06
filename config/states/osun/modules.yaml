@@ -1,0 +1,21 @@
+# Enabled SOS modules for Osun — see README.md for the state profile.
+# Waves per docs/delivery/rollout-matrix.md; fit per docs/ppp-pipeline/module-state-fit.md.
+tenant_state_id: osun
+tenancy_tier: shared
+rollout_wave: '1'
+modules:
+- name: mod-rev-core
+  wave: 1
+  rationale: S1 — OIRS deepening + market/transport e-ticketing
+- name: mod-mining
+  wave: 1
+  rationale: '#21/S2 — Gold traceability & artisanal formalization (Ilesha belt/Segilola)'
+- name: mod-agri-waybill
+  wave: 1
+  rationale: '#22 — Cocoa supply chain & EUDR traceability'
+- name: mod-market
+  wave: 2
+  rationale: '#23 — Osogbo central market & stall titling'
+- name: mod-education
+  wave: 2
+  rationale: '#25 — Tertiary institutions consolidated billing (UNIOSUN)'

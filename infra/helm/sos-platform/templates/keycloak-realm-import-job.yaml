@@ -1,0 +1,45 @@
+{{- if and .Values.keycloak.enabled .Values.keycloak.realmImport.enabled }}
+# Imports the sovereign Keycloak realm for this state tenant at install/upgrade
+# time (WP-02). Realm JSON lives in the ConfigMap referenced below and is
+# rendered from config/states/<state>/ by the control plane.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ include "sos-platform.fullname" . }}-keycloak-realm-import"
+  labels:
+    app.kubernetes.io/component: iam
+{{ include "sos-platform.labels" . | indent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: {{ .Values.keycloak.realmImport.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: iam
+        sos.gov.ng/tenant-state: {{ .Values.global.tenantStateId }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: realm-import
+          image: "{{ .Values.keycloak.image.repository }}:{{ .Values.keycloak.image.tag }}"
+          command:
+            - /opt/keycloak/bin/kc.sh
+          args:
+            - import
+            - --file
+            - "/realm/{{ include "sos-platform.realm" . }}-realm.json"
+          env:
+            - name: SOS_REALM
+              value: {{ include "sos-platform.realm" . | quote }}
+          volumeMounts:
+            - name: realms
+              mountPath: /realm
+              readOnly: true
+      volumes:
+        - name: realms
+          configMap:
+            name: {{ .Values.keycloak.realmImport.realmsConfigMap }}
+{{- end }}
