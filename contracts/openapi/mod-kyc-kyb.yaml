@@ -1,0 +1,1571 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-kyc-kyb/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS KYC/KYB, Document AI & Liveness Verification API (mod-kyc-kyb)
+  version: 0.1.0
+  description: 'v3.0 / KYC-KYB · Lot 1/7. Sovereign, tenant-isolated identity verification for all SOS stakeholders (citizens,
+    civil servants, MDA officers, field/POS agents, market traders, miners, transporters, health/education users, vendors,
+    concessionaires, auditors, corporate entities): document AI extraction (PaddleOCR + Docling + VLM adjudication), active/passive
+    liveness challenges, CAC/NIMC/tax/sanctions registry verification seams, deterministic risk scoring, and hash-chained
+    audit. NDPA data-minimization: raw NIN, CAC documents, biometrics, images, and OCR text are never returned — object URI
+    + SHA-256 + minimum fields + confidence only. Complements mod-identity and mod-citizen-portal. Deploys: all 6 states.'
+paths:
+  /healthz:
+    get:
+      summary: Healthz
+      operationId: healthz_healthz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+      tags:
+      - kyc-kyb
+  /kyc/v1/cases:
+    post:
+      summary: Create Kyc Case
+      operationId: create_kyc_case_kyc_v1_cases_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateKycCaseRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KycCase'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - kyc-kyb
+      security:
+      - bearerAuth: []
+  /kyc/v1/cases/{case_id}:
+    get:
+      summary: Get Kyc Case
+      operationId: get_kyc_case_kyc_v1_cases__case_id__get
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Case Id
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          enum:
+          - lagos
+          - ogun
+          - osun
+          - benue
+          - nasarawa
+          - taraba
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KycCase'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - kyc-kyb
+      security:
+      - bearerAuth: []
+  /kyc/v1/cases/{case_id}/documents:
+    post:
+      summary: Attach Kyc Document
+      operationId: attach_kyc_document_kyc_v1_cases__case_id__documents_post
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Case Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttachDocumentRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentArtifact'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - kyc-kyb
+      security:
+      - bearerAuth: []
+  /kyc/v1/documents/{artifact_id}/extract:
+    post:
+      summary: Extract Document
+      operationId: extract_document_kyc_v1_documents__artifact_id__extract_post
+      parameters:
+      - name: artifact_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Artifact Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - kyc-kyb
+      security:
+      - bearerAuth: []
+  /kyc/v1/cases/{case_id}/liveness-challenges:
+    post:
+      summary: Issue Challenge
+      operationId: issue_challenge_kyc_v1_cases__case_id__liveness_challenges_post
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Case Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueChallengeRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LivenessChallenge'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - kyc-kyb
+      security:
+      - bearerAuth: []
+  /kyc/v1/liveness/{challenge_id}/evidence:
+    post:
+      summary: Submit Evidence
+      operationId: submit_evidence_kyc_v1_liveness__challenge_id__evidence_post
+      parameters:
+      - name: challenge_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Challenge Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitEvidenceRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LivenessResult'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - kyc-kyb
+      security:
+      - bearerAuth: []
+  /kyc/v1/cases/{case_id}/submit:
+    post:
+      summary: Submit Kyc Case
+      operationId: submit_kyc_case_kyc_v1_cases__case_id__submit_post
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Case Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KycCase'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - kyc-kyb
+      security:
+      - bearerAuth: []
+  /kyc/v1/cases/{case_id}/review:
+    post:
+      summary: Review Kyc Case
+      operationId: review_kyc_case_kyc_v1_cases__case_id__review_post
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Case Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KycCase'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - kyc-kyb
+      security:
+      - bearerAuth: []
+  /kyc/v1/review-queue:
+    get:
+      summary: Kyc Review Queue
+      operationId: kyc_review_queue_kyc_v1_review_queue_get
+      parameters:
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          enum:
+          - lagos
+          - ogun
+          - osun
+          - benue
+          - nasarawa
+          - taraba
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReviewTask'
+                title: Response Kyc Review Queue Kyc V1 Review Queue Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - kyc-kyb
+      security:
+      - bearerAuth: []
+  /kyb/v1/cases:
+    post:
+      summary: Create Kyb Case
+      operationId: create_kyb_case_kyb_v1_cases_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateKybCaseRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KybCase'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - kyc-kyb
+      security:
+      - bearerAuth: []
+  /kyb/v1/cases/{case_id}:
+    get:
+      summary: Get Kyb Case
+      operationId: get_kyb_case_kyb_v1_cases__case_id__get
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Case Id
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          enum:
+          - lagos
+          - ogun
+          - osun
+          - benue
+          - nasarawa
+          - taraba
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KybCase'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - kyc-kyb
+      security:
+      - bearerAuth: []
+  /kyb/v1/cases/{case_id}/documents:
+    post:
+      summary: Attach Kyb Document
+      operationId: attach_kyb_document_kyb_v1_cases__case_id__documents_post
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Case Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttachDocumentRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentArtifact'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - kyc-kyb
+      security:
+      - bearerAuth: []
+  /kyb/v1/cases/{case_id}/registry-verification:
+    post:
+      summary: Registry Verification
+      operationId: registry_verification_kyb_v1_cases__case_id__registry_verification_post
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Case Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RegistryVerification'
+                title: Response Registry Verification Kyb V1 Cases  Case Id  Registry Verification Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - kyc-kyb
+      security:
+      - bearerAuth: []
+  /kyb/v1/cases/{case_id}/beneficial-owners:
+    post:
+      summary: Add Beneficial Owner
+      operationId: add_beneficial_owner_kyb_v1_cases__case_id__beneficial_owners_post
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Case Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddBeneficialOwnerRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KybCase'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - kyc-kyb
+      security:
+      - bearerAuth: []
+  /kyb/v1/cases/{case_id}/submit:
+    post:
+      summary: Submit Kyb Case
+      operationId: submit_kyb_case_kyb_v1_cases__case_id__submit_post
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Case Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KybCase'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - kyc-kyb
+      security:
+      - bearerAuth: []
+  /kyb/v1/cases/{case_id}/review:
+    post:
+      summary: Review Kyb Case
+      operationId: review_kyb_case_kyb_v1_cases__case_id__review_post
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Case Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KybCase'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - kyc-kyb
+      security:
+      - bearerAuth: []
+  /kyb/v1/review-queue:
+    get:
+      summary: Kyb Review Queue
+      operationId: kyb_review_queue_kyb_v1_review_queue_get
+      parameters:
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          enum:
+          - lagos
+          - ogun
+          - osun
+          - benue
+          - nasarawa
+          - taraba
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReviewTask'
+                title: Response Kyb Review Queue Kyb V1 Review Queue Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - kyc-kyb
+      security:
+      - bearerAuth: []
+  /kyc-kyb/v1/audit:
+    get:
+      summary: Audit Log
+      operationId: audit_log_kyc_kyb_v1_audit_get
+      parameters:
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          enum:
+          - lagos
+          - ogun
+          - osun
+          - benue
+          - nasarawa
+          - taraba
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditEntry'
+                title: Response Audit Log Kyc Kyb V1 Audit Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - kyc-kyb
+      security:
+      - bearerAuth: []
+  /kyc-kyb/v1/audit/verify:
+    get:
+      summary: Audit Verify
+      operationId: audit_verify_kyc_kyb_v1_audit_verify_get
+      parameters:
+      - name: state_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - lagos
+            - ogun
+            - osun
+            - benue
+            - nasarawa
+            - taraba
+            type: string
+          - type: 'null'
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - kyc-kyb
+      security:
+      - bearerAuth: []
+components:
+  schemas:
+    AddBeneficialOwnerRequest:
+      properties:
+        state_id:
+          type: string
+          enum:
+          - lagos
+          - ogun
+          - osun
+          - benue
+          - nasarawa
+          - taraba
+          title: State Id
+        owner_identity:
+          type: string
+          title: Owner Identity
+        display_label:
+          type: string
+          title: Display Label
+        ownership_percentage:
+          type: number
+          maximum: 100.0
+          exclusiveMinimum: 0.0
+          title: Ownership Percentage
+        kyc_case_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Kyc Case Id
+        politically_exposed:
+          type: boolean
+          title: Politically Exposed
+          default: false
+        actor:
+          type: string
+          title: Actor
+          default: system
+      type: object
+      required:
+      - state_id
+      - owner_identity
+      - display_label
+      - ownership_percentage
+      title: AddBeneficialOwnerRequest
+    AttachDocumentRequest:
+      properties:
+        state_id:
+          type: string
+          enum:
+          - lagos
+          - ogun
+          - osun
+          - benue
+          - nasarawa
+          - taraba
+          title: State Id
+        document_type:
+          $ref: '#/components/schemas/DocumentType'
+        object_uri:
+          type: string
+          title: Object Uri
+        sha256:
+          type: string
+          minLength: 8
+          title: Sha256
+        uploaded_by:
+          type: string
+          title: Uploaded By
+          default: system
+        expiry_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Expiry Date
+      type: object
+      required:
+      - state_id
+      - document_type
+      - object_uri
+      - sha256
+      title: AttachDocumentRequest
+    AuditEntry:
+      properties:
+        seq:
+          type: integer
+          title: Seq
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        actor:
+          type: string
+          title: Actor
+        action:
+          type: string
+          title: Action
+        entity_type:
+          type: string
+          title: Entity Type
+        entity_id:
+          type: string
+          title: Entity Id
+        detail_hash:
+          type: string
+          title: Detail Hash
+        prev_hash:
+          type: string
+          title: Prev Hash
+        entry_hash:
+          type: string
+          title: Entry Hash
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - seq
+      - tenant_state_id
+      - actor
+      - action
+      - entity_type
+      - entity_id
+      - detail_hash
+      - prev_hash
+      - entry_hash
+      title: AuditEntry
+    BeneficialOwner:
+      properties:
+        owner_ref_hash:
+          type: string
+          title: Owner Ref Hash
+        display_label:
+          type: string
+          title: Display Label
+        ownership_percentage:
+          type: number
+          maximum: 100.0
+          exclusiveMinimum: 0.0
+          title: Ownership Percentage
+        kyc_case_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Kyc Case Id
+        politically_exposed:
+          type: boolean
+          title: Politically Exposed
+          default: false
+      type: object
+      required:
+      - owner_ref_hash
+      - display_label
+      - ownership_percentage
+      title: BeneficialOwner
+      description: 'Owner reference: name stored only as hash; minimum fields only.'
+    BusinessType:
+      type: string
+      enum:
+      - LIMITED_LIABILITY
+      - BUSINESS_NAME
+      - INCORPORATED_TRUSTEES
+      - PARTNERSHIP
+      - PUBLIC_COMPANY
+      - OTHER
+      title: BusinessType
+    CreateKybCaseRequest:
+      properties:
+        state_id:
+          type: string
+          enum:
+          - lagos
+          - ogun
+          - osun
+          - benue
+          - nasarawa
+          - taraba
+          title: State Id
+        legal_name:
+          type: string
+          title: Legal Name
+        rc_number:
+          type: string
+          title: Rc Number
+        business_type:
+          $ref: '#/components/schemas/BusinessType'
+          default: LIMITED_LIABILITY
+        address:
+          type: string
+          title: Address
+        tin:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Tin
+        actor:
+          type: string
+          title: Actor
+          default: system
+      type: object
+      required:
+      - state_id
+      - legal_name
+      - rc_number
+      - address
+      title: CreateKybCaseRequest
+    CreateKycCaseRequest:
+      properties:
+        state_id:
+          type: string
+          enum:
+          - lagos
+          - ogun
+          - osun
+          - benue
+          - nasarawa
+          - taraba
+          title: State Id
+        subject_ref:
+          type: string
+          title: Subject Ref
+        subject_type:
+          $ref: '#/components/schemas/SubjectType'
+          default: CITIZEN_WALLET
+        actor:
+          type: string
+          title: Actor
+          default: system
+        required_documents:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/DocumentType'
+            type: array
+          - type: 'null'
+          title: Required Documents
+        liveness_required:
+          type: boolean
+          title: Liveness Required
+          default: true
+      type: object
+      required:
+      - state_id
+      - subject_ref
+      title: CreateKycCaseRequest
+    DocumentArtifact:
+      properties:
+        artifact_id:
+          type: string
+          title: Artifact Id
+        tenant_state_id:
+          type: string
+          enum:
+          - lagos
+          - ogun
+          - osun
+          - benue
+          - nasarawa
+          - taraba
+          title: Tenant State Id
+        case_id:
+          type: string
+          title: Case Id
+        document_type:
+          $ref: '#/components/schemas/DocumentType'
+        object_uri:
+          type: string
+          title: Object Uri
+        sha256:
+          type: string
+          title: Sha256
+        uploaded_by:
+          type: string
+          title: Uploaded By
+        uploaded_at:
+          type: string
+          format: date-time
+          title: Uploaded At
+        expiry_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Expiry Date
+      type: object
+      required:
+      - artifact_id
+      - tenant_state_id
+      - case_id
+      - document_type
+      - object_uri
+      - sha256
+      - uploaded_by
+      title: DocumentArtifact
+      description: Reference to a stored document. No raw bytes, ever.
+    DocumentType:
+      type: string
+      enum:
+      - NIN_SLIP
+      - NATIONAL_ID
+      - PASSPORT
+      - DRIVERS_LICENSE
+      - VOTER_CARD
+      - PROOF_OF_ADDRESS
+      - CAC_CERTIFICATE
+      - TAX_CLEARANCE
+      - BOARD_RESOLUTION
+      - BENEFICIAL_OWNERSHIP_DECLARATION
+      - OTHER
+      title: DocumentType
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    IssueChallengeRequest:
+      properties:
+        state_id:
+          type: string
+          enum:
+          - lagos
+          - ogun
+          - osun
+          - benue
+          - nasarawa
+          - taraba
+          title: State Id
+        mode:
+          type: string
+          title: Mode
+          default: active
+        actor:
+          type: string
+          title: Actor
+          default: system
+      type: object
+      required:
+      - state_id
+      title: IssueChallengeRequest
+    KybCase:
+      properties:
+        case_id:
+          type: string
+          title: Case Id
+        tenant_state_id:
+          type: string
+          enum:
+          - lagos
+          - ogun
+          - osun
+          - benue
+          - nasarawa
+          - taraba
+          title: Tenant State Id
+        legal_name_hash:
+          type: string
+          title: Legal Name Hash
+        legal_name_label:
+          type: string
+          title: Legal Name Label
+        rc_number_hash:
+          type: string
+          title: Rc Number Hash
+        tin_hash:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Tin Hash
+        business_type:
+          $ref: '#/components/schemas/BusinessType'
+        address_hash:
+          type: string
+          title: Address Hash
+        status:
+          $ref: '#/components/schemas/VerificationStatus'
+          default: DRAFT
+        risk_score:
+          type: integer
+          title: Risk Score
+          default: 0
+        risk_band:
+          anyOf:
+          - $ref: '#/components/schemas/RiskBand'
+          - type: 'null'
+        registry_verifications:
+          items:
+            $ref: '#/components/schemas/RegistryVerification'
+          type: array
+          title: Registry Verifications
+        directors:
+          items:
+            type: string
+          type: array
+          title: Directors
+        beneficial_owners:
+          items:
+            $ref: '#/components/schemas/BeneficialOwner'
+          type: array
+          title: Beneficial Owners
+        decision_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Decision Reason
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - case_id
+      - tenant_state_id
+      - legal_name_hash
+      - legal_name_label
+      - rc_number_hash
+      - business_type
+      - address_hash
+      title: KybCase
+    KycCase:
+      properties:
+        case_id:
+          type: string
+          title: Case Id
+        tenant_state_id:
+          type: string
+          enum:
+          - lagos
+          - ogun
+          - osun
+          - benue
+          - nasarawa
+          - taraba
+          title: Tenant State Id
+        subject_ref:
+          type: string
+          title: Subject Ref
+        subject_type:
+          $ref: '#/components/schemas/SubjectType'
+        status:
+          $ref: '#/components/schemas/VerificationStatus'
+          default: DRAFT
+        risk_score:
+          type: integer
+          title: Risk Score
+          default: 0
+        risk_band:
+          anyOf:
+          - $ref: '#/components/schemas/RiskBand'
+          - type: 'null'
+        required_documents:
+          items:
+            $ref: '#/components/schemas/DocumentType'
+          type: array
+          title: Required Documents
+        liveness_required:
+          type: boolean
+          title: Liveness Required
+          default: true
+        decision_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Decision Reason
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - case_id
+      - tenant_state_id
+      - subject_ref
+      - subject_type
+      title: KycCase
+    LivenessAction:
+      type: string
+      enum:
+      - BLINK
+      - TURN_LEFT
+      - TURN_RIGHT
+      - SMILE
+      - SPEAK_PASSPHRASE
+      title: LivenessAction
+    LivenessChallenge:
+      properties:
+        challenge_id:
+          type: string
+          title: Challenge Id
+        tenant_state_id:
+          type: string
+          enum:
+          - lagos
+          - ogun
+          - osun
+          - benue
+          - nasarawa
+          - taraba
+          title: Tenant State Id
+        case_id:
+          type: string
+          title: Case Id
+        nonce:
+          type: string
+          title: Nonce
+        action_sequence:
+          items:
+            $ref: '#/components/schemas/LivenessAction'
+          type: array
+          title: Action Sequence
+        mode:
+          type: string
+          title: Mode
+          default: active
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+        max_attempts:
+          type: integer
+          title: Max Attempts
+          default: 3
+        attempts:
+          type: integer
+          title: Attempts
+          default: 0
+        status:
+          $ref: '#/components/schemas/LivenessChallengeStatus'
+          default: ISSUED
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - challenge_id
+      - tenant_state_id
+      - case_id
+      - nonce
+      - action_sequence
+      - expires_at
+      title: LivenessChallenge
+    LivenessChallengeStatus:
+      type: string
+      enum:
+      - ISSUED
+      - PASSED
+      - FAILED
+      - EXPIRED
+      title: LivenessChallengeStatus
+    LivenessResult:
+      properties:
+        passed:
+          type: boolean
+          title: Passed
+        score:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Score
+        anti_spoof_flags:
+          items:
+            type: string
+          type: array
+          title: Anti Spoof Flags
+        model_version:
+          type: string
+          title: Model Version
+        reasons:
+          items:
+            type: string
+          type: array
+          title: Reasons
+      type: object
+      required:
+      - passed
+      - score
+      - model_version
+      title: LivenessResult
+    RegistryName:
+      type: string
+      enum:
+      - CAC
+      - NIMC
+      - TAX
+      - SANCTIONS
+      title: RegistryName
+    RegistryStatus:
+      type: string
+      enum:
+      - MATCH
+      - MISMATCH
+      - NOT_FOUND
+      - UNAVAILABLE
+      title: RegistryStatus
+    RegistryVerification:
+      properties:
+        registry:
+          $ref: '#/components/schemas/RegistryName'
+        status:
+          $ref: '#/components/schemas/RegistryStatus'
+        fields_checked:
+          items:
+            type: string
+          type: array
+          title: Fields Checked
+        confidence:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Confidence
+        response_hash:
+          type: string
+          title: Response Hash
+        checked_at:
+          type: string
+          format: date-time
+          title: Checked At
+      type: object
+      required:
+      - registry
+      - status
+      - confidence
+      - response_hash
+      title: RegistryVerification
+    ReviewDecision:
+      type: string
+      enum:
+      - APPROVE
+      - REJECT
+      title: ReviewDecision
+    ReviewRequest:
+      properties:
+        state_id:
+          type: string
+          enum:
+          - lagos
+          - ogun
+          - osun
+          - benue
+          - nasarawa
+          - taraba
+          title: State Id
+        decision:
+          $ref: '#/components/schemas/ReviewDecision'
+        reviewer:
+          type: string
+          title: Reviewer
+        reason:
+          type: string
+          title: Reason
+      type: object
+      required:
+      - state_id
+      - decision
+      - reviewer
+      - reason
+      title: ReviewRequest
+    ReviewTask:
+      properties:
+        task_id:
+          type: string
+          title: Task Id
+        tenant_state_id:
+          type: string
+          enum:
+          - lagos
+          - ogun
+          - osun
+          - benue
+          - nasarawa
+          - taraba
+          title: Tenant State Id
+        case_type:
+          type: string
+          title: Case Type
+        case_id:
+          type: string
+          title: Case Id
+        reason_codes:
+          items:
+            type: string
+          type: array
+          title: Reason Codes
+        status:
+          type: string
+          title: Status
+          default: OPEN
+        decision:
+          anyOf:
+          - $ref: '#/components/schemas/ReviewDecision'
+          - type: 'null'
+        reviewer:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reviewer
+        decision_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Decision Reason
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        resolved_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Resolved At
+      type: object
+      required:
+      - task_id
+      - tenant_state_id
+      - case_type
+      - case_id
+      title: ReviewTask
+    RiskBand:
+      type: string
+      enum:
+      - LOW
+      - MEDIUM
+      - HIGH
+      - PROHIBITED
+      title: RiskBand
+    StateRequest:
+      properties:
+        state_id:
+          type: string
+          enum:
+          - lagos
+          - ogun
+          - osun
+          - benue
+          - nasarawa
+          - taraba
+          title: State Id
+        actor:
+          type: string
+          title: Actor
+          default: system
+      type: object
+      required:
+      - state_id
+      title: StateRequest
+    SubjectType:
+      type: string
+      enum:
+      - CITIZEN_WALLET
+      - RESIDENT
+      - AGENT
+      - EMPLOYEE
+      - VENDOR_CONTACT
+      title: SubjectType
+    SubmitEvidenceRequest:
+      properties:
+        state_id:
+          type: string
+          enum:
+          - lagos
+          - ogun
+          - osun
+          - benue
+          - nasarawa
+          - taraba
+          title: State Id
+        challenge_nonce:
+          type: string
+          title: Challenge Nonce
+        artifact_hashes:
+          items:
+            type: string
+          type: array
+          title: Artifact Hashes
+        motion_score:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Motion Score
+        texture_score:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Texture Score
+        depth_score:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Depth Score
+        action_completion_score:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Action Completion Score
+          default: 1.0
+        voice_match_score:
+          anyOf:
+          - type: number
+            maximum: 1.0
+            minimum: 0.0
+          - type: 'null'
+          title: Voice Match Score
+        device_attestation_score:
+          anyOf:
+          - type: number
+            maximum: 1.0
+            minimum: 0.0
+          - type: 'null'
+          title: Device Attestation Score
+        captured_at:
+          type: string
+          format: date-time
+          title: Captured At
+        actor:
+          type: string
+          title: Actor
+          default: subject
+      type: object
+      required:
+      - state_id
+      - challenge_nonce
+      - motion_score
+      - texture_score
+      - depth_score
+      title: SubmitEvidenceRequest
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    VerificationStatus:
+      type: string
+      enum:
+      - DRAFT
+      - EVIDENCE_PENDING
+      - PROCESSING
+      - IN_REVIEW
+      - APPROVED
+      - REJECTED
+      - EXPIRED
+      - SUSPENDED
+      title: VerificationStatus
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: kyc-kyb
+- name: identity-verification
+- name: document-ai

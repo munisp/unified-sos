@@ -125,3 +125,95 @@ channels:
             recoverable_kobo: { type: integer }
             workflow_ref: { type: string, nullable: true, description: Temporal durable cleanup workflow reference }
             timestamp: { type: string, format: date-time }
+  ng.sos.kyc.case_decision_made:
+    publish:
+      operationId: kycCaseDecisionMade
+      description: >-
+        Emitted by mod-kyc-kyb when a KYC case reaches a terminal decision
+        (APPROVED / REJECTED / SUSPENDED / EXPIRED). NDPA data-minimization:
+        payload carries decision metadata and hashes only — never raw NIN,
+        document bytes, biometrics, or OCR text.
+      message:
+        payload:
+          type: object
+          required: [state_id, case_id, decision, risk_band, timestamp]
+          properties:
+            state_id: { type: string, enum: [lagos, ogun, osun, benue, nasarawa, taraba] }
+            case_id: { type: string }
+            subject_type: { type: string, description: e.g. CITIZEN | AGENT | CIVIL_SERVANT | VENDOR }
+            subject_ref_hash: { type: string, description: SHA-256 of the subject reference }
+            decision: { type: string, enum: [APPROVED, REJECTED, SUSPENDED, EXPIRED] }
+            risk_score: { type: integer }
+            risk_band: { type: string, enum: [LOW, MEDIUM, HIGH, PROHIBITED] }
+            decided_by: { type: string, description: SYSTEM or reviewer identifier }
+            audit_entry_hash: { type: string }
+            timestamp: { type: string, format: date-time }
+  ng.sos.kyb.case_decision_made:
+    publish:
+      operationId: kybCaseDecisionMade
+      description: >-
+        Emitted by mod-kyc-kyb when a KYB case reaches a terminal decision.
+        Carries registry verification outcome and risk band; no raw registry
+        payloads or CAC document content.
+      message:
+        payload:
+          type: object
+          required: [state_id, case_id, decision, risk_band, timestamp]
+          properties:
+            state_id: { type: string, enum: [lagos, ogun, osun, benue, nasarawa, taraba] }
+            case_id: { type: string }
+            rc_number_hash: { type: string, description: SHA-256 of the RC number }
+            legal_name: { type: string }
+            decision: { type: string, enum: [APPROVED, REJECTED, SUSPENDED, EXPIRED] }
+            risk_score: { type: integer }
+            risk_band: { type: string, enum: [LOW, MEDIUM, HIGH, PROHIBITED] }
+            registry_status: { type: string, enum: [MATCH, MISMATCH, NOT_FOUND, UNAVAILABLE] }
+            decided_by: { type: string }
+            audit_entry_hash: { type: string }
+            timestamp: { type: string, format: date-time }
+  ng.sos.kyc.liveness_failed:
+    publish:
+      operationId: kycLivenessFailed
+      description: >-
+        Emitted by mod-kyc-kyb when liveness evidence fails scoring or an
+        anti-spoof check triggers (nonce mismatch, expiry, excessive attempts,
+        artifact hash reuse). Scores/hashes only — no biometric media.
+      message:
+        payload:
+          type: object
+          required: [state_id, case_id, challenge_id, reasons, timestamp]
+          properties:
+            state_id: { type: string, enum: [lagos, ogun, osun, benue, nasarawa, taraba] }
+            case_id: { type: string }
+            challenge_id: { type: string }
+            score: { type: number, minimum: 0, maximum: 1 }
+            anti_spoof_flags:
+              type: array
+              items: { type: string }
+            reasons:
+              type: array
+              items: { type: string }
+            evidence_hash: { type: string }
+            timestamp: { type: string, format: date-time }
+  ng.sos.kyb.registry_verification_completed:
+    publish:
+      operationId: kybRegistryVerificationCompleted
+      description: >-
+        Emitted by mod-kyc-kyb after a registry adapter check (CAC, NIMC, TAX,
+        SANCTIONS) completes for a KYB case. The registry response is hashed;
+        raw registry payloads are never published.
+      message:
+        payload:
+          type: object
+          required: [state_id, case_id, registry, status, timestamp]
+          properties:
+            state_id: { type: string, enum: [lagos, ogun, osun, benue, nasarawa, taraba] }
+            case_id: { type: string }
+            registry: { type: string, enum: [CAC, NIMC, TAX, SANCTIONS] }
+            status: { type: string, enum: [MATCH, MISMATCH, NOT_FOUND, UNAVAILABLE] }
+            fields_checked:
+              type: array
+              items: { type: string }
+            confidence: { type: number, minimum: 0, maximum: 1 }
+            response_hash: { type: string }
+            timestamp: { type: string, format: date-time }

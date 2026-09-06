@@ -206,6 +206,28 @@ SERVICES: dict[str, dict] = {
             tags=["citizen-portal", "sso", "payroll-audit"],
         ),
     },
+    "mod-kyc-kyb": {
+        "package": "app.main",
+        "info": dict(
+            title="SOS KYC/KYB, Document AI & Liveness Verification API (mod-kyc-kyb)",
+            description=(
+                "v3.0 / KYC-KYB · Lot 1/7. Sovereign, tenant-isolated identity "
+                "verification for all SOS stakeholders (citizens, civil "
+                "servants, MDA officers, field/POS agents, market traders, "
+                "miners, transporters, health/education users, vendors, "
+                "concessionaires, auditors, corporate entities): document AI "
+                "extraction (PaddleOCR + Docling + VLM adjudication), "
+                "active/passive liveness challenges, CAC/NIMC/tax/sanctions "
+                "registry verification seams, deterministic risk scoring, and "
+                "hash-chained audit. NDPA data-minimization: raw NIN, CAC "
+                "documents, biometrics, images, and OCR text are never "
+                "returned — object URI + SHA-256 + minimum fields + "
+                "confidence only. Complements mod-identity and "
+                "mod-citizen-portal. Deploys: all 6 states."
+            ),
+            tags=["kyc-kyb", "identity-verification", "document-ai"],
+        ),
+    },
 }
 
 

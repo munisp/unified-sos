@@ -25,3 +25,6 @@ modules:
 - name: mod-citizen-portal
   wave: 3
   rationale: 'CIT-11 — Unified citizen portal & SSO (all states)'
+- name: mod-kyc-kyb
+  wave: 3
+  rationale: 'KYC-KYB — Sovereign KYC/KYB, document AI & liveness verification (all states)'
