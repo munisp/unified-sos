@@ -103,25 +103,52 @@ class MetadataStore:
     exposes no delete operations — records are terminal-state only.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, operators: dict | None = None, provision_mode: str = "sync") -> None:
         self._lock = threading.Lock()
         self._tenants: dict[str, Tenant] = {}
         self._tenant_by_state: dict[str, str] = {}
         self._policy_packs: dict[str, list[PolicyPackRecord]] = {}
         self._audit: list[AuditEvent] = []
         self._seq = 0
+        from .operators import local_operators
+
+        #: Provisioning operators (default: deterministic local no-op set) and
+        #: mode (sync | async) per CONTROL_PLANE_PROVISION_MODE.
+        self._operators = operators if operators is not None else local_operators()
+        if provision_mode not in ("sync", "async"):
+            raise ValueError(f"invalid provision_mode '{provision_mode}' (sync|async)")
+        self._provision_mode = provision_mode
+        self._worker = None
+        if provision_mode == "async":
+            from .provisioning import ProvisioningWorker
+
+            self._worker = ProvisioningWorker(self)
 
     # --- tenants ---------------------------------------------------------
     def create_tenant(self, req: TenantCreate, actor: str = "control-plane") -> Tenant:
         """Provision a tenant: provisioning -> active workflow, recorded stepwise.
 
         Idempotent on (state): re-posting an existing active/suspended tenant
-        returns the existing record.
+        returns the existing record; re-posting a FAILED tenant retries the
+        provisioning workflow (operator upsert semantics make resume safe).
+        In async mode the tenant is returned in ``provisioning`` state and an
+        in-process worker finalizes it in the background (202 + poll).
         """
         with self._lock:
             existing_id = self._tenant_by_state.get(req.state)
             if existing_id is not None:
-                return self._tenants[existing_id]
+                existing = self._tenants[existing_id]
+                if existing.status != TenantStatus.FAILED:
+                    return existing
+                # Retry of a failed provisioning run (idempotent resume).
+                if self._provision_mode == "async":
+                    existing.status = TenantStatus.PROVISIONING
+                    existing.updated_at = _now()
+                    existing.workflow.append(f"{existing.updated_at} retry-requested")
+                    assert self._worker is not None
+                    self._worker.enqueue(existing.tenant_id)
+                    return existing
+                return self._provision_locked(existing, actor)
 
             tenant_id = f"tn-{req.state}-{uuid4().hex[:8]}"
             resources = ProvisionedResources(
@@ -145,18 +172,40 @@ class MetadataStore:
             )
             self._tenants[tenant_id] = tenant
             self._tenant_by_state[req.state] = tenant_id
-
-            # Workflow: reference implementation completes synchronously (< 90 s
-            # acceptance is a property of the production K8s/ArgoCD pipeline).
-            for step in ("namespace-created", "postgres-rls-applied", "keycloak-realm-imported",
-                         "storage-provisioned", "kms-keyring-issued"):
-                tenant.workflow.append(f"{_now()} {step}")
-            tenant.status = TenantStatus.ACTIVE
-            tenant.updated_at = _now()
-            tenant.workflow.append(f"{tenant.updated_at} active")
-            self._append_locked("ng.sos.tenant.provisioned", tenant_id, actor,
+            self._append_locked("ng.sos.tenant.provisioning_requested", tenant_id, actor,
                                 {"state": req.state, "tier": req.tier})
+
+            if self._provision_mode == "async":
+                assert self._worker is not None
+                self._worker.enqueue(tenant_id)
+                return tenant
+            return self._provision_locked(tenant, actor)
+
+    def _provision_locked(self, tenant: Tenant, actor: str) -> Tenant:
+        """Run the orchestrated provisioning workflow (caller holds the lock)."""
+        from .provisioning import ProvisioningWorkflowError, run_provisioning_workflow
+
+        def emit(event_type: str, tid: str, detail: dict) -> None:
+            self._append_locked(event_type, tid, actor, detail)
+
+        try:
+            run_provisioning_workflow(tenant, self._operators, emit=emit)
+        except ProvisioningWorkflowError as exc:
+            self._append_locked("ng.sos.tenant.provision_failed", tenant.tenant_id, actor,
+                                {"state": tenant.state, "error": str(exc)})
             return tenant
+        self._append_locked("ng.sos.tenant.provisioned", tenant.tenant_id, actor,
+                            {"state": tenant.state, "tier": tenant.tier})
+        return tenant
+
+    def complete_provisioning(self, tenant_id: str,
+                              actor: str = "control-plane-worker") -> Tenant | None:
+        """Finalize an asynchronously enqueued tenant (in-process worker)."""
+        with self._lock:
+            tenant = self._tenants.get(tenant_id)
+            if tenant is None or tenant.status != TenantStatus.PROVISIONING:
+                return tenant
+            return self._provision_locked(tenant, actor)
 
     def get_tenant(self, tenant_id: str) -> Tenant | None:
         return self._tenants.get(tenant_id)

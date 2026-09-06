@@ -32,6 +32,36 @@ NIN_BVN_VALUE = re.compile(r"^\d{11}$")
 #: MSISDN-ish value pattern (Nigerian +234 / 0-prefix mobile).
 PHONE_VALUE = re.compile(r"^(\+?234|0)\d{10}$")
 
+#: In-string variants used to scrub operator error messages before they are
+#: written to the audit log / tenant workflow (defence in depth: downstream
+#: systems may echo request payloads containing PII into their errors).
+_NIN_BVN_IN_TEXT = re.compile(r"\b\d{11}\b")
+_PHONE_IN_TEXT = re.compile(r"\b(?:\+?234|0)\d{10}\b")
+
+
+def sanitize_error_message(message: str, max_len: int = 300) -> str:
+    """Scrub PII-looking values from an operator error message.
+
+    Applied to any third-party error text before it is persisted (audit
+    events, tenant workflow) so the control plane's zero-PII boundary also
+    covers operator/log output.
+    """
+    text = _NIN_BVN_IN_TEXT.sub("[REDACTED-11D]", message)
+    text = _PHONE_IN_TEXT.sub("[REDACTED-PHONE]", text)
+    lowered = text.lower()
+    for pattern in PII_FIELD_PATTERNS:
+        idx = lowered.find(pattern)
+        while idx != -1:
+            # Redact `pattern=value`-style fragments (`email=ada@…`, `nin: 123`).
+            m = re.match(
+                re.escape(pattern) + r"\s*[:=]\s*\S+", text[idx:], re.IGNORECASE
+            )
+            if m:
+                text = text[:idx] + pattern + "=[REDACTED]" + text[idx + m.end():]
+                lowered = text.lower()
+            idx = lowered.find(pattern, idx + len(pattern))
+    return text[:max_len]
+
 
 def _find_pii(node: Any, path: str = "$") -> list[str]:
     """Return dotted paths of PII-looking fields/values in a JSON document."""

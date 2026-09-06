@@ -7,6 +7,8 @@ only, consistent with the zero-PII data boundary.
 
 from __future__ import annotations
 
+import os
+
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from pydantic import BaseModel
 
@@ -19,8 +21,69 @@ from .domain import (
     TenantOperation,
     TenantStatus,
 )
+from .operators.base import OperatorUnavailableError
 from .pii_guard import PiiGuardMiddleware
 from .policy import validate_policy_pack
+
+#: Env vars required by each live operator. Boot is fail-closed: with
+#: CONTROL_PLANE_OPERATORS=live the app refuses to start and lists exactly
+#: which variables are missing.
+_LIVE_REQUIRED_ENV: dict[str, tuple[str, ...]] = {
+    "namespace": ("KUBECONFIG", "K8S_IN_CLUSTER"),  # either one
+    "postgres": ("CP_PG_DSN",),
+    "keycloak": ("KEYCLOAK_ADMIN_URL", "KEYCLOAK_ADMIN_USER", "KEYCLOAK_ADMIN_PASSWORD"),
+    "s3": ("S3_ENDPOINT_URL", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"),
+    "kms": ("KMS_BACKEND", "KMS_VAULT_ADDR", "KMS_VAULT_TOKEN"),
+}
+
+
+def build_operators() -> dict:
+    """Build the operator set from CONTROL_PLANE_OPERATORS (local|live).
+
+    Live mode is fail-closed: a missing dependency or config var raises
+    ``OperatorUnavailableError`` naming exactly what is absent.
+    """
+    mode = os.environ.get("CONTROL_PLANE_OPERATORS", "local")
+    if mode == "local":
+        from .operators import local_operators
+
+        return local_operators()
+    if mode != "live":
+        raise OperatorUnavailableError(
+            f"invalid CONTROL_PLANE_OPERATORS '{mode}' (expected local|live)"
+        )
+
+    missing: list[str] = []
+    for step, vars_ in _LIVE_REQUIRED_ENV.items():
+        if step == "namespace":  # kubeconfig OR in-cluster
+            if not (os.environ.get("KUBECONFIG") or
+                    os.environ.get("K8S_IN_CLUSTER") == "true"):
+                missing.append("KUBECONFIG or K8S_IN_CLUSTER=true")
+            continue
+        missing.extend(v for v in vars_ if not os.environ.get(v))
+    if missing:
+        raise OperatorUnavailableError(
+            "CONTROL_PLANE_OPERATORS=live missing required configuration: "
+            + ", ".join(sorted(missing))
+        )
+
+    from .operators.k8s_namespace import K8sNamespaceOperator
+    from .operators.keycloak_realm import KeycloakOperator
+    from .operators.kms_keyring import KmsOperator
+    from .operators.postgres_schema import PostgresOperator
+    from .operators.s3_bucket import S3Operator
+
+    kms = KmsOperator()
+    return {
+        "namespace": K8sNamespaceOperator(
+            kubeconfig=os.environ.get("KUBECONFIG") or None,
+            in_cluster=os.environ.get("K8S_IN_CLUSTER") == "true",
+        ),
+        "postgres": PostgresOperator(dsn=os.environ["CP_PG_DSN"]),
+        "keycloak": KeycloakOperator(),
+        "s3": S3Operator(kms_key_id=os.environ.get("S3_KMS_KEY_ID") or None),
+        "kms": kms,
+    }
 
 
 class SuspendRequest(BaseModel):
@@ -45,7 +108,12 @@ def create_app(store: MetadataStore | None = None) -> FastAPI:
         version="1.0.0",
         description="WP-01 / EPIC-01. Metadata only — zero citizen PII (PII guard enforced).",
     )
-    app.state.store = store or MetadataStore()
+    if store is None:
+        store = MetadataStore(
+            operators=build_operators(),
+            provision_mode=os.environ.get("CONTROL_PLANE_PROVISION_MODE", "sync"),
+        )
+    app.state.store = store
     app.add_middleware(PiiGuardMiddleware)
 
     @app.post(
