@@ -1,0 +1,56 @@
+{
+  "clients": [
+    {
+      "clientId": "sos-services",
+      "description": "Service-to-service client for SOS modules. Secret is NOT stored here; it is injected at import time from the external secret reference 'sos-taraba-sos-services'.",
+      "directAccessGrantsEnabled": false,
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false
+    },
+    {
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "clientId": "sos-citizen-portal",
+      "description": "Public citizen portal client — PKCE (S256) only, no client secret by design.",
+      "directAccessGrantsEnabled": false,
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "redirectUris": [
+        "https://portal.taraba.sos.gov.ng/*"
+      ],
+      "standardFlowEnabled": true,
+      "webOrigins": [
+        "https://portal.taraba.sos.gov.ng"
+      ]
+    }
+  ],
+  "displayName": "SOS Taraba State",
+  "enabled": true,
+  "realm": "sos-taraba",
+  "roles": {
+    "realm": [
+      {
+        "description": "Platform administrator (SOS Taraba State, shared tier)",
+        "name": "sos-admin"
+      },
+      {
+        "description": "State IRS revenue officer (SOS Taraba State)",
+        "name": "sos-revenue-officer"
+      },
+      {
+        "description": "Auditor-General read-only access (SOS Taraba State)",
+        "name": "sos-auditor-readonly"
+      },
+      {
+        "description": "Citizen portal end user (SOS Taraba State)",
+        "name": "sos-citizen"
+      }
+    ]
+  },
+  "sslRequired": "external"
+}

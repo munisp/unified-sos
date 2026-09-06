@@ -274,8 +274,41 @@ def check_terraform() -> None:
         ok(f"terraform env {env.name}: wiring ok")
 
 
+def check_realm_drift() -> None:
+    """Per-state Keycloak realms must match the renderer output, and the
+    copies bundled into the Helm chart (for .Files.Get) must match the
+    canonical render in deploy/keycloak/realms/."""
+    print("== keycloak realm drift ==")
+    import subprocess
+
+    renderer = REPO_ROOT / "deploy" / "keycloak" / "render_realms.py"
+    result = subprocess.run(
+        [sys.executable, str(renderer), "--check"],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        fail(f"keycloak realms drifted — re-run {renderer.relative_to(REPO_ROOT)}\n{result.stderr.strip()}")
+    else:
+        ok("render_realms.py --check passed (6 realms up to date)")
+    canonical = REPO_ROOT / "deploy" / "keycloak" / "realms"
+    bundled = INFRA / "helm" / "sos-platform" / "realms"
+    mismatches = []
+    for realm_file in sorted(canonical.glob("realm-sos-*.json")):
+        chart_copy = bundled / realm_file.name
+        if not chart_copy.exists():
+            mismatches.append(f"helm chart missing bundled realm {chart_copy.relative_to(REPO_ROOT)}")
+        elif chart_copy.read_text() != realm_file.read_text():
+            mismatches.append(f"helm bundled realm {chart_copy.relative_to(REPO_ROOT)} out of sync with {realm_file.relative_to(REPO_ROOT)}")
+    if mismatches:
+        for m in mismatches:
+            fail(m)
+    else:
+        ok("helm chart bundled realms match canonical render")
+
+
 def main() -> int:
     check_k8s_overlays()
+    check_realm_drift()
     check_helm_chart()
     check_terraform()
     check_gitops()

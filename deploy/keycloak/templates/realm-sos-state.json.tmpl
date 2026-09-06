@@ -1,0 +1,45 @@
+{
+  "_comment": "Per-state SOS realm template (WP-02 / P2 Workstream B). Rendered by deploy/keycloak/render_realms.py for each state under config/states/. Variables: {{state_id}}, {{display_name}}, {{tier}}. NO users are created here, and NO client secrets are embedded — the sos-services client secret is injected at deploy time from the ExternalSecret/Vault reference 'sos-<state>-sos-services' (see infra/gitops/README.md).",
+  "realm": "sos-{{state_id}}",
+  "enabled": true,
+  "displayName": "{{display_name}}",
+  "sslRequired": "external",
+  "roles": {
+    "realm": [
+      { "name": "sos-admin", "description": "Platform administrator ({{display_name}}, {{tier}} tier)" },
+      { "name": "sos-revenue-officer", "description": "State IRS revenue officer ({{display_name}})" },
+      { "name": "sos-auditor-readonly", "description": "Auditor-General read-only access ({{display_name}})" },
+      { "name": "sos-citizen", "description": "Citizen portal end user ({{display_name}})" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "sos-services",
+      "description": "Service-to-service client for SOS modules. Secret is NOT stored here; it is injected at import time from the external secret reference 'sos-{{state_id}}-sos-services'.",
+      "enabled": true,
+      "serviceAccountsEnabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false
+    },
+    {
+      "clientId": "sos-citizen-portal",
+      "description": "Public citizen portal client — PKCE (S256) only, no client secret by design.",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "redirectUris": [
+        "https://portal.{{state_id}}.sos.gov.ng/*"
+      ],
+      "webOrigins": [
+        "https://portal.{{state_id}}.sos.gov.ng"
+      ]
+    }
+  ]
+}
