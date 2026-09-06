@@ -8,13 +8,24 @@ enforces this at the request boundary.
 
 from __future__ import annotations
 
+import sys
 import threading
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from pathlib import Path
+from typing import Any, TYPE_CHECKING
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
+
+# Shared canonical-JSON/SHA-256 hash-chain helpers (services/_shared).
+_SERVICES_ROOT = Path(__file__).resolve().parents[2]
+if str(_SERVICES_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SERVICES_ROOT))
+from _shared.hashchain import GENESIS_PREV_HASH, event_payload_hash  # noqa: E402
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .audit_archive import AuditArchive
 
 #: Tenant states + tiers per contracts/openapi/control-plane.yaml.
 VALID_STATES = ("lagos", "ogun", "osun", "benue", "nasarawa", "taraba")
@@ -80,7 +91,14 @@ class PolicyPackRecord(BaseModel):
 
 
 class AuditEvent(BaseModel):
-    """Append-only audit event. Sequence numbers are per-process monotonic."""
+    """Append-only audit event. Sequence numbers are per-process monotonic.
+
+    Each event is hash-chained (SHA-256 over canonical JSON, see
+    ``services/_shared/hashchain.py``): ``prev_hash`` links to the previous
+    event in the tenant's chain (``GENESIS_PREV_HASH`` for the tenant's
+    genesis event) and ``event_hash`` commits to the payload + link, making
+    archived copies tamper-evident.
+    """
 
     seq: int
     event_id: str
@@ -89,6 +107,8 @@ class AuditEvent(BaseModel):
     actor: str
     detail: dict[str, Any]
     at: str
+    prev_hash: str = GENESIS_PREV_HASH
+    event_hash: str = ""
 
 
 def _now() -> str:
@@ -103,13 +123,19 @@ class MetadataStore:
     exposes no delete operations — records are terminal-state only.
     """
 
-    def __init__(self, operators: dict | None = None, provision_mode: str = "sync") -> None:
+    def __init__(self, operators: dict | None = None, provision_mode: str = "sync",
+                 archive: "AuditArchive | None" = None) -> None:
         self._lock = threading.Lock()
         self._tenants: dict[str, Tenant] = {}
         self._tenant_by_state: dict[str, str] = {}
         self._policy_packs: dict[str, list[PolicyPackRecord]] = {}
         self._audit: list[AuditEvent] = []
         self._seq = 0
+        #: Last event_hash per tenant chain (key: tenant_id or "_global").
+        self._last_hash: dict[str, str] = {}
+        #: Optional immutable archive sink (LocalFileArchive/OpenSearchArchive);
+        #: every appended event is mirrored there write-only.
+        self._archive = archive
         from .operators import local_operators
 
         #: Provisioning operators (default: deterministic local no-op set) and
@@ -247,13 +273,35 @@ class MetadataStore:
         return list(self._policy_packs.get(tenant_id, []))
 
     # --- audit -------------------------------------------------------------
+    @staticmethod
+    def _chain_key(tenant_id: str | None) -> str:
+        return tenant_id if tenant_id is not None else "_global"
+
     def _append_locked(self, event_type: str, tenant_id: str | None, actor: str,
                        detail: dict[str, Any]) -> None:
+        # Genesis event anchors each tenant's hash chain exactly once.
+        if self._chain_key(tenant_id) not in self._last_hash:
+            self._append_chained_locked(
+                "ng.sos.audit.genesis", tenant_id, "control-plane",
+                {"tenant_id": tenant_id, "chain": "sha256/canonical-json"})
+        self._append_chained_locked(event_type, tenant_id, actor, detail)
+
+    def _append_chained_locked(self, event_type: str, tenant_id: str | None, actor: str,
+                               detail: dict[str, Any]) -> None:
+        key = self._chain_key(tenant_id)
+        prev_hash = self._last_hash.get(key, GENESIS_PREV_HASH)
         self._seq += 1
-        self._audit.append(AuditEvent(
+        event = AuditEvent(
             seq=self._seq, event_id=f"evt-{self._seq:06d}", event_type=event_type,
             tenant_id=tenant_id, actor=actor, detail=detail, at=_now(),
-        ))
+            prev_hash=prev_hash,
+        )
+        event.event_hash = event_payload_hash(
+            event.model_dump(exclude={"prev_hash", "event_hash"}), prev_hash)
+        self._last_hash[key] = event.event_hash
+        self._audit.append(event)
+        if self._archive is not None:
+            self._archive.append(event)
 
     def audit_events(self) -> list[AuditEvent]:
         """Read-only view of the append-only audit log (no mutation API exists)."""
