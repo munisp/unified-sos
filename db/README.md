@@ -6,6 +6,7 @@ PostgreSQL 16+ / PostGIS 3.4+ schema migrations for the SOS data plane. All stat
 |---|---|
 | [0001_cadastre.sql](migrations/0001_cadastre.sql) | Cadastral parcels (PostGIS geometry, GiST indexes, RLS) — WP-06 |
 | [0002_revenue_core.sql](migrations/0002_revenue_core.sql) | STIN taxpayers, assessments, bills — WP-05 |
+| [0003_titling_and_luc.sql](migrations/0003_titling_and_luc.sql) | e-C-of-O titling workflow projection, signed digital titles, LUC valuation runs & bills (RLS) — WP-06 |
 
 ## Conventions
 

@@ -1,0 +1,46 @@
+{
+  "type": "FeatureCollection",
+  "name": "sedona_cadastral_parcels_fixture",
+  "description": "Synthetic cadastral parcels near Abeokuta, Ogun (EPSG:4326) for local verification of unassessed_property_join.sql. OG-ABK-0001 has a zero LUC assessment (unassessed improvement), OG-ABK-0002 is assessed (compliant), OG-ABK-0003 has no building footprint (right-side-only FULL OUTER JOIN row, filtered out by the tenant WHERE clause).",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "parcel_uin": "OG-ABK-0001",
+        "tenant_state_id": "ogun",
+        "owner_stin": "STIN-OG-0001",
+        "assessed_annual_luc_kobo": 0
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[3.3500, 7.1500], [3.3510, 7.1500], [3.3510, 7.1510], [3.3500, 7.1510], [3.3500, 7.1500]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "parcel_uin": "OG-ABK-0002",
+        "tenant_state_id": "ogun",
+        "owner_stin": "STIN-OG-0002",
+        "assessed_annual_luc_kobo": 120000
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[3.3520, 7.1500], [3.3530, 7.1500], [3.3530, 7.1510], [3.3520, 7.1510], [3.3520, 7.1500]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "parcel_uin": "OG-ABK-0003",
+        "tenant_state_id": "ogun",
+        "owner_stin": "STIN-OG-0003",
+        "assessed_annual_luc_kobo": 240000
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[3.3540, 7.1500], [3.3550, 7.1500], [3.3550, 7.1510], [3.3540, 7.1510], [3.3540, 7.1500]]]
+      }
+    }
+  ]
+}

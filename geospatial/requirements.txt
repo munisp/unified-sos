@@ -1,0 +1,6 @@
+# geospatial local-verification dependencies (all permissive licenses).
+# Production jobs additionally need Apache Sedona (Apache-2.0) on the Spark cluster.
+shapely>=2.0          # BSD-3-Clause
+numpy>=1.26           # BSD-3-Clause
+pytest>=8.0           # MIT
+# Optional (GeoParquet fixture loading): geopandas + pyarrow (both BSD/Apache-2.0)

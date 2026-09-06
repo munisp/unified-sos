@@ -1,0 +1,55 @@
+{
+  "type": "FeatureCollection",
+  "name": "sedona_building_footprints_fixture",
+  "description": "Synthetic satellite building footprints (EPSG:4326). BF-ENC-1 intersects no cadastral parcel -> UNREGISTERED_ENCROACHMENT; BF-UAI-1 sits on OG-ABK-0001 (zero assessment) -> UNASSESSED_IMPROVEMENT; BF-CMP-1 sits on OG-ABK-0002 (assessed) -> COMPLIANT. BF-LAG-1 belongs to the lagos tenant and must be filtered out of ogun runs.",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "building_footprint_id": "BF-ENC-1",
+        "tenant_state_id": "ogun",
+        "estimated_area_sqm": 180.0
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[3.3580, 7.1500], [3.3585, 7.1500], [3.3585, 7.1505], [3.3580, 7.1505], [3.3580, 7.1500]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "building_footprint_id": "BF-UAI-1",
+        "tenant_state_id": "ogun",
+        "estimated_area_sqm": 120.0
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[3.3502, 7.1502], [3.3506, 7.1502], [3.3506, 7.1506], [3.3502, 7.1506], [3.3502, 7.1502]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "building_footprint_id": "BF-CMP-1",
+        "tenant_state_id": "ogun",
+        "estimated_area_sqm": 95.0
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[3.3522, 7.1502], [3.3526, 7.1502], [3.3526, 7.1506], [3.3522, 7.1506], [3.3522, 7.1502]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "building_footprint_id": "BF-LAG-1",
+        "tenant_state_id": "lagos",
+        "estimated_area_sqm": 60.0
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[3.3502, 7.1502], [3.3504, 7.1502], [3.3504, 7.1504], [3.3502, 7.1504], [3.3502, 7.1502]]]
+      }
+    }
+  ]
+}
