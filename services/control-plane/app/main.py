@@ -109,9 +109,12 @@ def create_app(store: MetadataStore | None = None) -> FastAPI:
         description="WP-01 / EPIC-01. Metadata only — zero citizen PII (PII guard enforced).",
     )
     if store is None:
+        from .audit_archive import archive_from_env
+
         store = MetadataStore(
             operators=build_operators(),
             provision_mode=os.environ.get("CONTROL_PLANE_PROVISION_MODE", "sync"),
+            archive=archive_from_env(),
         )
     app.state.store = store
     app.add_middleware(PiiGuardMiddleware)

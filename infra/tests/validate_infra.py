@@ -423,6 +423,61 @@ def check_realm_drift() -> None:
         ok("helm chart bundled realms match canonical render")
 
 
+def check_opensearch_audit_retention() -> None:
+    """The OpenSearch audit-archive ISM policy must enforce 7-year retention
+    with a WORM (S3 Object Lock) snapshot before any deletion — P1 audit
+    immutability workstream."""
+    import json as _json
+
+    path = INFRA / "helm" / "opensearch" / "ism-policy.yaml"
+    if not path.exists():
+        fail("infra/helm/opensearch/ism-policy.yaml missing — audit ISM retention policy required")
+        return
+    docs = load_yaml_docs(path)
+    cm = next((d for d in docs if d.get("kind") == "ConfigMap" and "ism-policy.json" in d.get("data", {})), None)
+    if cm is None:
+        fail(f"{path.relative_to(REPO_ROOT)}: no ConfigMap carrying ism-policy.json")
+        return
+    data = cm["data"]
+    try:
+        policy = _json.loads(data["ism-policy.json"])["policy"]
+        repo = _json.loads(data["snapshot-repository.json"])
+    except (KeyError, ValueError) as exc:
+        fail(f"{path.relative_to(REPO_ROOT)}: unparseable ISM/repository JSON: {exc}")
+        return
+
+    templates = policy.get("ism_template", {})
+    patterns = templates.get("index_patterns") or [templates.get("index_patterns")]
+    if "sos-audit-*" not in patterns:
+        fail("ISM policy does not target the write-only sos-audit-* indices")
+
+    states = {s["name"]: s for s in policy.get("states", [])}
+    snapshots = [a["snapshot"] for s in states.values() for a in s.get("actions", []) if "snapshot" in a]
+    if not snapshots or not any("s3" in a.get("repository", "") for a in snapshots):
+        fail("ISM policy has no snapshot action to an S3 (WORM) repository")
+    if repo.get("type") != "s3" or "object_lock" not in repo.get("settings", {}):
+        fail("snapshot repository must be S3 with Object Lock (WORM)")
+    else:
+        lock = repo["settings"]["object_lock"]
+        if lock.get("mode") != "COMPLIANCE" or int(lock.get("retention_days", 0)) < 2555:
+            fail("S3 Object Lock must be COMPLIANCE mode with >= 2555 days (7y) retention")
+
+    if "delete" not in states:
+        fail("ISM policy has no terminal delete state")
+    else:
+        ages = [t.get("conditions", {}).get("min_index_age", "")
+                for s in states.values() for t in s.get("transitions", [])
+                if t.get("state_name") == "delete"]
+        if not any(str(a).rstrip("d").isdigit() and int(str(a).rstrip("d")) >= 2555 for a in ages):
+            fail("audit indices must be retained >= 2555 days (7 years) before deletion")
+    # Deletion must be preceded by a final WORM snapshot in the delete state.
+    delete_actions = states.get("delete", {}).get("actions", [])
+    if not any("snapshot" in a for a in delete_actions) or not any("delete" in a for a in delete_actions):
+        fail("delete state must take a final WORM snapshot before deleting the index")
+    if not FAILURES:
+        ok("opensearch audit ISM policy: WORM S3 snapshots + 7-year (2555d) retention")
+
+
 def main() -> int:
     check_k8s_overlays()
     check_realm_drift()
@@ -431,6 +486,7 @@ def main() -> int:
     check_terraform()
     check_gitops()
     check_dedicated_isolation()
+    check_opensearch_audit_retention()
 
     print()
     if FAILURES:

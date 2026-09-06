@@ -70,16 +70,39 @@ def parse_geojson_geometry(geometry: dict[str, Any]) -> BaseGeometry:
     return geom
 
 
-def canonical_json(obj: Any) -> str:
-    """Deterministic JSON serialization used for all hashing."""
+def _load_shared_hashchain():
+    """Import the canonical helpers from ``services/_shared`` when the
+    monorepo layout is available; fall back to local copies so the service
+    stays self-contained inside its container build context."""
 
-    return json.dumps(obj, sort_keys=True, separators=(",", ":"), default=str)
+    try:
+        import sys
+        from pathlib import Path
+
+        services_root = Path(__file__).resolve().parents[2]
+        if (services_root / "_shared" / "hashchain.py").exists():
+            if str(services_root) not in sys.path:
+                sys.path.insert(0, str(services_root))
+            from _shared.hashchain import canonical_json, sha256_hex
+
+            return canonical_json, sha256_hex
+    except ImportError:  # pragma: no cover
+        pass
+
+    def canonical_json(obj: Any) -> str:
+        return json.dumps(obj, sort_keys=True, separators=(",", ":"), default=str)
+
+    def sha256_hex(data: str | bytes) -> str:
+        if isinstance(data, str):
+            data = data.encode("utf-8")
+        return hashlib.sha256(data).hexdigest()
+
+    return canonical_json, sha256_hex
 
 
-def sha256_hex(data: str | bytes) -> str:
-    if isinstance(data, str):
-        data = data.encode("utf-8")
-    return hashlib.sha256(data).hexdigest()
+#: Canonical implementations live in ``services/_shared/hashchain.py``
+#: (shared with the control-plane audit hash chain).
+canonical_json, sha256_hex = _load_shared_hashchain()
 
 
 def geometry_hash(geometry: dict[str, Any]) -> str:

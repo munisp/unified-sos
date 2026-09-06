@@ -1,0 +1,91 @@
+# OpenSearch ISM retention policy for the immutable control-plane audit
+# archive (P1 workstream 4). Manifest-only: applied by the platform
+# bootstrap job via PUT _plugins/_ism/policies/sos-audit-retention and
+# PUT _snapshot/sos-audit-worm-s3.
+#
+# Retention invariants (verified by infra/tests/validate_infra.py):
+#   * 7-year retention (2555 days) before deletion — NDPA 2023 / audit
+#     evidence requirements.
+#   * Daily WORM snapshot to an S3 bucket with Object Lock (compliance
+#     mode) — snapshots cannot be overwritten or deleted early.
+#   * Write-only indices sos-audit-* (append/index only; no update/delete).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sos-audit-ism-policy
+  namespace: sos-platform
+  labels:
+    app.kubernetes.io/part-of: sos-control-plane
+    sos.ng/component: audit-archive
+data:
+  # Snapshot repository: S3 with Object Lock (WORM, compliance mode).
+  snapshot-repository.json: |
+    {
+      "type": "s3",
+      "settings": {
+        "bucket": "sos-audit-worm-snapshots",
+        "base_path": "audit/sos-audit",
+        "readonly": true,
+        "object_lock": {
+          "mode": "COMPLIANCE",
+          "retention_days": 2555
+        },
+        "comment": "WORM audit snapshot repository — S3 Object Lock, 7-year retention"
+      }
+    }
+  # Index State Management policy: hot -> snapshot (WORM) -> delete @ 7y.
+  ism-policy.json: |
+    {
+      "policy": {
+        "description": "Immutable audit archive: WORM snapshot to S3, 7-year (2555d) retention, then delete.",
+        "ism_template": {
+          "index_patterns": ["sos-audit-*"],
+          "priority": 100
+        },
+        "default_state": "hot",
+        "states": [
+          {
+            "name": "hot",
+            "actions": [
+              {
+                "snapshot": {
+                  "repository": "sos-audit-worm-s3",
+                  "snapshot": "audit-{{ctx.index}}"
+                }
+              }
+            ],
+            "transitions": [
+              {
+                "state_name": "retain",
+                "conditions": {"min_index_age": "1d"}
+              }
+            ]
+          },
+          {
+            "name": "retain",
+            "actions": [
+              {"read_only": {}}
+            ],
+            "transitions": [
+              {
+                "state_name": "delete",
+                "conditions": {"min_index_age": "2555d"}
+              }
+            ]
+          },
+          {
+            "name": "delete",
+            "actions": [
+              {
+                "snapshot": {
+                  "repository": "sos-audit-worm-s3",
+                  "snapshot": "final-{{ctx.index}}"
+                }
+              },
+              {"delete": {}}
+            ],
+            "transitions": []
+          }
+        ]
+      }
+    }

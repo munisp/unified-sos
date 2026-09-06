@@ -9,7 +9,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from . import gitops, ledger, policy
+from . import audit, gitops, ledger, policy
 from .registry import TenantRegistry
 from .states import STATE_TENANT_IDS, TIERS
 
@@ -21,9 +21,11 @@ app = typer.Typer(
 tenant_app = typer.Typer(help="Tenant lifecycle management.", no_args_is_help=True)
 policy_app = typer.Typer(help="Dynamic policy-pack management.", no_args_is_help=True)
 ledger_app = typer.Typer(help="TigerBeetle ledger bootstrap.", no_args_is_help=True)
+audit_app = typer.Typer(help="Immutable audit archive operations.", no_args_is_help=True)
 app.add_typer(tenant_app, name="tenant")
 app.add_typer(policy_app, name="policy")
 app.add_typer(ledger_app, name="ledger")
+app.add_typer(audit_app, name="audit")
 
 console = Console()
 err_console = Console(stderr=True)
@@ -185,6 +187,38 @@ def ledger_init_chart(
     for acct in chart["accounts"]:
         table.add_row(str(acct["code"]), acct["name"])
     console.print(table)
+
+
+@audit_app.command("verify-chain")
+def audit_verify_chain(
+    tenant: str = typer.Argument(..., help="Tenant id whose audit chain to verify"),
+    archive_root: Path = typer.Option(
+        "out/audit", "--archive-root", help="LocalFileArchive root (JSONL, one file per tenant)"
+    ),
+) -> None:
+    """Recompute the tenant's audit hash chain from the immutable archive.
+
+    Exits 0 when the chain is intact; exits 1 when any event was mutated,
+    deleted, or re-ordered (tamper detection).
+    """
+    try:
+        events = audit.load_tenant_chain(archive_root, tenant)
+    except FileNotFoundError as exc:
+        err_console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=2)
+    errors = audit.verify_event_chain(events)
+    if errors:
+        err_console.print(
+            f"[red]AUDIT CHAIN COMPROMISED[/red] tenant={tenant} "
+            f"events={len(events)} errors={len(errors)}"
+        )
+        for error in errors:
+            err_console.print(f"  [red]• {error}[/red]")
+        raise typer.Exit(code=1)
+    console.print(
+        f"[green]audit chain intact[/green] tenant={tenant} events={len(events)} "
+        f"(genesis → {events[-1]['event_hash'] if events else 'n/a'})"
+    )
 
 
 if __name__ == "__main__":
