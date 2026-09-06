@@ -46,24 +46,230 @@ keycloak:
     realmsConfigMap: sos-keycloak-realms
     backoffLimit: 3
 
-modRevCore:
-  enabled: true
-  replicaCount: 3
-  image:
-    repository: ghcr.io/munisp/mod-rev-core
-    tag: "0.1.0"
-  service:
-    port: 8080
-  env:
-    ledgerClusterAddress: tigerbeetle.sos-data:3000
-    ledgerId: "1"
-  resources:
-    requests:
-      cpu: 250m
-      memory: 512Mi
-    limits:
-      cpu: "1"
-      memory: 1Gi
+# SOS module services (services/mod-*, control-plane, lakehouse).
+# Every entry renders a Deployment + Service via
+# templates/_module-deployment.tpl when enabled. env holds raw
+# ENV_NAME: value pairs appended after the global SOS_* env vars.
+# Ports come from each service's Dockerfile.
+modules:
+  controlPlane:
+    enabled: true # core platform service
+    replicaCount: 2
+    image:
+      repository: ghcr.io/munisp/control-plane
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env: {}
+    resources: {}
+  lakehouse:
+    enabled: false # batch medallion pipeline (no long-lived HTTP server)
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/lakehouse
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env: {}
+    resources: {}
+  modAgriWaybill:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-agri-waybill
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env: {}
+    resources: {}
+  modCitizenPortal:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-citizen-portal
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env: {}
+    resources: {}
+  modEducation:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-education
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env: {}
+    resources: {}
+  modEnvironment:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-environment
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env: {}
+    resources: {}
+  modForestry:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-forestry
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env: {}
+    resources: {}
+  modGeospatial:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-geospatial
+      tag: "0.1.0"
+    service:
+      port: 8013
+    env: {}
+    resources: {}
+  modGeospatialGateway:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-geospatial-gateway
+      tag: "0.1.0"
+    service:
+      port: 8014
+    env: {}
+    resources: {}
+  modGisLands:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-gis-lands
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env: {}
+    resources: {}
+  modGisLuc:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-gis-luc
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env: {}
+    resources: {}
+  modHealth:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-health
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env: {}
+    resources: {}
+  modIdentity:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-identity
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env: {}
+    resources: {}
+  modKycKyb:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-kyc-kyb
+      tag: "0.1.0"
+    service:
+      port: 8090
+    env: {}
+    resources: {}
+  modMarket:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-market
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env: {}
+    resources: {}
+  modMining:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-mining
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env: {}
+    resources: {}
+  modMobilitySwitch:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-mobility-switch
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env: {}
+    resources: {}
+  modPoliceCad:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-police-cad
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env: {}
+    resources: {}
+  modPppInvestment:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-ppp-investment
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env: {}
+    resources: {}
+  modRevCore:
+    enabled: true # core revenue engine (migrated from bespoke templates)
+    replicaCount: 3
+    image:
+      repository: ghcr.io/munisp/mod-rev-core
+      tag: "0.1.0"
+    service:
+      port: 8080
+    env:
+      SOS_LEDGER_ADDRESS: tigerbeetle.sos-data:3000
+      SOS_LEDGER_ID: "1"
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+  modTransportWim:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-transport-wim
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env: {}
+    resources: {}
 
 kubecost:
   enabled: true

@@ -1,0 +1,10 @@
+{{- /*
+Renders a Deployment + Service for every enabled entry in .Values.modules
+via the sos-platform.moduleDeployment named template.
+*/ -}}
+{{- range $key, $mod := .Values.modules }}
+{{- if $mod.enabled }}
+---
+{{ include "sos-platform.moduleDeployment" (dict "root" $ "name" (include "sos-platform.moduleName" $key) "module" $mod) }}
+{{- end }}
+{{- end }}
