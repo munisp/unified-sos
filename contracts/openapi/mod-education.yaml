@@ -150,13 +150,27 @@ paths:
   /education/v1/webhooks/mojaloop:
     post:
       summary: Mojaloop Webhook
-      description: 'Mojaloop-clearing webhook stub: completed transfer credits an invoice.'
+      description: 'Mojaloop clearing webhook. Adapter mode: FSPIOP PUT /transfers/{id}
+        fulfilment (TransferFulfilmentWebhook) with FSPIOP-Signature header verification
+        and COMMITTED transfer state required. Local mode (no adapter wired): deterministic
+        stub payload (MojaloopWebhook).'
       operationId: mojaloop_webhook_education_v1_webhooks_mojaloop_post
+      parameters:
+      - name: FSPIOP-Signature
+        in: header
+        required: false
+        description: 'Adapter mode only: JWS (production) or HMAC-SHA256 (sim
+          profile, ''sha256=<hex>'') over the raw request body. Fail closed:
+          missing/invalid → 401.'
+        schema:
+          type: string
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MojaloopWebhook'
+              oneOf:
+              - $ref: '#/components/schemas/TransferFulfilmentWebhook'
+              - $ref: '#/components/schemas/MojaloopWebhook'
         required: true
       responses:
         '200':
@@ -165,6 +179,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/StudentInvoice'
+        '401':
+          description: Missing or invalid FSPIOP-Signature (adapter mode)
+        '409':
+          description: Transfer not COMMITTED (adapter mode)
         '422':
           description: Validation Error
           content:
@@ -285,7 +303,43 @@ components:
       - invoice_id
       - amount_kobo
       title: MojaloopWebhook
-      description: Stub of a Mojaloop clearing transfer notification (FSPIOP-style).
+      description: 'Local-mode stub of a Mojaloop clearing transfer notification.
+        Used only when no FSPIOP adapter is wired (deterministic local default).'
+    TransferFulfilmentWebhook:
+      properties:
+        transfer_id:
+          type: string
+          title: Transfer Id
+        invoice_id:
+          type: string
+          title: Invoice Id
+        amount_kobo:
+          type: integer
+          minimum: 0.0
+          title: Amount Kobo
+        transfer_state:
+          type: string
+          enum: [COMMITTED, ABORTED]
+          default: COMMITTED
+          title: Transfer State
+        fulfilment:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Fulfilment
+        completed_timestamp:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Completed Timestamp
+      type: object
+      required:
+      - transfer_id
+      - invoice_id
+      - amount_kobo
+      title: TransferFulfilmentWebhook
+      description: 'FSPIOP PUT /transfers/{id} fulfilment callback (adapter mode).
+        Requires a valid FSPIOP-Signature header verified via the scheme adapter.'
     RegisterRequest:
       properties:
         student_id:

@@ -11,6 +11,10 @@
 //	                     see ledger/README.md)
 //	TB_ADDRESSES         comma-separated TigerBeetle cluster addresses
 //	                     (used when REV_CORE_LEDGER=tigerbeetle)
+//	REV_CORE_EBILLS      e-Bills notifier: "noop" (default, deterministic
+//	                     local) or "nibss" (production NIBSS e-Bills client)
+//	NIBSS_EBILLS_URL     NIBSS e-Bills gateway base URL (required when
+//	                     REV_CORE_EBILLS=nibss — fails closed otherwise)
 package main
 
 import (
@@ -45,7 +49,13 @@ func main() {
 		log.Fatalf("mod-rev-core: unknown REV_CORE_LEDGER %q (want memory|tigerbeetle)", backend)
 	}
 
-	svc := revenue.NewService(revenue.NewInMemoryStore(), catalog, ledger)
+	notifier, err := revenue.NewEBillNotifierFromEnv()
+	if err != nil {
+		log.Fatalf("mod-rev-core: e-Bills notifier: %v", err)
+	}
+
+	svc := revenue.NewService(revenue.NewInMemoryStore(), catalog, ledger,
+		revenue.WithEBillNotifier(notifier))
 	handler := revenue.NewHandler(svc)
 
 	log.Printf("mod-rev-core: listening on %s (policy_dir=%q)", addr, policyDir)

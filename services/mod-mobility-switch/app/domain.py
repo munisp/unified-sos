@@ -78,6 +78,30 @@ class SettlementLeg(BaseModel):
     transfer_code: int = TRANSFER_CODE_TRANSIT
 
 
+class EscrowState(str, Enum):
+    PENDING = "pending"
+    POSTED = "posted"
+    VOID = "void"
+
+
+class EscrowRecord(BaseModel):
+    """Pending-transfer escrow for a settlement leg batch (Mojaloop seam).
+
+    Lifecycle: PENDING on prepare (funds reserved on the escrow account),
+    POSTED on fulfil (FSPIOP COMMITTED), VOID on abort. Idempotent on
+    transfer_id — replays return the original record unchanged.
+    """
+
+    transfer_id: str
+    batch_id: str
+    amount_kobo: int
+    condition: str
+    state: EscrowState
+    fulfilment: str | None = None
+    created_at: str
+    completed_at: str | None = None
+
+
 class SettlementBatch(BaseModel):
     batch_id: str
     tenant_state_id: str
@@ -96,6 +120,8 @@ class MobilityStore:
         self.fare_tables: dict[str, FareTable] = {}
         self.clearing: dict[str, ClearingRecord] = {}
         self.batches: dict[str, SettlementBatch] = {}
+        self.escrows: dict[str, EscrowRecord] = {}  # keyed by transfer_id
+        self.bill_events: dict[str, dict] = {}  # keyed by bill_reference
 
     # --- fare table config ----------------------------------------------------
     def set_fare_table(self, table: FareTable) -> FareTable:
@@ -164,6 +190,66 @@ class MobilityStore:
             for r in pending:
                 r.settled_batch_id = batch.batch_id
             return batch
+
+    # --- pending-transfer escrow (Mojaloop FSPIOP seam) -----------------------
+    def begin_escrow(self, transfer_id: str, batch_id: str, amount_kobo: int,
+                     condition: str) -> EscrowRecord:
+        """Reserve funds on the escrow account (FSPIOP prepare → PENDING).
+
+        Idempotent on transfer_id: a replay returns the original record.
+        """
+        with self._lock:
+            existing = self.escrows.get(transfer_id)
+            if existing is not None:
+                if existing.batch_id != batch_id or existing.amount_kobo != amount_kobo:
+                    raise ValueError(
+                        f"transfer_id '{transfer_id}' already escrowed with different terms")
+                return existing
+            if batch_id not in self.batches:
+                raise KeyError(f"settlement batch '{batch_id}' not found")
+            rec = EscrowRecord(transfer_id=transfer_id, batch_id=batch_id,
+                               amount_kobo=amount_kobo, condition=condition,
+                               state=EscrowState.PENDING, created_at=_now())
+            self.escrows[transfer_id] = rec
+            return rec
+
+    def fulfil_escrow(self, transfer_id: str, fulfilment: str) -> EscrowRecord:
+        """Post a pending escrow on FSPIOP COMMITTED fulfilment (idempotent)."""
+        with self._lock:
+            rec = self.escrows.get(transfer_id)
+            if rec is None:
+                raise KeyError(f"escrow '{transfer_id}' not found")
+            if rec.state == EscrowState.POSTED:
+                return rec  # idempotent replay
+            if rec.state != EscrowState.PENDING:
+                raise ValueError(f"escrow '{transfer_id}' is {rec.state.value}")
+            rec.state = EscrowState.POSTED
+            rec.fulfilment = fulfilment
+            rec.completed_at = _now()
+            return rec
+
+    def abort_escrow(self, transfer_id: str) -> EscrowRecord:
+        """Void a pending escrow on FSPIOP ABORTED / expiry (idempotent)."""
+        with self._lock:
+            rec = self.escrows.get(transfer_id)
+            if rec is None:
+                raise KeyError(f"escrow '{transfer_id}' not found")
+            if rec.state == EscrowState.VOID:
+                return rec  # idempotent replay
+            if rec.state != EscrowState.PENDING:
+                raise ValueError(f"escrow '{transfer_id}' is {rec.state.value}")
+            rec.state = EscrowState.VOID
+            rec.completed_at = _now()
+            return rec
+
+    def record_bill_event(self, bill_reference: str, event: dict) -> dict:
+        """Idempotently record a NIBSS e-Bills payment notification."""
+        with self._lock:
+            existing = self.bill_events.get(bill_reference)
+            if existing is not None:
+                return existing
+            self.bill_events[bill_reference] = event
+            return event
 
 
 def cowry_authorize(card_ref: str, fare_kobo: int) -> dict:

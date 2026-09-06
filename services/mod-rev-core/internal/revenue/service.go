@@ -18,6 +18,7 @@ type Service struct {
 	store   Store
 	catalog *PolicyCatalog
 	ledger  splits.LedgerClient
+	ebills  EBillNotifier
 	now     func() time.Time
 }
 
@@ -29,10 +30,16 @@ func WithClock(now func() time.Time) Option {
 	return func(s *Service) { s.now = now }
 }
 
+// WithEBillNotifier injects the e-Bills gateway seam (NIBSS in production;
+// NoopEBillNotifier is the deterministic default).
+func WithEBillNotifier(n EBillNotifier) Option {
+	return func(s *Service) { s.ebills = n }
+}
+
 // NewService wires the domain service. ledger must not be nil; use
 // splits.NewInMemoryLedger() when no TigerBeetle cluster is available.
 func NewService(store Store, catalog *PolicyCatalog, ledger splits.LedgerClient, opts ...Option) *Service {
-	s := &Service{store: store, catalog: catalog, ledger: ledger, now: func() time.Time { return time.Now().UTC() }}
+	s := &Service{store: store, catalog: catalog, ledger: ledger, ebills: NoopEBillNotifier{}, now: func() time.Time { return time.Now().UTC() }}
 	for _, o := range opts {
 		o(s)
 	}
@@ -162,6 +169,13 @@ func (s *Service) CreateAssessment(state, idempotencyKey string, req *Assessment
 		Metadata:                     req.Metadata,
 		CreatedAt:                    s.now(),
 	}
+	// Issue the bill through the e-Bills seam (Noop locally; NIBSS in
+	// production). Fail closed: a gateway error aborts the assessment.
+	gatewayRef, err := s.ebills.IssueBill(a)
+	if err != nil {
+		return nil, false, internalError("EBILL_ISSUE_FAILED", "e-Bills gateway: %v", err)
+	}
+	a.BillReference = gatewayRef
 	if err := s.store.CreateAssessment(a); err != nil {
 		return nil, false, conflict("BILL_REFERENCE_CONFLICT", "bill reference collision; retry")
 	}
