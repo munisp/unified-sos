@@ -228,6 +228,24 @@ SERVICES: dict[str, dict] = {
             tags=["kyc-kyb", "identity-verification", "document-ai"],
         ),
     },
+    "mod-geospatial": {
+        "package": "app.main",
+        "info": dict(
+            title="SOS Geospatial Orchestration, GeoLibre Projects & Lakehouse API (mod-geospatial)",
+            description=(
+                "Stage 5 / GEO-LND · Lots 4-6. Tenant-isolated geospatial "
+                "dataset registration (PostGIS system of record), H3 indexing, "
+                "deterministic processing jobs, GeoLibre self-hosted workbench "
+                "project authoring (.geolibre.json artifacts; never the system "
+                "of record; no raw PII or hosted share/collab endpoints), and "
+                "lakehouse GeoParquet publication seams (Sedona analytical "
+                "engine). Rust geometry-rs provides deterministic WKT "
+                "validation; mod-geospatial-gateway (Go) provides the "
+                "low-latency validation/command edge. Deploys: all 6 states."
+            ),
+            tags=["geospatial", "geolibre", "lakehouse"],
+        ),
+    },
 }
 
 

@@ -2,10 +2,11 @@
 # Local dev stack lives in deploy/; production deploys via infra/helm/sos-platform.
 
 COMPOSE := docker compose -f deploy/docker-compose.yml --env-file deploy/.env
-GO_SERVICES := services/mod-rev-core ledger/splits
+GO_SERVICES := services/mod-rev-core ledger/splits services/mod-geospatial-gateway
 PY_SERVICES := $(wildcard services/*/ edge/edge-daemon/)
+RUST_COMPONENTS := geospatial/geometry-rs
 
-.PHONY: help test test-go test-python validate contracts lint compose-up compose-down
+.PHONY: help test test-go test-python test-rust validate contracts lint lint-rust compose-up compose-down
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -29,6 +30,18 @@ test-python: ## Run pytest per Python service directory
 		fi; \
 	done
 
+test-rust: ## Run cargo tests for Rust components (skips if cargo unavailable)
+	@if command -v cargo >/dev/null 2>&1; then \
+		for comp in $(RUST_COMPONENTS); do \
+			if [ -f "$$comp/Cargo.toml" ]; then \
+				echo "== cargo test: $$comp"; \
+				(cd $$comp && cargo test --locked 2>/dev/null || cargo test) || exit 1; \
+			fi; \
+		done; \
+	else \
+		echo "SKIP: cargo not installed — Rust tests not run (see geospatial/README.md)"; \
+	fi
+
 validate: ## Validate state policy packs and infra manifests
 	python config/states/validate_packs.py
 	python infra/tests/validate_infra.py
@@ -51,6 +64,18 @@ lint: ## Lint Go and Python sources
 			python -m compileall -q $$svc || exit 1; \
 		fi; \
 	done
+
+lint-rust: ## Run cargo clippy/fmt check for Rust components (skips if cargo unavailable)
+	@if command -v cargo >/dev/null 2>&1; then \
+		for comp in $(RUST_COMPONENTS); do \
+			if [ -f "$$comp/Cargo.toml" ]; then \
+				echo "== cargo check: $$comp"; \
+				(cd $$comp && cargo check) || exit 1; \
+			fi; \
+		done; \
+	else \
+		echo "SKIP: cargo not installed — Rust lint not run"; \
+	fi
 
 compose-up: ## Boot the local development stack (deploy/docker-compose.yml)
 	@test -f deploy/.env || cp deploy/.env.example deploy/.env

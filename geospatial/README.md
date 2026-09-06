@@ -77,3 +77,53 @@ treat as projection until a reproducible benchmark harness is committed:
 
 The committed acceptance metric for the production Sedona/Spark job remains
 the WP-14 figure above (1.2M-polygon join in 0.24 s).
+
+## Stage 5 — geospatial platform integration
+
+Stage 5 (spec: SPEC-GEOSPATIAL) integrates three merged components around the
+dual-engine architecture:
+
+- **Python orchestration service** — [`services/mod-geospatial/`](../services/mod-geospatial/README.md):
+  dataset registration (PostGIS `geospatial` schema is the system of record),
+  H3 indexing, deterministic processing jobs, GeoLibre project authoring, and
+  lakehouse publication seams. Runs deterministically in local/test mode;
+  production adapters fail closed when endpoints or binaries are unavailable.
+- **Go gateway** — [`services/mod-geospatial-gateway/`](../services/mod-geospatial-gateway/README.md):
+  low-latency validation and job command edge in front of the Python service.
+- **Rust validator** — [`geometry-rs/`](geometry-rs/README.md): deterministic
+  WKT geometry validation primitives. Merged with 31 tests; `cargo test`
+  could not be executed in this authoring sandbox (no cargo toolchain) and was
+  static-reviewed instead — run `make test-rust` (skips cleanly without cargo)
+  or the CI `rust` job for authoritative execution.
+
+### GeoLibre integration posture
+
+GeoLibre is integrated as a **self-hosted GIS workbench only** — it is **not
+the system of record**. Authoritative spatial state lives in PostGIS
+(`db/migrations/0006_geospatial.sql`, RLS-isolated per tenant); analytical
+workloads run on Apache Sedona / the lakehouse (GeoParquet/Delta). The
+self-hosted GeoLibre container (`deploy/docker-compose.yml`, port 8085) runs
+with sharing disabled (`GEOLIBRE_SHARE_URL=off`), hosted collaboration unset,
+and the WASM sidecar disabled — no raw landowner PII, NIN, biometrics, or
+credentials are ever sent to `web.geolibre.app`. The Python service authors
+`.geolibre.json` projects (URI + hash + redaction level persisted in
+`geospatial.geolibre_projects`) that reference self-hosted or object-storage
+URLs only.
+
+### Database migration
+
+[`db/migrations/0006_geospatial.sql`](../db/migrations/0006_geospatial.sql)
+creates the `geospatial` schema: `datasets`, `dataset_features` (GiST
+geometry + GIN H3 indexes), `processing_jobs`, `job_results`,
+`geolibre_projects`, `agency_sync_links` — all with RLS keyed on
+`app.current_state_tenant`, matching migrations 0001–0005 conventions.
+
+### Events
+
+Four AsyncAPI channels (`contracts/asyncapi/platform-events.yaml`) carry
+minimized payloads (IDs, state, type, status, URIs/hashes, metrics only):
+
+- `ng.sos.geospatial.dataset_registered`
+- `ng.sos.geospatial.processing_job_completed`
+- `ng.sos.geospatial.geolibre_project_built`
+- `ng.sos.geospatial.agency_sync_completed`

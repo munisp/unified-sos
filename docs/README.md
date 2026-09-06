@@ -8,7 +8,7 @@ All platform documentation is organized to mirror the official SOS artifact suit
 |---|---|---|
 | [`business/`](business/sos-v3-business-specification.md) | SOS v3.0 Business Specification — sections 1–8 port (vision, tenancy spectrum & IGR, 12-domain catalog REV-01…PPP-12, financial core, commercial models, 4-phase roadmap, SLA) | SOS Business Specification Pack v3.0.0 |
 | [`architecture/`](architecture/README.md) | System design goals, ADRs, bounded contexts, core deep-dives (ledger, geospatial, lakehouse, security, DR) | SOS Technical Specification |
-| [`delivery/`](delivery/README.md) | Work Packages WP-01…WP-18, Release Trains RT-01…RT-05, 4-wave rollout matrix, 90-day playbook | Implementation Backlog Pack + Rollout Matrix |
+| [`delivery/`](delivery/README.md) | Work Packages WP-01…WP-18, Release Trains RT-01…RT-05, 4-wave rollout matrix, 90-day playbook, RTM v3 (incl. Stage 5 GEO-06…GEO-09 geospatial platform traceability), completeness scorecard | Implementation Backlog Pack + Rollout Matrix |
 | [`procurement/`](procurement/README.md) | 8-lot packaging, vendor qualification, 1,000-point QCBS scorecards, contract clauses, SLA/SLO & penalties, acceptance gates | Procurement & Vendor Delivery Framework |
 | [`states/`](states/README.md) | Per-state profiles: baselines, modules, waves, legal dependencies, risks | Six-State Pipeline + Rollout Matrix |
 | [`ppp-pipeline/`](ppp-pipeline/README.md) | The 30 ranked Technology-PPP opportunities (N1–N5, B1–B5, T1–T5, O1–O5, S1–S5, L1–L5) | State PPP Opportunities Report |

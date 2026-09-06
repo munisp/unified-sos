@@ -3,7 +3,7 @@
 **Deliverable:** Rigorous completeness scorecard answering *"how many modules are on the platform, how complete are they, and what is the gap between the business/technical spec and the code?"*
 
 **Commit base:** `80e33e9` (main after geospatial Python + Go gateway merges)
-**Method:** Full-repo audit against `docs/delivery/feature-inventory.md` (53 validated feature rows), service-by-service inspection, spec↔code traceability, and the orchestrator-verified test run.
+**Method:** Full-repo audit against `docs/delivery/feature-inventory.md` (57 validated feature rows), service-by-service inspection, spec↔code traceability, and the orchestrator-verified test run.
 **Scoring principle:** Every score is a **local/reference-implementation** score unless a live production adapter exists. No score claims production readiness.
 
 ---
@@ -13,41 +13,41 @@
 | Question | Answer |
 |---|---|
 | How many service modules? | **21 service directories** under `services/` (control-plane, lakehouse, and 19 `mod-*` domain services), plus supporting components: `edge/edge-daemon`, `geospatial/` jobs, `ledger/splits`, `tools/sosctl`, and `contracts/`, `config/`, `infra/`. |
-| How many domain modules? | **19 `mod-*` services**, including the new `mod-geospatial` (Python) and `mod-geospatial-gateway` (Go). The Rust `geometry-rs` validator remains on branch `feat/geospatial-rust` — **pending merge, not counted** as merged. |
-| Feature coverage | **16 / 53 features (30.2%)** at implemented/reference/manifest level; 32 partial (60.4%); 3 adapter-seam (5.7%); 2 gap (3.8%). |
-| Weighted production-readiness score | **55.1%** (formula in §2). |
-| Test evidence | `make test` green at `80e33e9`: **377 Python service/edge tests + 64 Go tests = 441**, plus 8 top-level geospatial pytest tests = **449 total**. (Rust `geometry-rs` has 31 tests on branch, excluded until merge.) |
+| How many domain modules? | **19 `mod-*` services**, including the new `mod-geospatial` (Python) and `mod-geospatial-gateway` (Go). The Rust `geometry-rs` validator (31 tests) is **merged** (`geospatial/geometry-rs`); its tests are static-reviewed — cargo was unavailable in the authoring sandbox, authoritative execution via the CI `rust` job / `make test-rust`. |
+| Feature coverage | **18 / 57 features (31.6%)** at implemented/reference/manifest level; 34 partial (59.6%); 3 adapter-seam (5.3%); 2 gap (3.5%). |
+| Weighted production-readiness score | **56.1%** (formula in §2). |
+| Test evidence | **480 merged tests**: 449 prior (377 Python service/edge + 64 Go + 8 top-level geospatial pytest) plus 31 Rust `geometry-rs` tests. Note: Rust tests were static-reviewed but **not executed locally** (cargo unavailable in the authoring sandbox); authoritative execution via CI `rust` job / `make test-rust`. |
 | Honest verdict | The platform is a **broad, well-tested reference implementation with pervasive, intentional adapter seams**. Roughly half the weighted gap is concentrated in production bindings (TigerBeetle, Kafka/Fluvio, Temporal, Mojaloop/NIBSS, NIMC/CAC, hardware SE, PostGIS/Sedona/Delta live runtimes). |
 
 ---
 
-## 2. Feature-level rollup (from `feature-inventory.md`, 53 rows)
+## 2. Feature-level rollup (from `feature-inventory.md`, 57 rows)
 
 ### 2.1 Status normalization
 
 | Normalized status | Count | Share | Weight |
 |---|---|---|---|
-| IMPLEMENTED | 3 | 5.7% | 1.00 |
-| IMPLEMENTED (reference) | 9 | 17.0% | 0.75 |
-| IMPLEMENTED (manifests) | 2 | 3.8% | 0.65 |
-| IMPLEMENTED (taxonomy + builder) | 1 | 1.9% | 0.65 |
-| IMPLEMENTED (reference impl.; ADAPTER-SEAM bindings) | 1 | 1.9% | 0.75 |
-| **Feature coverage subtotal** | **16** | **30.2%** | — |
-| PARTIAL | 32 | 60.4% | 0.50 |
-| ADAPTER-SEAM | 3 | 5.7% | 0.25 |
-| GAP | 2 | 3.8% | 0.00 |
-| **Total** | **53** | 100% | — |
+| IMPLEMENTED | 4 | 7.0% | 1.00 |
+| IMPLEMENTED (reference) | 10 | 17.5% | 0.75 |
+| IMPLEMENTED (manifests) | 2 | 3.5% | 0.65 |
+| IMPLEMENTED (taxonomy + builder) | 1 | 1.8% | 0.65 |
+| IMPLEMENTED (reference impl.; ADAPTER-SEAM bindings) | 1 | 1.8% | 0.75 |
+| **Feature coverage subtotal** | **18** | **31.6%** | — |
+| PARTIAL | 34 | 59.6% | 0.50 |
+| ADAPTER-SEAM | 3 | 5.3% | 0.25 |
+| GAP | 2 | 3.5% | 0.00 |
+| **Total** | **57** | 100% | — |
 
 ### 2.2 Weighted production-readiness score
 
 ```
-score = ( 3*1.00 + 9*0.75 + 2*0.65 + 1*0.65 + 1*0.75
-        + 32*0.50 + 3*0.25 + 2*0.00 ) / 53
-      = (3 + 6.75 + 1.30 + 0.65 + 0.75 + 16.00 + 0.75 + 0) / 53
-      = 29.2 / 53 = 55.1%
+score = ( 4*1.00 + 10*0.75 + 2*0.65 + 1*0.65 + 1*0.75
+        + 34*0.50 + 3*0.25 + 2*0.00 ) / 57
+      = (4 + 7.50 + 1.30 + 0.65 + 0.75 + 17.00 + 0.75 + 0) / 57
+      = 31.95 / 57 = 56.1%
 ```
 
-**Interpretation:** the platform is ~55% of the way from "documented/seamed" to "production-wired" on a feature-weighted basis. Feature *coverage* (something runnable in-repo) is 96.2% (51/53 have code or manifests); only 2 named requirements are pure gaps.
+**Interpretation:** the platform is ~56% of the way from "documented/seamed" to "production-wired" on a feature-weighted basis. Feature *coverage* (something runnable in-repo) is 96.5% (55/57 have code or manifests); only 2 named requirements are pure gaps.
 
 ---
 
@@ -76,8 +76,8 @@ Scores are 0–100, defensible against the status vocabulary above. "Reference" 
 | 17 | mod-identity | Resident registry (NIN-linked, tenant-scoped) | `services/mod-identity/` | pytest | 70 | PARTIAL | NIMC federation adapter (ADAPTER-SEAM); credential issuance at scale |
 | 18 | mod-kyc-kyb | KYC/KYB: PaddleOCR/Docling/VLM, local liveness | `services/mod-kyc-kyb/` | pytest | 75 | IMPLEMENTED (reference) | NIN/CAC live verification gateways; hardware-backed liveness |
 | 19 | mod-mobility-switch | Mobility/payment switch, escrow seams | `services/mod-mobility-switch/` | pytest | 65 | PARTIAL | Mojaloop FSPIOP connector deployment + certification |
-| 20 | mod-geospatial | GeoLibre project/adapters, H3, Sedona orchestration | `services/mod-geospatial/` (Python) | pytest (incl. 8 top-level) | 55 | PARTIAL (new, local) | Live Sedona/PostGIS/Delta runtimes; self-hosted GeoLibre container/compose not yet integrated |
-| 21 | mod-geospatial-gateway | Low-latency geospatial validation & job gateway | `services/mod-geospatial-gateway/` (Go) | Go tests (in 64) | 55 | PARTIAL (new, local) | Rust `geometry-rs` validator pending merge (`feat/geospatial-rust`); Temporal job runtime binding |
+| 20 | mod-geospatial | GeoLibre project/adapters, H3, Sedona orchestration | `services/mod-geospatial/` (Python) | pytest (incl. 8 top-level) | 65 | PARTIAL (new, local) | Live Sedona/PostGIS/Delta runtimes; GeoLibre self-hosted container now integrated in compose (`ghcr.io/opengeos/geolibre:2.0`, port 8085) |
+| 21 | mod-geospatial-gateway | Low-latency geospatial validation & job gateway | `services/mod-geospatial-gateway/` (Go) | Go tests (in 64) | 60 | PARTIAL (new, local) | Rust `geometry-rs` validator merged (31 tests; CI `rust` job); Temporal job runtime binding |
 
 **Supporting components (not counted in the 21):**
 
@@ -120,9 +120,9 @@ Each score reflects a **local/reference implementation**; only modules with live
 |---|---|---|---|
 | IAM / identity | `deploy/keycloak/realm-sos-dev.json`, `infra/helm/.../keycloak-realm-import-job.yaml`, `services/mod-identity/` | **70** | Multi-realm pattern + import job; NIMC/CAC federation ADAPTER-SEAM; per-state realm templates for all 6 states pending |
 | KYC / KYB | `services/mod-kyc-kyb/` | **75** | Reference impl.: PaddleOCR/Docling/VLM document extraction + local liveness; live NIN/CAC verification + hardware-backed liveness are seams |
-| Geospatial / lakehouse | `services/mod-geospatial/`, `services/mod-geospatial-gateway/`, `services/lakehouse/`, `geospatial/` | **55** | New local services merged; Sedona/PostGIS/Delta live runtimes + Temporal binding remain seams; GeoLibre self-hosted container not integrated |
+| Geospatial / lakehouse | `services/mod-geospatial/`, `services/mod-geospatial-gateway/`, `services/lakehouse/`, `geospatial/` | **62** | Local services + Rust validator merged; GeoLibre self-hosted workbench integrated in compose (PostGIS remains system of record); Sedona/PostGIS/Delta live runtimes + Temporal binding remain seams |
 | Infrastructure | `infra/k8s/`, `infra/helm/`, `infra/terraform/`, `infra/gitops/`, `infra/tests/validate_infra.py` | **65** | Manifests validated in CI; live cluster reconciliation, remote TF state, app-of-apps wiring pending |
-| Acceptance testing | `tests/`, per-service suites | **45** | 449 tests green, but formal acceptance gates (100k-assessment zero-discrepancy, 5,000 offline POS txns, OWASP blocking scans) not yet executed as scripted gates |
+| Acceptance testing | `tests/`, per-service suites | **45** | 480 tests merged (449 green + 31 Rust static-reviewed), but formal acceptance gates (100k-assessment zero-discrepancy, 5,000 offline POS txns, OWASP blocking scans) not yet executed as scripted gates |
 
 ---
 
@@ -130,14 +130,14 @@ Each score reflects a **local/reference implementation**; only modules with live
 
 | Spec artifact | Spec location | Code realization | Coverage |
 |---|---|---|---|
-| RTM v3 (requirements traceability) | `docs/delivery/rtm-v3.md` | 53 feature rows in `feature-inventory.md` → paths in §3/§4 | 51/53 features have code/manifests (96.2%) |
+| RTM v3 (requirements traceability) | `docs/delivery/rtm-v3.md` | 57 feature rows in `feature-inventory.md` → paths in §3/§4 | 55/57 features have code/manifests (96.5%) |
 | Revenue blueprint + Clause 22.2 non-negotiables | `contracts/openapi/revenue-assessments.yaml`, gazette-anchored split packs | `mod-rev-core`, `ledger/splits` (≤8%/≤15% ceilings enforced in `policy.go`) | Reference complete; prod ledger adapter pending |
 | Ledger/TigerBeetle architecture (ADR-002) | `ledger/chart-of-accounts.md` | `ledger/splits/account_id.go` 128-bit taxonomy + builder | Taxonomy/builder done; cluster provisioning P0 |
 | Offline POS acceptance (WP-05) | `docs/delivery/work-packages.md` | `edge/edge-daemon/` signed tickets + outbox + sync | Reference proven vs `mod-market`; Android + SE pending |
 | Payments interoperability (WP-04) | Mojaloop FSPIOP / NIBSS docs | Webhook seams in `mod-rev-core`, `mod-education`, `mod-mobility-switch` | ADAPTER-SEAM only |
 | Identity federation (WP-02, EP-IAM-02) | ADR-006, Keycloak realm strategy | Realm JSON + import job + `mod-identity` | PARTIAL; NIMC/CAC gateways absent |
 | K8s multi-tier tenancy | Arch doc 06 isolation matrix | `infra/k8s/base` + overlays, Cilium default-deny, validated | Manifests validated; live reconciliation pending |
-| Geospatial/GeoLibre | GeoLibre project/adapters spec | `mod-geospatial` (Python), `mod-geospatial-gateway` (Go) | Local impl.; GeoLibre container/compose + geometry-rs + live runtimes pending |
+| Geospatial/GeoLibre | GeoLibre project/adapters spec | `mod-geospatial` (Python), `mod-geospatial-gateway` (Go), `geospatial/geometry-rs` (Rust), compose `geolibre` service | Self-hosted GeoLibre integrated; geometry-rs merged; live Sedona/PostGIS/Delta runtimes pending |
 | CI / contracts-first (Clause 19.4) | `.github/workflows/` | `ci.yml`, `sbom.yml`, `security-scan.yml`, Spectral/AsyncAPI lint | IMPLEMENTED; OWASP gates non-blocking |
 | 2 named GAP features | `feature-inventory.md` | Docs/architecture references only | 0% — see P0/P1 below |
 
@@ -153,7 +153,7 @@ Each score reflects a **local/reference implementation**; only modules with live
 5. **Acceptance gates unexecuted** — 100k-assessment zero-discrepancy run and 5,000-offline-txn POS acceptance are specified but not run as scripted gates (acceptance testing score 45).
 
 ### P1 — required for scale/hardening
-6. **Geospatial/lakehouse live runtimes** — Sedona/PostGIS/Delta execute locally only; Temporal job runtime binding pending. **GeoLibre status:** Python `mod-geospatial` implements the GeoLibre project/adapters; the Go `mod-geospatial-gateway` is merged and tested; the **Rust `geometry-rs` validator (31 tests) is pending merge** on `feat/geospatial-rust`; the **self-hosted GeoLibre container/compose is not yet integrated**.
+6. **Geospatial/lakehouse live runtimes** — Sedona/PostGIS/Delta execute locally only; Temporal job runtime binding pending. **GeoLibre status:** Python `mod-geospatial` implements the GeoLibre project/adapters; the Go `mod-geospatial-gateway` is merged and tested; the **Rust `geometry-rs` validator (31 tests) is merged** (static-reviewed; cargo unavailable in the authoring sandbox — CI `rust` job is authoritative); the **self-hosted GeoLibre container is integrated** in `deploy/docker-compose.yml` (`ghcr.io/opengeos/geolibre:2.0`, port 8085, share off, sidecar disabled) as a workbench only — PostGIS remains the system of record.
 7. **Hardware bindings** — POS secure element signer, Android Rust daemon, WIM sensors, biometric capture devices all ADAPTER-SEAM.
 8. **Eventing backbone** — Kafka/Fluvio bindings documented but not live; sync currently via mTLS hooks/outbox reference.
 9. **Audit immutability** — OpenSearch hash-chained archive + 7-yr retention seam; control-plane feed not yet hash-chained.
@@ -171,7 +171,7 @@ Each score reflects a **local/reference implementation**; only modules with live
 ## 8. Caveats & method notes
 
 - **No production-readiness claim is made anywhere in this scorecard.** Scores grade the in-repo reference implementation and the documented adapter seams.
-- **Test evidence:** `make test` passed at `80e33e9` — 377 Python service/edge tests + 64 Go tests = 441, plus 8 top-level geospatial pytest tests = **449 total**. Rust `geometry-rs` (31 tests) is on `feat/geospatial-rust`, **pending merge and excluded** from merged totals and from the module count.
-- **Weighted score (55.1%)** is feature-weighted and deliberately harsh on seams (0.25) and gaps (0.00); the **unweighted module mean (≈66)** reflects that local code quality is generally higher than production wiring.
-- **Two scores, honestly reported:** *coverage* (does something runnable exist?) = 96.2%; *production readiness* (is it wired to live infrastructure?) ≈ 55% weighted, lower for payment/identity/geospatial seams.
+- **Test evidence:** `make test` passed at `80e33e9` — 377 Python service/edge tests + 64 Go tests = 441, plus 8 top-level geospatial pytest tests = **449 total**; Rust `geometry-rs` (31 tests) is now **merged**, giving **480 merged tests**. Rust tests were static-reviewed but not executed locally (cargo unavailable in the authoring sandbox).
+- **Weighted score (56.1%)** is feature-weighted and deliberately harsh on seams (0.25) and gaps (0.00); the **unweighted module mean (≈66)** reflects that local code quality is generally higher than production wiring.
+- **Two scores, honestly reported:** *coverage* (does something runnable exist?) = 96.2%; *production readiness* (is it wired to live infrastructure?) ≈ 56% weighted, lower for payment/identity/geospatial seams.
 - Source of truth for feature rows and statuses: `docs/delivery/feature-inventory.md` at commit `80e33e9`.

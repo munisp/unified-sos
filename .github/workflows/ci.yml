@@ -50,6 +50,28 @@ jobs:
             (cd "$mod" && go vet ./... && go test ./... && go build ./...)
           done
 
+  rust:
+    name: Rust (geospatial/geometry-rs)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      # Rust toolchain installed via rustup directly (no third-party action);
+      # stable toolchain, minimal profile, deterministic.
+      - name: Install Rust toolchain
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - name: cargo test (geometry-rs)
+        run: |
+          set -euo pipefail
+          cd geospatial/geometry-rs
+          cargo generate-lockfile
+          cargo test --locked
+
   python:
     name: Python (services, edge, geospatial, config + infra validation)
     runs-on: ubuntu-latest

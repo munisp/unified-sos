@@ -237,6 +237,60 @@ services:
       timeout: 5s
       retries: 5
 
+  # --- Stage 5 geospatial platform (GEO/LND) ------------------------------
+
+  mod-geospatial:
+    build:
+      context: ../services/mod-geospatial
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-geospatial:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+      # local mode = deterministic pure-Python adapters; production mode
+      # requires PostGIS + Sedona/lakehouse endpoints (fail closed otherwise).
+      GEOSPATIAL_MODE: local
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sos}:${POSTGRES_PASSWORD:-sos-dev-only-not-a-secret}@postgres:5432/${POSTGRES_DB:-sos}
+    ports:
+      - "8013:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  mod-geospatial-gateway:
+    build:
+      context: ../services/mod-geospatial-gateway
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-geospatial-gateway:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+      GEOSPATIAL_UPSTREAM_URL: http://mod-geospatial:8000
+    ports:
+      - "8014:8014"
+    depends_on:
+      mod-geospatial:
+        condition: service_started
+
+  # Self-hosted GeoLibre GIS workbench (sovereign deployment).
+  # GeoLibre is a workbench ONLY — PostGIS remains the system of record.
+  # Sharing and hosted collaboration are disabled by default: no public
+  # share/collab endpoints, no hosted data destination, WASM sidecar off.
+  geolibre:
+    image: ghcr.io/opengeos/geolibre:2.0
+    environment:
+      GEOLIBRE_SHARE_URL: "off"
+      # GEOLIBRE_COLLAB_URL intentionally unset — no hosted collaboration
+      GEOLIBRE_DISABLE_SIDECAR: "1"
+    ports:
+      - "8085:8085"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres-data:
   redis-data:
