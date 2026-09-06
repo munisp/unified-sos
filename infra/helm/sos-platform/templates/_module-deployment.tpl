@@ -54,6 +54,16 @@ spec:
             - name: {{ $envName }}
               value: {{ $envValue | quote }}
             {{- end }}
+          {{- if $mod.secretEnvFrom }}
+          # Live-mode credentials are mounted whole-secret from the
+          # ExternalSecrets/SealedSecrets sets under infra/secrets/.
+          # Adapters fail closed at boot if a required key is absent.
+          envFrom:
+            {{- range $mod.secretEnvFrom }}
+            - secretRef:
+                name: {{ . | quote }}
+            {{- end }}
+          {{- end }}
           readinessProbe:
             httpGet:
               path: /healthz
