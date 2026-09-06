@@ -9,6 +9,7 @@ from .registry_adapters import (
     SanctionsAdapter,
     FixtureRegistryAdapter,
 )
+from .registry_clients import CacClient, NimcClient, SanctionsClient
 from .liveness import LivenessEngine
 
 __all__ = [
@@ -23,5 +24,8 @@ __all__ = [
     "NimcAdapter",
     "SanctionsAdapter",
     "FixtureRegistryAdapter",
+    "CacClient",
+    "NimcClient",
+    "SanctionsClient",
     "LivenessEngine",
 ]

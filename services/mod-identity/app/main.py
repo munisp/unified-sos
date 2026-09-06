@@ -40,11 +40,16 @@ class VerifyRequest(BaseModel):
 
 
 def create_app(repo: Optional[IdentityRepository] = None) -> FastAPI:
+    from .federation import FederationUnavailableError, build_federation_client
+
     app = FastAPI(title="mod-identity — Resident Registry & Governed Verification APIs")
     app.state.repo = repo or InMemoryIdentityRepository()
+    # IDENTITY_FEDERATION_MODE=fixture (default, deterministic) | live
+    # (per-state Keycloak client-credentials; boot fails listing missing env).
+    app.state.federation_client = build_federation_client()
 
     def service(request: Request) -> IdentityService:
-        return IdentityService(request.app.state.repo)
+        return IdentityService(request.app.state.repo, request.app.state.federation_client)
 
     @app.post("/residents", response_model=Resident, status_code=201)
     def register_resident(resident: Resident, svc: IdentityService = Depends(service)):
@@ -103,6 +108,8 @@ def create_app(repo: Optional[IdentityRepository] = None) -> FastAPI:
             raise HTTPException(403, str(exc))
         except ConsentError as exc:
             raise HTTPException(403, str(exc))
+        except FederationUnavailableError as exc:
+            raise HTTPException(503, f"REGISTRY_UNAVAILABLE: {exc}")
 
     @app.post("/settlements/{consumer_id}", response_model=SettlementRecord, status_code=201)
     def settle(consumer_id: str, state_id: str, svc: IdentityService = Depends(service)):

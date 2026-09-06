@@ -118,16 +118,22 @@ def build_service(mode: Optional[str] = None) -> KycKybService:
 
     ``local``/``test`` mode uses deterministic simulated adapters; any other
     mode wires fail-closed production adapter seams.
+
+    Registry federation is governed by ``KYC_REGISTRY_MODE``:
+
+    * ``fixture`` (default) — deterministic :class:`FixtureRegistryAdapter`.
+    * ``live`` — constructs NIMC/CAC clients from ``NIMC_*``/``CAC_*`` env
+      vars; boot FAILS listing any missing vars (fail-closed at boot; the
+      adapters themselves fail closed at call time).
     """
     mode = mode or os.environ.get("KYC_KYB_MODE", "local")
+    registries = build_registry_adapters()
     if mode in ("local", "test"):
         return KycKybService(
             ocr_adapter=SimulatedDocumentAIAdapter(ExtractionEngine.PADDLEOCR),
             docling_adapter=SimulatedDocumentAIAdapter(ExtractionEngine.DOCLING),
             vlm_adapter=SimulatedVLMAdapter(),
-            corporate_registry=FixtureRegistryAdapter(),
-            identity_registry=FixtureRegistryAdapter(),
-            sanctions=FixtureRegistryAdapter(),
+            **registries,
             liveness_engine=LivenessEngine(),
         )
     return KycKybService(  # production: all seams fail closed unless configured
@@ -137,11 +143,75 @@ def build_service(mode: Optional[str] = None) -> KycKybService:
             enabled=os.environ.get("VLM_ENABLED") == "1",
             endpoint_url=os.environ.get("VLM_ENDPOINT_URL"),
         ),
-        corporate_registry=CacRegistryAdapter(enabled=False),
-        identity_registry=NimcAdapter(enabled=False),
-        sanctions=SanctionsAdapter(enabled=False),
+        **registries,
         liveness_engine=LivenessEngine(),
     )
+
+
+# Registry federation env wiring (KYC_REGISTRY_MODE=live).
+REGISTRY_LIVE_ENV_VARS = (
+    "NIMC_BASE_URL",
+    "NIMC_CLIENT_ID",
+    "NIMC_CLIENT_SECRET",
+    "CAC_BASE_URL",
+    "CAC_CLIENT_ID",
+    "CAC_CLIENT_SECRET",
+)
+
+
+def build_registry_adapters(env: Optional[dict] = None) -> dict:
+    """Build registry adapters from ``KYC_REGISTRY_MODE``.
+
+    Default ``fixture`` is deterministic; ``live`` fails closed at boot by
+    raising :class:`RuntimeError` listing every missing env var.
+    """
+    env = os.environ if env is None else env
+    mode = env.get("KYC_REGISTRY_MODE", "fixture")
+    if mode == "fixture":
+        return {
+            "corporate_registry": FixtureRegistryAdapter(),
+            "identity_registry": FixtureRegistryAdapter(),
+            "sanctions": FixtureRegistryAdapter(),
+        }
+    if mode != "live":
+        raise RuntimeError(
+            f"unknown KYC_REGISTRY_MODE {mode!r}; expected 'fixture' or 'live'"
+        )
+    missing = [var for var in REGISTRY_LIVE_ENV_VARS if not env.get(var)]
+    if missing:
+        raise RuntimeError(
+            "KYC_REGISTRY_MODE=live but missing required env vars: "
+            + ", ".join(missing)
+        )
+    from .adapters.registry_clients import CacClient, NimcClient
+
+    timeout_s = float(env.get("REGISTRY_TIMEOUT_S", "10"))
+    nimc = NimcClient(
+        base_url=env["NIMC_BASE_URL"],
+        client_id=env["NIMC_CLIENT_ID"],
+        client_secret=env["NIMC_CLIENT_SECRET"],
+        timeout_s=timeout_s,
+        mtls_cert=env.get("NIMC_MTLS_CERT"),
+        mtls_key=env.get("NIMC_MTLS_KEY"),
+    )
+    cac = CacClient(
+        base_url=env["CAC_BASE_URL"],
+        client_id=env["CAC_CLIENT_ID"],
+        client_secret=env["CAC_CLIENT_SECRET"],
+        timeout_s=timeout_s,
+        mtls_cert=env.get("CAC_MTLS_CERT"),
+        mtls_key=env.get("CAC_MTLS_KEY"),
+    )
+    return {
+        "corporate_registry": CacRegistryAdapter(
+            enabled=True, client=cac, timeout_s=timeout_s
+        ),
+        "identity_registry": NimcAdapter(
+            enabled=True, client=nimc, timeout_s=timeout_s
+        ),
+        # No live sanctions provider wired yet — seam stays fail-closed.
+        "sanctions": SanctionsAdapter(enabled=False),
+    }
 
 
 def create_app(service: Optional[KycKybService] = None) -> FastAPI:
