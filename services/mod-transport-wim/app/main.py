@@ -17,6 +17,22 @@ from .models import (
 from .service import NotFoundError, WIMService
 
 
+# --- Stage 7.C observability wiring (services/_shared/observability.py) ---
+try:
+    from _shared.observability import instrument_fastapi as _instrument_fastapi
+except ImportError:
+    import sys as _sys
+    from pathlib import Path as _Path
+
+    _services_root = _Path(__file__).resolve().parents[2]
+    if str(_services_root) not in _sys.path:
+        _sys.path.insert(0, str(_services_root))
+    try:
+        from _shared.observability import instrument_fastapi as _instrument_fastapi
+    except ImportError:  # minimal container images ship only the app package
+        _instrument_fastapi = None
+
+
 def create_app(service: Optional[WIMService] = None) -> FastAPI:
     app = FastAPI(title="mod-transport-wim — Weigh-in-Motion & Corridor Haulage")
     app.state.service = service or WIMService()
@@ -74,6 +90,8 @@ def create_app(service: Optional[WIMService] = None) -> FastAPI:
     def health():
         return {"status": "ok", "module": "mod-transport-wim"}
 
+    if _instrument_fastapi is not None:
+        _instrument_fastapi(app, "mod-transport-wim")
     return app
 
 

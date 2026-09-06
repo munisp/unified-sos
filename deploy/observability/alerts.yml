@@ -1,0 +1,67 @@
+# SOS platform Prometheus alert rules (Stage 7.C).
+# Thresholds follow docs/operations/slo.md error budgets.
+groups:
+  - name: sos-red
+    interval: 30s
+    rules:
+      - alert: SosHighErrorRate
+        # 5xx ratio above 1% over 5m for any service.
+        expr: |
+          sum by (service) (rate(http_errors_total[5m]))
+            / sum by (service) (rate(http_requests_total[5m])) > 0.01
+        for: 10m
+        labels:
+          severity: page
+          team: sos-platform
+        annotations:
+          summary: "High 5xx error rate on {{ $labels.service }}"
+          description: "{{ $labels.service }} error ratio > 1% for 10m (SLO: 99.9% availability)."
+
+      - alert: SosHighP99Latency
+        # p99 above 800ms over 15m for any service.
+        expr: |
+          histogram_quantile(0.99,
+            sum by (service, le) (rate(http_request_duration_seconds_bucket[15m]))
+          ) > 0.8
+        for: 15m
+        labels:
+          severity: warning
+          team: sos-platform
+        annotations:
+          summary: "p99 latency above 800ms on {{ $labels.service }}"
+          description: "{{ $labels.service }} p99 latency > 800ms for 15m (see docs/operations/slo.md)."
+
+      - alert: SosServiceDown
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: page
+          team: sos-platform
+        annotations:
+          summary: "Service {{ $labels.job }} unreachable by Prometheus"
+
+  - name: sos-business
+    interval: 30s
+    rules:
+      - alert: SosAuditChainVerifyFailure
+        # Any audit-chain verification failure (mod-identity /audit/verify,
+        # control-plane audit log) is a page — immutability breach (P1).
+        expr: sum by (service) (rate(audit_chain_verify_failures_total[5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+          team: sos-security
+        annotations:
+          summary: "Audit hash-chain verification failing on {{ $labels.service }}"
+          description: "Hash-chain verification failure indicates tampering or corruption of the append-only audit log."
+
+      - alert: SosLedgerImbalance
+        # mod-rev-core ledger: sum of debits != sum of credits per split set.
+        expr: abs(ledger_debits_total - ledger_credits_total) > 0
+        for: 5m
+        labels:
+          severity: critical
+          team: sos-revenue
+        annotations:
+          summary: "Ledger imbalance detected (double-entry invariant violated)"
+          description: "TigerBeetle/splits double-entry invariant broken; freeze settlements and investigate."

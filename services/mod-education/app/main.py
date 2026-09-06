@@ -63,6 +63,22 @@ def get_store(request: Request) -> EducationStore:
     return request.app.state.store
 
 
+# --- Stage 7.C observability wiring (services/_shared/observability.py) ---
+try:
+    from _shared.observability import instrument_fastapi as _instrument_fastapi
+except ImportError:
+    import sys as _sys
+    from pathlib import Path as _Path
+
+    _services_root = _Path(__file__).resolve().parents[2]
+    if str(_services_root) not in _sys.path:
+        _sys.path.insert(0, str(_services_root))
+    try:
+        from _shared.observability import instrument_fastapi as _instrument_fastapi
+    except ImportError:  # minimal container images ship only the app package
+        _instrument_fastapi = None
+
+
 def create_app(store: EducationStore | None = None, fspiop=None) -> FastAPI:
     """App factory. `fspiop` is an optional Mojaloop FSPIOP scheme adapter
     (duck-typed: verify_inbound_signature(headers, body) -> bool); when None
@@ -159,6 +175,8 @@ def create_app(store: EducationStore | None = None, fspiop=None) -> FastAPI:
     def healthz() -> dict[str, str]:
         return {"status": "ok"}
 
+    if _instrument_fastapi is not None:
+        _instrument_fastapi(app, "mod-education")
     return app
 
 

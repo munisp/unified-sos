@@ -612,6 +612,48 @@ def check_opensearch_audit_retention() -> None:
         ok("opensearch audit ISM policy: WORM S3 snapshots + 7-year (2555d) retention")
 
 
+def check_observability_scrape_coverage() -> None:
+    """Stage 7.C: every module in the helm values map must appear as a
+    scrape job in deploy/observability/prometheus.yml (kebab-case job name),
+    and the alert rules must parse."""
+    print("== observability scrape coverage ==")
+    values_file = INFRA / "helm" / "sos-platform" / "values.yaml"
+    prom_file = REPO_ROOT / "deploy" / "observability" / "prometheus.yml"
+    alerts_file = REPO_ROOT / "deploy" / "observability" / "alerts.yml"
+    try:
+        values = load_yaml_docs(values_file)[0]
+    except (yaml.YAMLError, IndexError) as exc:
+        fail(f"values.yaml unparseable: {exc}")
+        return
+    modules = [k for k in (values.get("modules") or {}) if k != "lakehouse"]
+    if not prom_file.exists():
+        fail("deploy/observability/prometheus.yml missing — scrape config required (Stage 7.C)")
+        return
+    try:
+        prom = yaml.safe_load(prom_file.read_text())
+    except yaml.YAMLError as exc:
+        fail(f"deploy/observability/prometheus.yml unparseable: {exc}")
+        return
+    jobs = {j.get("job_name") for j in prom.get("scrape_configs", [])}
+    for camel in modules:
+        parts = re.sub(r"([a-z0-9])([A-Z])", r"\1-\2", camel).lower()
+        if parts not in jobs:
+            fail(f"module {camel} ({parts}) has no scrape job in deploy/observability/prometheus.yml")
+    for job in jobs:
+        parts = job.split("-")
+        camel = parts[0] + "".join(p.title() for p in parts[1:])
+        if camel not in modules:
+            fail(f"scrape job {job!r} does not map to any module in values.yaml")
+    try:
+        alerts = yaml.safe_load(alerts_file.read_text())
+        if not alerts.get("groups"):
+            fail("deploy/observability/alerts.yml has no rule groups")
+    except (yaml.YAMLError, OSError, AttributeError) as exc:
+        fail(f"deploy/observability/alerts.yml unparseable: {exc}")
+    if not FAILURES:
+        ok(f"all {len(modules)} modules covered by deploy/observability/prometheus.yml; alerts parse")
+
+
 def main() -> int:
     check_k8s_overlays()
     check_realm_drift()
@@ -623,6 +665,7 @@ def main() -> int:
     check_dedicated_isolation()
     check_tigerbeetle()
     check_opensearch_audit_retention()
+    check_observability_scrape_coverage()
 
     print()
     if FAILURES:
