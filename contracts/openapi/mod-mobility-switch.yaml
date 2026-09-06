@@ -154,6 +154,127 @@ paths:
       - mobility
       security:
       - bearerAuth: []
+  /mobility/v1/escrow:
+    post:
+      summary: Prepare Escrow
+      description: 'Begin a pending-transfer escrow: reserves the batch gross on the
+
+        escrow account and (when an FSPIOP adapter is wired) POSTs
+
+        /transfers prepare to the scheme. Idempotent on transfer_id.'
+      operationId: prepare_escrow_mobility_v1_escrow_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EscrowPrepareRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EscrowRecord'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mobility
+      security:
+      - bearerAuth: []
+  /mobility/v1/escrow/{transfer_id}/fulfil:
+    post:
+      summary: Fulfil Escrow
+      description: Post a pending escrow (FSPIOP COMMITTED fulfilment).
+      operationId: fulfil_escrow_mobility_v1_escrow__transfer_id__fulfil_post
+      parameters:
+      - name: transfer_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Transfer Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EscrowRecord'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mobility
+      security:
+      - bearerAuth: []
+  /mobility/v1/escrow/{transfer_id}/abort:
+    post:
+      summary: Abort Escrow
+      description: Void a pending escrow (FSPIOP ABORTED / expiry).
+      operationId: abort_escrow_mobility_v1_escrow__transfer_id__abort_post
+      parameters:
+      - name: transfer_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Transfer Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EscrowRecord'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mobility
+      security:
+      - bearerAuth: []
+  /mobility/v1/webhooks/nibss/ebills:
+    post:
+      summary: Nibss Bill Notification
+      description: 'NIBSS e-Bills payment notification; HMAC signature checked via the
+
+        adapter. Idempotent on bill_reference. Without a configured adapter
+
+        the seam fails closed (503) — no unsigned notifications accepted.'
+      operationId: nibss_bill_notification_mobility_v1_webhooks_nibss_ebills_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NibssBillNotification'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mobility
+      security:
+      - bearerAuth: []
   /mobility/v1/cowry/authorize:
     post:
       summary: Cowry Authorization
@@ -254,6 +375,80 @@ components:
       - card_ref
       - fare_kobo
       title: CowryAuthRequest
+    EscrowPrepareRequest:
+      properties:
+        transfer_id:
+          type: string
+          title: Transfer Id
+        batch_id:
+          type: string
+          title: Batch Id
+        amount_kobo:
+          type: integer
+          title: Amount Kobo
+        condition:
+          type: string
+          title: Condition
+          default: ''
+      type: object
+      required:
+      - transfer_id
+      - batch_id
+      - amount_kobo
+      title: EscrowPrepareRequest
+    EscrowRecord:
+      properties:
+        transfer_id:
+          type: string
+          title: Transfer Id
+        batch_id:
+          type: string
+          title: Batch Id
+        amount_kobo:
+          type: integer
+          title: Amount Kobo
+        condition:
+          type: string
+          title: Condition
+        state:
+          $ref: '#/components/schemas/EscrowState'
+        fulfilment:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Fulfilment
+        created_at:
+          type: string
+          title: Created At
+        completed_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Completed At
+      type: object
+      required:
+      - transfer_id
+      - batch_id
+      - amount_kobo
+      - condition
+      - state
+      - created_at
+      title: EscrowRecord
+      description: 'Pending-transfer escrow for a settlement leg batch (Mojaloop seam).
+
+
+        Lifecycle: PENDING on prepare (funds reserved on the escrow account),
+
+        POSTED on fulfil (FSPIOP COMMITTED), VOID on abort. Idempotent on
+
+        transfer_id — replays return the original record unchanged.'
+    EscrowState:
+      type: string
+      enum:
+      - pending
+      - posted
+      - void
+      title: EscrowState
     FareRule:
       properties:
         mode:
@@ -336,6 +531,27 @@ components:
       - rail
       - ferry
       title: Mode
+    NibssBillNotification:
+      properties:
+        bill_reference:
+          type: string
+          title: Bill Reference
+        amount_kobo:
+          type: integer
+          title: Amount Kobo
+        channel:
+          type: string
+          title: Channel
+          default: NIP
+        provider_reference:
+          type: string
+          title: Provider Reference
+          default: ''
+      type: object
+      required:
+      - bill_reference
+      - amount_kobo
+      title: NibssBillNotification
     SettlementBatch:
       properties:
         batch_id:

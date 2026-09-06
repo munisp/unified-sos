@@ -74,3 +74,4 @@ sbom*.json
 
 # Acceptance gate evidence artifacts
 tests/evidence/
+.coverage

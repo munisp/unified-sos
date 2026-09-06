@@ -22,6 +22,12 @@ def _id(prefix: str) -> str:
     return f"{prefix}-{uuid4().hex[:10]}"
 
 
+class CrossTenantError(ValueError):
+    """Tenant-isolation violation — mapped to HTTP 403 at the API layer
+
+    (fail-closed, matching mod-ppp-investment TenantIsolationError)."""
+
+
 #: Approximate state geofence bounding boxes (min_lat, min_lon, max_lat, max_lon)
 #: for the six tenant states — reference-grade, production uses PostGIS/Sedona.
 STATE_GEOFENCES: dict[str, tuple[float, float, float, float]] = {
@@ -143,7 +149,7 @@ class CadStore:
             if unit is None:
                 raise KeyError(f"unit '{unit_id}' not found")
             if unit.tenant_state_id != inc.tenant_state_id:
-                raise ValueError("cross-tenant dispatch is prohibited")
+                raise CrossTenantError("cross-tenant dispatch is prohibited")
             if not self.in_geofence(inc.tenant_state_id, latitude, longitude):
                 raise ValueError(
                     f"dispatch location outside the '{inc.tenant_state_id}' geofence"

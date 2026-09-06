@@ -92,7 +92,7 @@ jobs:
           restore-keys: pip-${{ runner.os }}-
 
       - name: Install test tooling
-        run: pip install pytest pyyaml jsonschema
+        run: pip install pytest pytest-cov pyyaml jsonschema
 
       - name: Validate state policy packs (procurement guardrails)
         run: python3 config/states/validate_packs.py
@@ -115,6 +115,20 @@ jobs:
           # pytest exit 5 = no tests collected; not a failure while suites land
           if [ "$code" -eq 5 ]; then echo "no tests collected yet"; exit 0; fi
           exit "$code"
+
+      - name: Per-service coverage gate (>=85%, fail-closed)
+        # Mirrors tests/gates/run_gates.py stage1 coverage-gate-85pct: each
+        # service's own suite must cover its own package at >=85%.
+        run: |
+          set -euo pipefail
+          rc=0
+          for svc in services/*/; do
+            if [ -d "$svc/tests" ]; then
+              echo "== coverage gate: $svc"
+              (cd "$svc" && python3 -m pytest -q --cov=. --cov-fail-under=85 tests) || rc=1
+            fi
+          done
+          exit "$rc"
 
   contract-lint:
     name: Contract lint (OpenAPI 3.1 / AsyncAPI)
