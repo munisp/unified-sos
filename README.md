@@ -28,7 +28,7 @@ The **State Operating System (SOS)** is a production-grade, multi-tenant digital
 
 ### The SOS Module Suite
 
-30 PPP opportunities reduce to **reusable modules** — built once, configured per state. v3.0 extends the original seven-suite catalog with **ENV-09** (environment & carbon) and **CIT-11** (unified citizen portal):
+30 PPP opportunities reduce to **reusable modules** — built once, configured per state. v3.0 extends the original seven-suite catalog with **ENV-09** (environment & carbon), **CIT-11** (unified citizen portal), and **KYC-KYB** (sovereign identity verification):
 
 | Module | Serves | Core Stack |
 |---|---|---|
@@ -41,6 +41,7 @@ The **State Operating System (SOS)** is a production-grade, multi-tenant digital
 | **(g) PPP & Investment** (`mod-ppp-investment`) | Pipeline disclosure, OBC/FBC workflow, concession monitoring | Temporal · OpenSearch |
 | **(h) Environment & Carbon** (`mod-environment`) — *v3.0 / ENV-09* | Industrial emissions telemetry compliance, effluent/timber permits, deforestation surveillance (<4h SLA), carbon registry, EIA | FastAPI · PostGIS · Sedona |
 | **(i) Citizen Portal** (`mod-citizen-portal`) — *v3.0 / CIT-11* | Citizen identity wallet & Keycloak SSO, multi-MDA self-service, e-petitions, payroll ghost-worker audit | FastAPI · Keycloak OIDC · Temporal |
+| **(j) KYC/KYB Verification** (`mod-kyc-kyb`) — *v3.0 / KYC-KYB* | Tenant-isolated KYC/KYB case management, document AI extraction (PaddleOCR/Docling/VLM adjudication), liveness anti-spoof, registry verification seams, risk scoring, hash-chained audit | FastAPI · PostGIS RLS · object-store refs/hashes |
 
 ### Architecture at a Glance — Four Layers
 

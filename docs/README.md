@@ -12,7 +12,7 @@ All platform documentation is organized to mirror the official SOS artifact suit
 | [`procurement/`](procurement/README.md) | 8-lot packaging, vendor qualification, 1,000-point QCBS scorecards, contract clauses, SLA/SLO & penalties, acceptance gates | Procurement & Vendor Delivery Framework |
 | [`states/`](states/README.md) | Per-state profiles: baselines, modules, waves, legal dependencies, risks | Six-State Pipeline + Rollout Matrix |
 | [`ppp-pipeline/`](ppp-pipeline/README.md) | The 30 ranked Technology-PPP opportunities (N1–N5, B1–B5, T1–T5, O1–O5, S1–S5, L1–L5) | State PPP Opportunities Report |
-| [`governance/`](governance/README.md) | Compliance (ICRC/NDPA/NITDA), risk register, provenance framework, decision matrix | Master Executive Pack |
+| [`governance/`](governance/README.md) | Compliance (ICRC/NDPA/NITDA), risk register, provenance framework, decision matrix, stakeholder onboarding & KYC/KYB verification model (`services/mod-kyc-kyb/`) | Master Executive Pack |
 
 ## Reading Order by Role
 

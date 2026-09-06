@@ -17,7 +17,7 @@ benue, nasarawa, taraba). Status values: `IMPLEMENTED` / `PARTIAL` / `ADAPTER-SE
 | Corporate identity anchor | CAC registration number + FIRS TCC (+ PENCOM/ITF/NSITF, NDPC licence, ISO 27001/22301, performance bond for PPP vendors) | DOC-01…08 checklist in `services/mod-ppp-investment` | PARTIAL (checklist IMPLEMENTED; registry verification ADAPTER-SEAM → Stage 4.3 KYB) |
 | Consent & data rights | NDPA 2023 purpose-scoped, expiring, revocable consent per (resident, consumer, product); revocation blocks all future calls; data-minimized verification responses (boolean + refs only) | `services/mod-identity/app/service.py` + tests asserting no PII leakage | IMPLEMENTED (reference) |
 | Authorization | Permify ReBAC mapping (resident / product / consumer entities); JWT tenant claims enforced by Postgres RLS (`app.current_state_tenant`) | mod-identity README mapping; `db/migrations/*` RLS | ADAPTER-SEAM (Permify) / IMPLEMENTED (RLS in migrations) |
-| KYC/KYB engine | Document OCR (PaddleOCR), Docling document understanding, VLM adjudication seam, liveness challenge + anti-spoof, KYB registry verification, risk scoring, human review queue | **Planned** `services/mod-kyc-kyb/`, document-AI adapters (Stage 4.2/4.3); raw documents/biometrics stored as object references/hashes only, tenant-scoped, hash-audited | **GAP** |
+| KYC/KYB engine | Document OCR (PaddleOCR), Docling document understanding, VLM adjudication seam, liveness challenge + anti-spoof, KYB registry verification, risk scoring, human review queue | `services/mod-kyc-kyb/` (document-AI adapters, liveness engine, registry seams); raw documents/biometrics stored as object references/hashes only, tenant-scoped, hash-audited; contract `contracts/openapi/mod-kyc-kyb.yaml`; schema `db/migrations/0005_kyc_kyb.sql` | IMPLEMENTED (reference impl.; PaddleOCR/Docling/VLM/CAC/NIMC/sanctions production bindings ADAPTER-SEAM) |
 | Audit | Hash-chained append-only audit (`GET /audit/verify`) in mod-identity & mod-ppp-investment; control-plane audit feed; OpenSearch immutable archive (7-yr) | In-module audit IMPLEMENTED (reference); OpenSearch sink ADAPTER-SEAM | PARTIAL |
 | Suspension | Tenant lifecycle `active/suspended` (control-plane); consent revocation (mod-identity); permit `SUSPENDED` (mod-environment); provenance `SEIZED` (mod-forestry); dispute freeze (mod-market) | Per-module state machines | PARTIAL (no unified credential-suspension API until mod-kyc-kyb) |
 
@@ -33,7 +33,7 @@ hash-audited. Vendor acts solely as Data Processor; in-country residency mandato
 | Step | Flow | Mechanism / path | Status |
 |---|---|---|---|
 | Onboard | Create identity wallet via citizen portal; smartcard issuance fee settled automatically | `POST /citizen/v1/wallets` (mod-citizen-portal) | IMPLEMENTED (reference) |
-| Verify (KYC) | NIN accepted once at wallet creation → SHA-256; production: NIMC API verification before wallet activation; Stage 4.3 adds document OCR + liveness for remote proofing (IAL2-style) | mod-citizen-portal seam; mod-kyc-kyb (planned) | PARTIAL → GAP for remote proofing |
+| Verify (KYC) | NIN accepted once at wallet creation → SHA-256; production: NIMC API verification before wallet activation; document OCR + liveness for remote proofing (IAL2-style) via `mod-kyc-kyb` (`POST /kyc/v1/cases`, liveness challenges) | mod-citizen-portal seam; mod-kyc-kyb | IMPLEMENTED (reference impl.; NIMC live check ADAPTER-SEAM) |
 | Credential | Wallet ID + Keycloak OIDC SSO session (`POST /citizen/v1/sso/sessions`); masked NIN on all reads | mod-citizen-portal + Keycloak | PARTIAL |
 | Use | Per-state service catalog, multi-MDA service requests (STANDARD/EXPEDITED), e-petitions with public reference IDs | mod-citizen-portal | IMPLEMENTED (reference) |
 | Suspend | Wallet suspension on fraud signal or consent withdrawal; SSO session revocation via realm | Keycloak + wallet state | PARTIAL (fraud-signal automation GAP pending risk scoring) |
@@ -64,7 +64,7 @@ hash-audited. Vendor acts solely as Data Processor; in-country residency mandato
 | Step | Flow | Mechanism / path | Status |
 |---|---|---|---|
 | Onboard | Agent enrollment by MDA/concessionaire; device provisioning (ruggedized Android POS, solar kiosks) | edge hardware profiles | ADAPTER-SEAM (device procurement) |
-| Verify (KYC) | Agent NIN + biometric verification + device binding — **planned in mod-kyc-kyb** (document + liveness + risk score); today only device key issuance exists | mod-kyc-kyb (Stage 4.3); `DeviceSigner` key issuance | GAP (agent KYC) / PARTIAL (device identity) |
+| Verify (KYC) | Agent NIN + biometric verification + device binding via mod-kyc-kyb (document extraction + liveness + risk score); device key issuance in edge daemon | mod-kyc-kyb (`services/mod-kyc-kyb/`); `DeviceSigner` key issuance | IMPLEMENTED (reference impl.) / PARTIAL (device identity) |
 | Credential | Ed25519 device signing key (stand-in for hardware SE); `(device_id, sequence)` monotonic outbox identity; mTLS client certs on sync | `edge/edge-daemon` crypto/outbox/sync | IMPLEMENTED (reference); SE binding ADAPTER-SEAM |
 | Use | Offline-first signed ticket issuance (≥5,000 cached), batch sync to APISIX via mTLS; mod-market ingestion verifies signatures + dedupe | edge daemon + mod-market (wire-compat test) | IMPLEMENTED (reference) |
 | Suspend | Device key revocation + gateway rejection of revoked `device_id`; agent account disable | Gateway denylist | ADAPTER-SEAM (revocation list distribution) |
@@ -75,7 +75,7 @@ hash-audited. Vendor acts solely as Data Processor; in-country residency mandato
 | Step | Flow | Mechanism / path | Status |
 |---|---|---|---|
 | Onboard | Stall cadastre assignment → concession lease → trader registry entry (Osogbo Central 35k-trader scale) | mod-market registry | IMPLEMENTED (reference); lease UI (Form.io) ADAPTER-SEAM |
-| Verify (KYC) | Tiered informal-sector KYC: NIN where available; document OCR + risk scoring via mod-kyc-kyb (planned); agent-assisted enrollment at market kiosks | mod-kyc-kyb (Stage 4.3) | GAP |
+| Verify (KYC) | Tiered informal-sector KYC: NIN where available; document OCR + risk scoring via mod-kyc-kyb; agent-assisted enrollment at market kiosks | mod-kyc-kyb | IMPLEMENTED (reference impl.; kiosk enrollment flow PARTIAL) |
 | Credential | Trader ID bound to stall; USSD/POS payment channels; STIN linkage for daily stallage (transfer code 130) | mod-market + mod-rev-core STIN seam | PARTIAL |
 | Suspend | Stall lease suspension; dispute workflow freezes contested tickets (append-only arbitration trail) | mod-market dispute workflow | IMPLEMENTED (reference) |
 | Audit | Double-charge prevention; signed offline tickets; unique stall+day ticket constraint | mod-market | IMPLEMENTED (reference) |
@@ -85,7 +85,7 @@ hash-audited. Vendor acts solely as Data Processor; in-country residency mandato
 | Step | Flow | Mechanism / path | Status |
 |---|---|---|---|
 | Onboard | Licensed operators: site registration → mineral e-permit; artisanal miners: biometric registry (named module scope) | mod-mining site/permit registry | PARTIAL (licensed) / GAP (artisanal biometric) |
-| Verify | **KYB**: CAC + mining licence + federal/state MoU standing; **KYC**: artisanal biometric capture + liveness via mod-kyc-kyb (planned) | mod-ppp-investment checklist pattern; mod-kyc-kyb | ADAPTER-SEAM (KYB) / GAP (artisanal KYC) |
+| Verify | **KYB**: CAC + mining licence + federal/state MoU standing; **KYC**: artisanal biometric capture + liveness via mod-kyc-kyb | mod-ppp-investment checklist pattern; mod-kyc-kyb (`/kyb/v1/cases/{id}/registry-verification`, `/kyc/v1/cases`) | ADAPTER-SEAM (KYB registry binding) / IMPLEMENTED (artisanal KYC reference impl.) |
 | Credential | Permit ID; RFID truck manifests; checkpoint scanner credentials | mod-mining + seams | PARTIAL |
 | Suspend | Permit revocation; consignment hold at checkpoint; royalty/levy split enforcement rejects federal-share claims by construction | mod-mining (`RoyaltyConstraintViolation`) | IMPLEMENTED (constraint) / PARTIAL (revocation ops) |
 | Audit | Consignment lifecycle events on `ng.sos.mining.*`; levy assessments auditable vs state fee schedules (< 1% variance acceptance) | mod-mining + AsyncAPI | PARTIAL (bus ADAPTER-SEAM) |
@@ -105,7 +105,7 @@ hash-audited. Vendor acts solely as Data Processor; in-country residency mandato
 | Step | Flow | Mechanism / path | Status |
 |---|---|---|---|
 | Onboard | Facility registration per domain: industrial (environment), hospital (health billing accounts), institution (education billing) | mod-environment, mod-health, mod-education | IMPLEMENTED (reference) |
-| Verify | **KYB**: CAC + sector licence + EIA status (industrial); SHIA/NHIS provider standing (health); institution accreditation (education) | Checklist pattern; registry adapters planned | ADAPTER-SEAM |
+| Verify | **KYB**: CAC + sector licence + EIA status (industrial); SHIA/NHIS provider standing (health); institution accreditation (education) | Checklist pattern; mod-kyc-kyb registry verification seams (CAC/NIMC/TAX/SANCTIONS) | ADAPTER-SEAM (mod-kyc-kyb case flow IMPLEMENTED as reference) |
 | Credential | Facility ID + tenant-scoped API credentials; IoT ingestion credentials for telemetry | mod-environment telemetry ingest | PARTIAL |
 | Suspend | Permit lifecycle `SUSPENDED/EXPIRED`; claim rejection; invoice lock (education 423 on outstanding fees) | mod-environment, mod-health, mod-education | IMPLEMENTED (reference) |
 | Audit | Compliance rate per facility; violation incidents with deterministic fines; 4-h deforestation/enforcement SLA; claims lifecycle trail | mod-environment | IMPLEMENTED (reference) |
@@ -115,7 +115,7 @@ hash-audited. Vendor acts solely as Data Processor; in-country residency mandato
 | Step | Flow | Mechanism / path | Status |
 |---|---|---|---|
 | Onboard | PPP pipeline: solicited/unsolicited proposal intake (TARIPA guide flow) → OBC/FBC stages | mod-ppp-investment pipeline registry | IMPLEMENTED (reference) |
-| Verify (KYB) | Mandatory DOC-01…08: CAMA 2020, FIRS TCC, PENCOM, ITF, NSITF, NDPC licence, ISO 27001/22301, performance bond; QCBS 1,000-pt evaluation (560/700 technical threshold; commercial envelope sealed until pass) | mod-ppp-investment screening + QCBS | IMPLEMENTED (scoring/checklist); registry verification ADAPTER-SEAM (Stage 4.3 KYB) |
+| Verify (KYB) | Mandatory DOC-01…08: CAMA 2020, FIRS TCC, PENCOM, ITF, NSITF, NDPC licence, ISO 27001/22301, performance bond; QCBS 1,000-pt evaluation (560/700 technical threshold; commercial envelope sealed until pass) | mod-ppp-investment screening + QCBS | IMPLEMENTED (scoring/checklist); registry verification via mod-kyc-kyb KYB cases (reference impl.; live CAC/FIRS bindings ADAPTER-SEAM) |
 | Credential | Awarded concession contract; API consumers get product subscriptions (ADDRESS_VERIFICATION, RESIDENCY_ATTESTATION, KYC_ADJUNCT) gated by per-resident consent | mod-ppp-investment; mod-identity | IMPLEMENTED (reference) |
 | Suspend | Contract milestone hold; consent revocation blocks consumer calls immediately (HTTP 403, denial audit-logged); tenant suspension via `sosctl tenant suspend` | mod-identity revocation; control-plane | IMPLEMENTED (reference) |
 | Audit | Hash-chained procurement-integrity audit (`GET /audit/verify`); monthly revenue-share reconciliation (state 3001 / concessionaire 2099, codes 101/103); step-down schedules | mod-ppp-investment + ledger | IMPLEMENTED (reference) |
@@ -145,7 +145,7 @@ hash-audited. Vendor acts solely as Data Processor; in-country residency mandato
 | Step | Flow | Mechanism / path | Status |
 |---|---|---|---|
 | Onboard | STIN issuance linked to CAC (corporate taxpayers); carbon project/credit registration; PPP proposal intake | mod-rev-core (STIN seam); mod-environment carbon registry; mod-ppp-investment | PARTIAL |
-| Verify (KYB) | CAC registry + FIRS TCC verification; beneficial-ownership capture; risk scoring + review queue — **planned mod-kyc-kyb** | mod-kyc-kyb (Stage 4.3) | ADAPTER-SEAM → GAP (automated KYB) |
+| Verify (KYB) | CAC registry + FIRS TCC verification; beneficial-ownership capture; risk scoring + review queue via mod-kyc-kyb | mod-kyc-kyb (`/kyb/v1/*`) | IMPLEMENTED (reference impl.; live registry bindings ADAPTER-SEAM) |
 | Credential | STIN; carbon credit serials (unique per tenant); concession contracts | mod-rev-core; mod-environment; mod-ppp-investment | IMPLEMENTED (reference) |
 | Suspend | Assessment/billing halt; credit freeze (no transfer while suspended); contract milestone hold | Per-module state machines | PARTIAL |
 | Audit | Idempotent assessment trail; credit lifecycle (REGISTERED→ISSUED→transferred/retired) with brokerage settlement lines; hash-chained procurement audit | mod-rev-core, mod-environment, mod-ppp-investment | IMPLEMENTED (reference) |
@@ -156,21 +156,24 @@ hash-audited. Vendor acts solely as Data Processor; in-country residency mandato
 
 | Stakeholder | Onboarding | Verification (KYC/KYB) | Credentialing | Suspension | Audit |
 |---|---|---|---|---|---|
-| Citizens | IMPLEMENTED | PARTIAL (NIMC seam; liveness GAP) | PARTIAL | PARTIAL | IMPLEMENTED |
+| Citizens | IMPLEMENTED | PARTIAL (NIMC seam; liveness via mod-kyc-kyb reference impl.) | PARTIAL | PARTIAL | IMPLEMENTED |
 | Civil servants | PARTIAL | PARTIAL (biometric capture GAP) | ADAPTER-SEAM | PARTIAL | IMPLEMENTED |
 | MDA staff | PARTIAL | ADAPTER-SEAM | PARTIAL | PARTIAL | PARTIAL |
-| POS/field agents | ADAPTER-SEAM | GAP (Stage 4.3) | IMPLEMENTED (device) | ADAPTER-SEAM | IMPLEMENTED |
-| Market traders | IMPLEMENTED | GAP (tiered KYC, Stage 4.3) | PARTIAL | IMPLEMENTED | IMPLEMENTED |
-| Miners | PARTIAL | ADAPTER-SEAM (KYB) / GAP (artisanal KYC) | PARTIAL | PARTIAL | PARTIAL |
+| POS/field agents | ADAPTER-SEAM | IMPLEMENTED (mod-kyc-kyb reference impl.) | IMPLEMENTED (device) | ADAPTER-SEAM | IMPLEMENTED |
+| Market traders | IMPLEMENTED | IMPLEMENTED (tiered KYC via mod-kyc-kyb reference impl.) | PARTIAL | IMPLEMENTED | IMPLEMENTED |
+| Miners | PARTIAL | ADAPTER-SEAM (KYB registry binding) / IMPLEMENTED (artisanal KYC reference impl.) | PARTIAL | PARTIAL | PARTIAL |
 | Transporters | PARTIAL | PARTIAL | IMPLEMENTED (manifest/waybill) | PARTIAL | PARTIAL |
 | Facilities | IMPLEMENTED | ADAPTER-SEAM | PARTIAL | IMPLEMENTED | IMPLEMENTED |
 | Vendors/concessionaires | IMPLEMENTED | PARTIAL (checklist IMPLEMENTED, registry ADAPTER-SEAM) | IMPLEMENTED | IMPLEMENTED | IMPLEMENTED |
 | Auditors | ADAPTER-SEAM | ADAPTER-SEAM | PARTIAL | PARTIAL | ADAPTER-SEAM |
 | Administrators | IMPLEMENTED | ADAPTER-SEAM | PARTIAL | IMPLEMENTED | PARTIAL |
-| Corporate entities | PARTIAL | ADAPTER-SEAM → GAP (automated KYB, Stage 4.3) | IMPLEMENTED | PARTIAL | IMPLEMENTED |
+| Corporate entities | PARTIAL | IMPLEMENTED (automated KYB via mod-kyc-kyb reference impl.; live registries ADAPTER-SEAM) | IMPLEMENTED | PARTIAL | IMPLEMENTED |
 
-**Critical path:** the Stage 4.3 `mod-kyc-kyb` capability (document OCR, Docling, VLM
-adjudication seam, liveness, KYB registry verification, risk scoring, review queues) unblocks
-the `GAP` cells above — most acutely POS-agent KYC, trader tiered KYC, artisanal-miner
-biometrics, and automated corporate KYB — while preserving the sovereignty constraints
-(object-reference document storage, minimized results, tenant-scoped hash-audited access).
+**Critical path (closed):** `services/mod-kyc-kyb/` now delivers the KYC/KYB capability
+(document OCR via PaddleOCR, Docling document understanding, VLM adjudication seam, liveness
+with anti-spoof, KYB registry verification, risk scoring, review queues, hash-chained audit)
+as a tenant-scoped reference implementation — closing the former `GAP` cells for POS-agent
+KYC, trader tiered KYC, artisanal-miner biometrics, and automated corporate KYB — while
+preserving the sovereignty constraints (object-reference document storage, minimized results,
+tenant-scoped hash-audited access). Production bindings to PaddleOCR/Docling/VLM endpoints and
+live CAC/NIMC/tax/sanctions registries remain ADAPTER-SEAM (fail-closed by design).

@@ -33,6 +33,7 @@ make compose-down
 | mod-gis-lands | built from `services/mod-gis-lands/Dockerfile` | Flagship Python cadastral service | `localhost:8000/openapi.json` |
 | mod-environment | built from `services/mod-environment/Dockerfile` | v3.0 / ENV-09 FastAPI module: emissions telemetry compliance, permits, deforestation alerts, carbon registry, EIA | `localhost:8010/healthz` |
 | mod-citizen-portal | built from `services/mod-citizen-portal/Dockerfile` | v3.0 / CIT-11 FastAPI module: citizen SSO wallet (targets local Keycloak), service requests, e-petitions, payroll audit | `localhost:8011/healthz` |
+| mod-kyc-kyb | built from `services/mod-kyc-kyb/Dockerfile` | v3.0 / KYC-KYB FastAPI module: KYC/KYB case management, document AI extraction, liveness challenges, registry verification seams (`KYC_KYB_MODE=local` = deterministic simulated adapters) | `localhost:8012/healthz` |
 
 ## Excluded from local (and why)
 
