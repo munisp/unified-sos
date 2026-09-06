@@ -1,0 +1,545 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-geospatial/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS Geospatial Orchestration, GeoLibre Projects & Lakehouse API (mod-geospatial)
+  version: 0.1.0
+  description: 'Stage 5 / GEO-LND · Lots 4-6. Tenant-isolated geospatial dataset registration (PostGIS system of record),
+    H3 indexing, deterministic processing jobs, GeoLibre self-hosted workbench project authoring (.geolibre.json artifacts;
+    never the system of record; no raw PII or hosted share/collab endpoints), and lakehouse GeoParquet publication seams (Sedona
+    analytical engine). Rust geometry-rs provides deterministic WKT validation; mod-geospatial-gateway (Go) provides the low-latency
+    validation/command edge. Deploys: all 6 states.'
+paths:
+  /healthz:
+    get:
+      summary: Healthz
+      operationId: healthz_healthz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Healthz Healthz Get
+      tags:
+      - geospatial
+  /api/v1/states/{state_id}/geospatial/datasets:
+    post:
+      summary: Register Dataset
+      operationId: register_dataset_api_v1_states__state_id__geospatial_datasets_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DatasetIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - geospatial
+      security:
+      - bearerAuth: []
+    get:
+      summary: List Datasets
+      operationId: list_datasets_api_v1_states__state_id__geospatial_datasets_get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - geospatial
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/geospatial/datasets/{dataset_id}:
+    get:
+      summary: Get Dataset
+      operationId: get_dataset_api_v1_states__state_id__geospatial_datasets__dataset_id__get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      - name: dataset_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dataset Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - geospatial
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/geospatial/jobs:
+    post:
+      summary: Create Job
+      operationId: create_job_api_v1_states__state_id__geospatial_jobs_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - geospatial
+      security:
+      - bearerAuth: []
+    get:
+      summary: List Jobs
+      operationId: list_jobs_api_v1_states__state_id__geospatial_jobs_get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - geospatial
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/geospatial/jobs/{job_id}:
+    get:
+      summary: Get Job
+      operationId: get_job_api_v1_states__state_id__geospatial_jobs__job_id__get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Job Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - geospatial
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/geospatial/jobs/{job_id}/run:
+    post:
+      summary: Run Job
+      operationId: run_job_api_v1_states__state_id__geospatial_jobs__job_id__run_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Job Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - geospatial
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/geospatial/h3/index:
+    post:
+      summary: H3 Index
+      operationId: h3_index_api_v1_states__state_id__geospatial_h3_index_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/H3IndexIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - geospatial
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/geospatial/geolibre/projects:
+    post:
+      summary: Build Project
+      operationId: build_project_api_v1_states__state_id__geospatial_geolibre_projects_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - geospatial
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/geospatial/geolibre/projects/{project_id}:
+    get:
+      summary: Get Project
+      operationId: get_project_api_v1_states__state_id__geospatial_geolibre_projects__project_id__get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - geospatial
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/geospatial/audit:
+    get:
+      summary: List Audit
+      operationId: list_audit_api_v1_states__state_id__geospatial_audit_get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - geospatial
+      security:
+      - bearerAuth: []
+components:
+  schemas:
+    DatasetIn:
+      properties:
+        dataset_type:
+          $ref: '#/components/schemas/DatasetType'
+        name:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Name
+        source_uri:
+          type: string
+          minLength: 1
+          title: Source Uri
+        crs:
+          type: string
+          title: Crs
+          default: EPSG:4326
+        sensitivity:
+          $ref: '#/components/schemas/Sensitivity'
+          default: INTERNAL
+        h3_resolution:
+          type: integer
+          maximum: 15.0
+          minimum: 0.0
+          title: H3 Resolution
+          default: 9
+        geometry:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Geometry
+        bbox:
+          anyOf:
+          - items:
+              type: number
+            type: array
+          - type: 'null'
+          title: Bbox
+      type: object
+      required:
+      - dataset_type
+      - name
+      - source_uri
+      title: DatasetIn
+    DatasetType:
+      type: string
+      enum:
+      - CADASTRE
+      - BUILDING_FOOTPRINTS
+      - NDVI_ALERTS
+      - FOREST_RESERVES
+      - TRANSPORT_CORRIDORS
+      - MARKET_BOUNDARIES
+      - MINING_SITES
+      title: DatasetType
+    H3IndexIn:
+      properties:
+        geometry:
+          additionalProperties: true
+          type: object
+          title: Geometry
+        resolution:
+          type: integer
+          maximum: 15.0
+          minimum: 0.0
+          title: Resolution
+          default: 9
+      type: object
+      required:
+      - geometry
+      title: H3IndexIn
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    JobIn:
+      properties:
+        job_type:
+          $ref: '#/components/schemas/JobType'
+        input_dataset_ids:
+          items:
+            type: string
+          type: array
+          title: Input Dataset Ids
+        parameters:
+          additionalProperties: true
+          type: object
+          title: Parameters
+      type: object
+      required:
+      - job_type
+      title: JobIn
+    JobType:
+      type: string
+      enum:
+      - UNASSESSED_PROPERTY_JOIN
+      - NDVI_CHANGE_DETECTION
+      - H3_AGGREGATION
+      - GEOPARQUET_EXPORT
+      - GEOLIBRE_PROJECT_BUILD
+      title: JobType
+    ProjectIn:
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Name
+        dataset_ids:
+          items:
+            type: string
+          type: array
+          title: Dataset Ids
+        source_job_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Source Job Id
+      type: object
+      required:
+      - name
+      title: ProjectIn
+    Sensitivity:
+      type: string
+      enum:
+      - PUBLIC
+      - INTERNAL
+      - SENSITIVE
+      title: Sensitivity
+      description: 'Sensitivity governs audit redaction: SENSITIVE datasets never emit raw
+
+        geometry or landowner attributes into audit entries or project payloads.'
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: geospatial
+- name: geolibre
+- name: lakehouse

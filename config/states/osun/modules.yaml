@@ -28,3 +28,9 @@ modules:
 - name: mod-kyc-kyb
   wave: 3
   rationale: 'KYC-KYB — Sovereign KYC/KYB, document AI & liveness verification (all states)'
+- name: mod-geospatial
+  wave: 3
+  rationale: 'GEO — Geospatial orchestration, H3 indexing, GeoLibre self-hosted workbench projects & lakehouse publication (all states)'
+- name: mod-geospatial-gateway
+  wave: 3
+  rationale: 'GEO — Low-latency geospatial validation & job command gateway (Go; all states)'

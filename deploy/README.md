@@ -34,6 +34,9 @@ make compose-down
 | mod-environment | built from `services/mod-environment/Dockerfile` | v3.0 / ENV-09 FastAPI module: emissions telemetry compliance, permits, deforestation alerts, carbon registry, EIA | `localhost:8010/healthz` |
 | mod-citizen-portal | built from `services/mod-citizen-portal/Dockerfile` | v3.0 / CIT-11 FastAPI module: citizen SSO wallet (targets local Keycloak), service requests, e-petitions, payroll audit | `localhost:8011/healthz` |
 | mod-kyc-kyb | built from `services/mod-kyc-kyb/Dockerfile` | v3.0 / KYC-KYB FastAPI module: KYC/KYB case management, document AI extraction, liveness challenges, registry verification seams (`KYC_KYB_MODE=local` = deterministic simulated adapters) | `localhost:8012/healthz` |
+| mod-geospatial | built from `services/mod-geospatial/Dockerfile` | Stage 5 / GEO FastAPI module: dataset registry (PostGIS system of record), H3 indexing, processing jobs, GeoLibre project authoring, lakehouse seams (`GEOSPATIAL_MODE=local` = deterministic adapters) | `localhost:8013/healthz` |
+| mod-geospatial-gateway | built from `services/mod-geospatial-gateway/Dockerfile` | Stage 5 / GEO Go gateway: low-latency geospatial validation & job commands | `localhost:8014` |
+| geolibre (self-hosted workbench) | `ghcr.io/opengeos/geolibre:2.0` | Sovereign self-hosted GeoLibre GIS workbench — **not the system of record** (PostGIS is). Sharing disabled (`GEOLIBRE_SHARE_URL=off`), collab URL unset, WASM sidecar disabled (`GEOLIBRE_DISABLE_SIDECAR=1`), no hosted data destination | `localhost:8085` |
 
 ## Excluded from local (and why)
 

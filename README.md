@@ -42,6 +42,7 @@ The **State Operating System (SOS)** is a production-grade, multi-tenant digital
 | **(h) Environment & Carbon** (`mod-environment`) — *v3.0 / ENV-09* | Industrial emissions telemetry compliance, effluent/timber permits, deforestation surveillance (<4h SLA), carbon registry, EIA | FastAPI · PostGIS · Sedona |
 | **(i) Citizen Portal** (`mod-citizen-portal`) — *v3.0 / CIT-11* | Citizen identity wallet & Keycloak SSO, multi-MDA self-service, e-petitions, payroll ghost-worker audit | FastAPI · Keycloak OIDC · Temporal |
 | **(j) KYC/KYB Verification** (`mod-kyc-kyb`) — *v3.0 / KYC-KYB* | Tenant-isolated KYC/KYB case management, document AI extraction (PaddleOCR/Docling/VLM adjudication), liveness anti-spoof, registry verification seams, risk scoring, hash-chained audit | FastAPI · PostGIS RLS · object-store refs/hashes |
+| **(k) Geospatial Platform** (`mod-geospatial`, `mod-geospatial-gateway`) — *Stage 5 / GEO-LND* | Tenant-isolated geospatial dataset registry & processing jobs (PostGIS system of record), H3 indexing, GeoLibre self-hosted workbench project authoring, Sedona/lakehouse analytical seams; Go low-latency validation/command gateway; Rust `geometry-rs` deterministic WKT validator | FastAPI · Go · Rust · PostGIS RLS · Sedona |
 
 ### Architecture at a Glance — Four Layers
 
@@ -68,7 +69,7 @@ Full detail: [`docs/architecture/`](docs/architecture/README.md).
 | [`contracts/`](contracts/README.md) | OpenAPI 3.1, AsyncAPI event contracts, policy-pack schemas |
 | [`db/`](db/README.md) | PostgreSQL/PostGIS DDL migrations with Row-Level Security |
 | [`ledger/`](ledger/README.md) | TigerBeetle chart-of-accounts & atomic split reference implementation |
-| [`geospatial/`](geospatial/README.md) | Apache Sedona distributed spatial jobs |
+| [`geospatial/`](geospatial/README.md) | Apache Sedona distributed spatial jobs, GeoLibre integration, Rust `geometry-rs` validator |
 | [`infra/`](infra/README.md) | Kubernetes, Helm, Terraform, ArgoCD GitOps per tenancy tier |
 | [`config/states/`](config/states/README.md) | Per-state dynamic policy packs (6 pilot states) |
 | [`edge/`](edge/README.md) | Offline-first POS / checkpoint edge design |
