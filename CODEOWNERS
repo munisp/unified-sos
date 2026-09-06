@@ -1,0 +1,42 @@
+# CODEOWNERS — SOS Platform
+# Approval routing aligned to the Engineering Pod topology (Backlog Pack: Pods 1–5 + State Delivery Pods).
+
+# Default: Platform, SecOps & SRE Pod (Pod 5)
+*                                   @munisp
+
+# Pod 1 — Core Financial & Settlement (TigerBeetle, Mojaloop, WP-03/04/05)
+/ledger/                            @munisp
+/services/mod-rev-core/             @munisp
+/contracts/openapi/revenue*         @munisp
+
+# Pod 2 — Geospatial & Land Systems (Sedona, PostGIS, C-of-O, WP-06/14)
+/geospatial/                        @munisp
+/db/migrations/                     @munisp
+/services/mod-gis-lands/            @munisp
+/services/mod-gis-luc/              @munisp
+
+# Pod 3 — Revenue & Sector Modules (WP-05, WP-07..WP-12)
+/services/mod-mining/               @munisp
+/services/mod-forestry/             @munisp
+/services/mod-transport-wim/        @munisp
+/services/mod-agri-waybill/         @munisp
+/services/mod-health/               @munisp
+/services/mod-education/            @munisp
+/services/mod-market/               @munisp
+/edge/                              @munisp
+
+# Pod 4 — Lakehouse & Data AI (Delta Lake, Flink, Ray, WP-15)
+/services/lakehouse/                @munisp
+
+# Pod 5 — Platform, SecOps & SRE (WP-01/02/16/17)
+/infra/                             @munisp
+/services/control-plane/            @munisp
+/tools/                             @munisp
+/.github/                           @munisp
+
+# State Enablement Pods — per-state policy packs require platform + state review
+/config/states/                     @munisp
+
+# Governance & procurement docs
+/docs/procurement/                  @munisp
+/docs/governance/                   @munisp

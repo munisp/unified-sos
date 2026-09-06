@@ -1,0 +1,73 @@
+# ---- SOS Monorepo .gitignore ----
+
+# Secrets & credentials — NEVER commit (NDPA 2023 / Clause 14.1)
+*.pem
+*.key
+*.pfx
+*.p12
+.env
+.env.*
+!.env.example
+secrets/
+*.kubeconfig
+vault-token*
+*sos-creds*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Go
+bin/
+*.exe
+*.test
+*.out
+vendor/
+go.work.sum
+
+# Rust
+target/
+Cargo.lock.bak
+**/*.rs.bk
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# Node / web portals
+node_modules/
+dist/
+.next/
+coverage/
+
+# Infrastructure
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+charts/*.tgz
+
+# Data & artifacts (citizen data must never enter the repo)
+*.parquet
+*.geoparquet
+*.delta
+lakehouse-data/
+dumps/
+*.sql.gz
+sample-pii/
+
+# Build / CI
+build/
+out/
+sbom*.json
+!sbom/*.json
+*.log
