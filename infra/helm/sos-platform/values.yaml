@@ -61,6 +61,12 @@ modules:
     service:
       port: 8000
     env: {}
+    secretEnvFrom:
+      - sos-secrets-keycloak
+      - sos-secrets-opensearch
+      - sos-secrets-storage
+      - sos-secrets-kms
+      - sos-secrets-ledger
     resources: {}
   lakehouse:
     enabled: false # batch medallion pipeline (no long-lived HTTP server)
@@ -71,6 +77,8 @@ modules:
     service:
       port: 8000
     env: {}
+    secretEnvFrom:
+      - sos-secrets-storage
     resources: {}
   modAgriWaybill:
     enabled: false
@@ -91,6 +99,8 @@ modules:
     service:
       port: 8000
     env: {}
+    secretEnvFrom:
+      - sos-secrets-telco
     resources: {}
   modEducation:
     enabled: false
@@ -191,6 +201,8 @@ modules:
     service:
       port: 8090
     env: {}
+    secretEnvFrom:
+      - sos-secrets-kyc
     resources: {}
   modMarket:
     enabled: false
@@ -221,6 +233,8 @@ modules:
     service:
       port: 8000
     env: {}
+    secretEnvFrom:
+      - sos-secrets-payments
     resources: {}
   modPoliceCad:
     enabled: false
@@ -256,6 +270,9 @@ modules:
       REV_CORE_LEDGER: "memory"
       TB_ADDRESSES: tigerbeetle.sos-data:3000
       TB_CLUSTER_ID: "1"
+    secretEnvFrom:
+      - sos-secrets-ledger
+      - sos-secrets-storage
     resources:
       requests:
         cpu: 250m

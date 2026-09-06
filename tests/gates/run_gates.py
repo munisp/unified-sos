@@ -6,7 +6,7 @@ Single entrypoint for the five-stage procurement acceptance framework
 writes JUnit XML + Markdown evidence to tests/evidence/<gate>-<timestamp>/.
 
 Usage:
-    python3 tests/gates/run_gates.py --gate stage1|stage2|stage3|sat|golive
+    python3 tests/gates/run_gates.py --gate stage1|stage2|stage3|sat|golive|dr
     make gates GATE=stage1
 
 Rules:
@@ -236,12 +236,25 @@ def gate_golive(result: GateResult) -> None:
     run_check(result, "go-live-checklist", ["python3", str(checklist)])
 
 
+# --------------------------------------------------------------------------
+# Disaster Recovery drill (Stage 7.D ops readiness)
+# --------------------------------------------------------------------------
+
+def gate_dr(result: GateResult) -> None:
+    dr = TESTS / "gates" / "dr_drill.py"
+    if not dr.is_file():
+        skip(result, "dr-drill", "tests/gates/dr_drill.py absent", tool=False)
+        return
+    run_check(result, "dr-drill", ["python3", str(dr)])
+
+
 GATES = {
     "stage1": ("Stage 1 — Factory Acceptance Testing (FAT)", gate_stage1),
     "stage2": ("Stage 2 — Performance & Stress Testing", gate_stage2),
     "stage3": ("Stage 3 — Security & Penetration Testing", gate_stage3),
     "sat": ("Stage 4 — Site Acceptance Testing (SAT)", gate_sat),
     "golive": ("Stage 5 — UAT & Go-Live Gates", gate_golive),
+    "dr": ("Disaster Recovery Drill (backup freshness + restore verification)", gate_dr),
 }
 
 

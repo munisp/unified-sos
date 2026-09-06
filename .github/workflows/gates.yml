@@ -15,11 +15,11 @@ on:
   workflow_dispatch:
     inputs:
       gate:
-        description: "Gate to run (stage1|stage2|stage3|sat|golive)"
+        description: "Gate to run (stage1|stage2|stage3|sat|golive|dr)"
         required: true
         default: "stage2"
         type: choice
-        options: [stage1, stage2, stage3, sat, golive]
+        options: [stage1, stage2, stage3, sat, golive, dr]
 
 permissions:
   contents: read

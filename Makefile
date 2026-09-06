@@ -91,5 +91,5 @@ compose-down: ## Stop the local development stack
 	$(COMPOSE) down
 
 GATE ?= stage1
-gates: ## Run an acceptance gate (GATE=stage1|stage2|stage3|sat|golive); evidence in tests/evidence/
+gates: ## Run an acceptance gate (GATE=stage1|stage2|stage3|sat|golive|dr); evidence in tests/evidence/
 	python3 tests/gates/run_gates.py --gate $(GATE)

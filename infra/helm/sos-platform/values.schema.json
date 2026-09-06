@@ -83,6 +83,12 @@
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
+        "secretEnvFrom": {
+          "type": "array",
+          "description": "Names of Kubernetes Secrets managed under infra/secrets/ (ExternalSecrets/SealedSecrets) mounted wholesale via envFrom secretRef",
+          "items": { "type": "string" },
+          "default": []
+        },
         "resources": { "type": "object" }
       },
       "required": ["enabled", "replicaCount", "image", "service"]

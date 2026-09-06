@@ -9,6 +9,11 @@
 .env.*
 !.env.example
 secrets/
+# infra/secrets/ holds references/ciphertext only (ExternalSecrets /
+# SealedSecrets manifests — no plaintext) and is guarded by
+# tests/security/test_security_baseline.py + infra/tests/validate_infra.py.
+!infra/secrets/
+!infra/secrets/**
 *.kubeconfig
 vault-token*
 *sos-creds*

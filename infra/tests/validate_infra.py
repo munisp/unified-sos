@@ -612,6 +612,127 @@ def check_opensearch_audit_retention() -> None:
         ok("opensearch audit ISM policy: WORM S3 snapshots + 7-year (2555d) retention")
 
 
+# Canonical live-mode secret sets (Stage 7.D). Every key listed here must
+# be covered by infra/secrets/external/*.yaml for the named target secret,
+# and every target secret must be wired into at least one Helm module via
+# .Values.modules.<key>.secretEnvFrom. Plaintext values are forbidden —
+# the sets carry references (ExternalSecrets) or ciphertext (SealedSecrets)
+# only. Mirrors infra/secrets/README.md.
+CANONICAL_SECRET_SETS = {
+    "sos-secrets-kyc": {
+        "NIMC_BASE_URL", "NIMC_CLIENT_ID", "NIMC_CLIENT_SECRET",
+        "NIMC_MTLS_CERT", "NIMC_MTLS_KEY",
+        "CAC_BASE_URL", "CAC_CLIENT_ID", "CAC_CLIENT_SECRET",
+        "CAC_MTLS_CERT", "CAC_MTLS_KEY",
+    },
+    "sos-secrets-ledger": {"TB_ADDRESSES", "TB_CLUSTER_ID"},
+    "sos-secrets-keycloak": {"KEYCLOAK_ADMIN_URL", "KEYCLOAK_ADMIN_USER", "KEYCLOAK_ADMIN_PASSWORD"},
+    "sos-secrets-storage": {
+        "S3_ENDPOINT_URL", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY",
+        "S3_KMS_KEY_ID", "SOS_BACKUP_S3_BUCKET",
+    },
+    "sos-secrets-kms": {"KMS_BACKEND", "KMS_VAULT_ADDR", "KMS_VAULT_TOKEN"},
+    "sos-secrets-opensearch": {"OPENSEARCH_URL", "OPENSEARCH_USER", "OPENSEARCH_PASSWORD"},
+    "sos-secrets-telco": {"CITIZEN_PORTAL_TELCO_SECRET", "TELCO_SECRET_HEADER"},
+    "sos-secrets-payments": {
+        "NIBSS_CLIENT_ID", "NIBSS_CLIENT_SECRET",
+        "FSPIOP_CALLBACK_SECRET", "FSPIOP_JWS_SIGNING_KEY",
+    },
+}
+
+
+def check_secrets() -> None:
+    """Secrets-management invariants (Stage 7.D):
+
+      1. Every manifest under infra/secrets/ parses; ClusterSecretStore
+         exists for the ExternalSecrets to reference.
+      2. ExternalSecrets cover every canonical live-mode env var.
+      3. No plaintext: kind Secret manifests with data/stringData are
+         forbidden; SealedSecret encryptedData values must be ciphertext
+         or explicit placeholder sentinels.
+      4. Helm wiring: secretEnvFrom is supported by the module template +
+         values schema, and every canonical secret is mounted by at least
+         one module.
+    """
+    print("== secrets management ==")
+    secrets_dir = INFRA / "secrets"
+    if not secrets_dir.is_dir():
+        fail("secrets: infra/secrets/ missing")
+        return
+
+    # 1. Parse everything; find the ClusterSecretStore.
+    store_names: set[str] = set()
+    external: list[dict] = []
+    for path in sorted(secrets_dir.rglob("*.yaml")):
+        try:
+            docs = load_yaml_docs(path)
+        except yaml.YAMLError as exc:
+            fail(f"secrets {path.relative_to(REPO_ROOT)}: invalid YAML: {exc}")
+            continue
+        for doc in docs:
+            kind = doc.get("kind")
+            if kind == "ClusterSecretStore":
+                store_names.add(doc.get("metadata", {}).get("name", ""))
+            elif kind == "ExternalSecret":
+                external.append((path, doc))
+            elif kind == "Secret":
+                if doc.get("data") or doc.get("stringData"):
+                    fail(f"secrets {path.relative_to(REPO_ROOT)}: plaintext Secret with data/stringData is forbidden")
+            elif kind == "SealedSecret":
+                for key, value in (doc.get("spec", {}).get("encryptedData") or {}).items():
+                    value = str(value)
+                    if "placeholder" in value.lower():
+                        continue  # committed example sentinel — not real ciphertext
+                    if len(value) < 32:
+                        fail(f"secrets {path.relative_to(REPO_ROOT)}: encryptedData[{key}] too short to be sealed ciphertext")
+            else:
+                fail(f"secrets {path.relative_to(REPO_ROOT)}: unexpected kind {kind!r}")
+    if not store_names:
+        fail("secrets: no ClusterSecretStore declared")
+    else:
+        ok(f"secrets: ClusterSecretStore(s) {sorted(store_names)}")
+
+    # 2. Coverage of canonical sets.
+    covered: dict[str, set[str]] = {}
+    for path, doc in external:
+        target = doc.get("spec", {}).get("target", {}).get("name", "")
+        store = doc.get("spec", {}).get("secretStoreRef", {}).get("name", "")
+        if store and store not in store_names:
+            fail(f"secrets {path.relative_to(REPO_ROOT)}: references unknown secret store {store!r}")
+        keys = {e.get("secretKey") for e in doc.get("spec", {}).get("data", []) if isinstance(e, dict)}
+        if not keys:
+            fail(f"secrets {path.relative_to(REPO_ROOT)}: ExternalSecret {target!r} has no data entries")
+        covered.setdefault(target, set()).update(k for k in keys if k)
+    for target, required in CANONICAL_SECRET_SETS.items():
+        missing = required - covered.get(target, set())
+        if missing:
+            fail(f"secrets: {target} missing canonical keys {sorted(missing)}")
+    else:
+        ok(f"secrets: all {len(CANONICAL_SECRET_SETS)} canonical sets covered by ExternalSecrets")
+
+    # 4. Helm wiring.
+    tpl = INFRA / "helm" / "sos-platform" / "templates" / "_module-deployment.tpl"
+    if "envFrom" not in tpl.read_text() or "secretEnvFrom" not in tpl.read_text():
+        fail("secrets: _module-deployment.tpl lacks envFrom/secretEnvFrom support")
+    import json as _json
+    schema = _json.loads((INFRA / "helm" / "sos-platform" / "values.schema.json").read_text())
+    if "secretEnvFrom" not in schema.get("$defs", {}).get("module", {}).get("properties", {}):
+        fail("secrets: values.schema.json module def lacks secretEnvFrom")
+    values = load_yaml_docs(INFRA / "helm" / "sos-platform" / "values.yaml")
+    modules = values[0].get("modules", {}) if values else {}
+    mounted: set[str] = set()
+    for key, mod in modules.items():
+        for secret in mod.get("secretEnvFrom", []) or []:
+            mounted.add(secret)
+            if secret not in CANONICAL_SECRET_SETS:
+                fail(f"secrets: values.modules.{key}.secretEnvFrom references unknown secret {secret!r}")
+    unmounted = set(CANONICAL_SECRET_SETS) - mounted
+    if unmounted:
+        fail(f"secrets: canonical secrets not mounted by any module: {sorted(unmounted)}")
+    else:
+        ok(f"secrets: all canonical sets mounted via secretEnvFrom ({len(mounted)} secrets)")
+
+
 def main() -> int:
     check_k8s_overlays()
     check_realm_drift()
@@ -623,6 +744,7 @@ def main() -> int:
     check_dedicated_isolation()
     check_tigerbeetle()
     check_opensearch_audit_retention()
+    check_secrets()
 
     print()
     if FAILURES:
