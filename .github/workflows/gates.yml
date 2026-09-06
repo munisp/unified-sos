@@ -1,0 +1,118 @@
+name: gates
+
+# Executable acceptance gates (P0 Workstream E) — see tests/gates/run_gates.py
+# and docs/procurement/acceptance-framework.md.
+# Stage 1 (FAT) + contract suites run per PR; stages 2/3/SAT run nightly and
+# on manual dispatch (they need load-runner hosts, scan tooling, or a stack).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 2 * * *" # nightly stage2/3/sat
+  workflow_dispatch:
+    inputs:
+      gate:
+        description: "Gate to run (stage1|stage2|stage3|sat|golive)"
+        required: true
+        default: "stage2"
+        type: choice
+        options: [stage1, stage2, stage3, sat, golive]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stage1-fat:
+    name: Stage 1 (FAT) — contracts, coverage, trivy hook
+    if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Install gate tooling
+        run: pip install pytest pytest-cov pyyaml jsonschema
+
+      - name: Run stage1 gate
+        run: python3 tests/gates/run_gates.py --gate stage1
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: evidence-stage1-${{ github.sha }}
+          path: tests/evidence/stage1-*/
+
+  contracts:
+    name: Contract suites (OpenAPI / AsyncAPI registry)
+    if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Install tooling
+        run: pip install pytest pyyaml jsonschema
+
+      - name: Run contract suites present in the tree
+        run: |
+          set -e
+          for d in tests/contracts tests/contract; do
+            if [ -d "$d" ]; then
+              echo "== pytest $d"
+              pytest -q "$d"
+            fi
+          done
+
+  nightly:
+    name: "${{ inputs.gate || 'stage2/3/sat' }} acceptance gate"
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Install gate tooling
+        run: pip install pytest pytest-cov pyyaml jsonschema
+
+      - name: Run gates (stage2, stage3, sat) or the dispatched gate
+        run: |
+          set -e
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            python3 tests/gates/run_gates.py --gate "${{ inputs.gate }}"
+          else
+            rc=0
+            for gate in stage2 stage3 sat; do
+              python3 tests/gates/run_gates.py --gate "$gate" || rc=1
+            done
+            exit "$rc"
+          fi
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: evidence-${{ inputs.gate || 'nightly' }}-${{ github.run_id }}
+          path: tests/evidence/

@@ -1,0 +1,8 @@
+# Container images scanned by the Stage 1 trivy hook (tests/gates/run_gates.py).
+# One image reference per line; # comments allowed. Pin digests for releases.
+ghcr.io/munisp/mod-rev-core:dev
+ghcr.io/munisp/mod-gis-lands:dev
+ghcr.io/munisp/mod-citizen-portal:dev
+ghcr.io/munisp/mod-geospatial-gateway:dev
+ghcr.io/tigerbeetle/tigerbeetle:0.16.40
+quay.io/keycloak/keycloak:26.0
