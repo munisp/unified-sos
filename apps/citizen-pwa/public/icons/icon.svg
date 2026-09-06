@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="SOS Citizen">
+  <rect width="512" height="512" rx="96" fill="#8c5230"/>
+  <circle cx="256" cy="200" r="72" fill="#faf6ef"/>
+  <path d="M112 400c16-72 72-112 144-112s128 40 144 112" fill="none" stroke="#faf6ef" stroke-width="44" stroke-linecap="round"/>
+</svg>
