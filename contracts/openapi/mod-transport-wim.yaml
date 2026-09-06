@@ -1,0 +1,588 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-transport-wim/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS Weigh-in-Motion & Corridor Haulage API (mod-transport-wim)
+  version: 0.1.0
+  description: 'WP-08 / EPIC-09 · Lot 6 · RT-04. High-speed WIM sensor ingestion, ANPR OCR pipelines, automated overload fine
+    issuance, corridor tolls (fine issued <3s at >80 km/h; WIM accuracy ±3%). Deploys: Ogun, Lagos, Nasarawa, Benue.'
+paths:
+  /corridors:
+    post:
+      summary: Configure Corridor
+      operationId: configure_corridor_corridors_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CorridorConfig'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CorridorConfig'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - transport
+      security:
+      - bearerAuth: []
+  /corridors/{corridor_id}:
+    get:
+      summary: Get Corridor
+      operationId: get_corridor_corridors__corridor_id__get
+      parameters:
+      - name: corridor_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Corridor Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CorridorConfig'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - transport
+      security:
+      - bearerAuth: []
+  /wim/readings:
+    post:
+      summary: Ingest Reading
+      description: Ingest a WIM reading; overloads trigger automatic fine assessment.
+      operationId: ingest_reading_wim_readings_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WIMReading'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverloadVerdict'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - transport
+      security:
+      - bearerAuth: []
+  /wim/readings/{reading_id}/verdict:
+    get:
+      summary: Get Verdict
+      operationId: get_verdict_wim_readings__reading_id__verdict_get
+      parameters:
+      - name: reading_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Reading Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverloadVerdict'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - transport
+      security:
+      - bearerAuth: []
+  /anpr/events:
+    post:
+      summary: Ingest Anpr
+      operationId: ingest_anpr_anpr_events_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ANPREvent'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ANPREvent'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - transport
+      security:
+      - bearerAuth: []
+  /fines:
+    get:
+      summary: List Fines
+      operationId: list_fines_fines_get
+      parameters:
+      - name: vehicle_plate
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Vehicle Plate
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FineAssessment'
+                title: Response List Fines Fines Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - transport
+      security:
+      - bearerAuth: []
+  /manifests:
+    post:
+      summary: Register Manifest
+      operationId: register_manifest_manifests_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EManifest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EManifest'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - transport
+      security:
+      - bearerAuth: []
+  /manifests/{manifest_id}/verify:
+    get:
+      summary: Verify Manifest
+      description: Checkpoint e-manifest verification — SLO < 5 s (in-process ≈ ms).
+      operationId: verify_manifest_manifests__manifest_id__verify_get
+      parameters:
+      - name: manifest_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Manifest Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManifestVerification'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - transport
+      security:
+      - bearerAuth: []
+  /health:
+    get:
+      summary: Health
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+      tags:
+      - transport
+components:
+  schemas:
+    ANPREvent:
+      properties:
+        event_id:
+          type: string
+          title: Event Id
+        corridor_id:
+          type: string
+          title: Corridor Id
+        camera_id:
+          type: string
+          title: Camera Id
+        vehicle_plate:
+          type: string
+          title: Vehicle Plate
+        captured_at:
+          type: string
+          format: date-time
+          title: Captured At
+      type: object
+      required:
+      - event_id
+      - corridor_id
+      - camera_id
+      - vehicle_plate
+      title: ANPREvent
+      description: ANPR camera plate sighting used to attach identity to WIM readings.
+    AxleViolation:
+      properties:
+        axle_index:
+          type: integer
+          title: Axle Index
+        weight_kg:
+          type: number
+          title: Weight Kg
+        limit_kg:
+          type: number
+          title: Limit Kg
+        overload_kg:
+          type: number
+          title: Overload Kg
+      type: object
+      required:
+      - axle_index
+      - weight_kg
+      - limit_kg
+      - overload_kg
+      title: AxleViolation
+    CorridorConfig:
+      properties:
+        corridor_id:
+          type: string
+          title: Corridor Id
+        state_id:
+          type: string
+          title: State Id
+        single_axle_limit_kg:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Single Axle Limit Kg
+        tandem_axle_limit_kg:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Tandem Axle Limit Kg
+        gvw_limit_kg:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Gvw Limit Kg
+          description: gross vehicle weight limit
+        fine_base_kobo:
+          type: integer
+          minimum: 0.0
+          title: Fine Base Kobo
+        fine_per_overload_kg_kobo:
+          type: integer
+          minimum: 0.0
+          title: Fine Per Overload Kg Kobo
+        tolerance_pct:
+          type: number
+          maximum: 20.0
+          minimum: 0.0
+          title: Tolerance Pct
+          default: 0.0
+      type: object
+      required:
+      - corridor_id
+      - state_id
+      - single_axle_limit_kg
+      - tandem_axle_limit_kg
+      - gvw_limit_kg
+      - fine_base_kobo
+      - fine_per_overload_kg_kobo
+      title: CorridorConfig
+      description: 'Gazetted axle/GVW limits and fine schedule for one corridor.
+
+
+        Values are per-corridor policy-pack configuration (never hard-coded in
+
+        binaries — CONTRIBUTING.md rule 1).'
+    EManifest:
+      properties:
+        manifest_id:
+          type: string
+          title: Manifest Id
+        state_id:
+          type: string
+          title: State Id
+        vehicle_plate:
+          type: string
+          title: Vehicle Plate
+        consignment_refs:
+          items:
+            type: string
+          type: array
+          title: Consignment Refs
+        cargo_description:
+          type: string
+          title: Cargo Description
+        origin:
+          type: string
+          title: Origin
+        destination:
+          type: string
+          title: Destination
+        valid:
+          type: boolean
+          title: Valid
+          default: true
+        issued_at:
+          type: string
+          format: date-time
+          title: Issued At
+      type: object
+      required:
+      - manifest_id
+      - state_id
+      - vehicle_plate
+      - consignment_refs
+      - cargo_description
+      - origin
+      - destination
+      title: EManifest
+      description: Haulage e-manifest presented at checkpoints.
+    FineAssessment:
+      properties:
+        fine_id:
+          type: string
+          title: Fine Id
+        reading_id:
+          type: string
+          title: Reading Id
+        corridor_id:
+          type: string
+          title: Corridor Id
+        state_id:
+          type: string
+          title: State Id
+        vehicle_plate:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Vehicle Plate
+        total_overload_kg:
+          type: number
+          title: Total Overload Kg
+        amount_kobo:
+          type: integer
+          minimum: 0.0
+          title: Amount Kobo
+        transfer_code:
+          type: integer
+          title: Transfer Code
+          default: 120
+        status:
+          $ref: '#/components/schemas/FineStatus'
+          default: ASSESSED
+        assessed_at:
+          type: string
+          format: date-time
+          title: Assessed At
+      type: object
+      required:
+      - fine_id
+      - reading_id
+      - corridor_id
+      - state_id
+      - vehicle_plate
+      - total_overload_kg
+      - amount_kobo
+      title: FineAssessment
+      description: Automatic overload fine (TigerBeetle transfer code 120).
+    FineStatus:
+      type: string
+      enum:
+      - ASSESSED
+      - NOTIFIED
+      - PAID
+      - VOIDED
+      title: FineStatus
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    ManifestVerification:
+      properties:
+        manifest_id:
+          type: string
+          title: Manifest Id
+        found:
+          type: boolean
+          title: Found
+        valid:
+          type: boolean
+          title: Valid
+        vehicle_plate:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Vehicle Plate
+        detail:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Detail
+      type: object
+      required:
+      - manifest_id
+      - found
+      - valid
+      title: ManifestVerification
+    OverloadVerdict:
+      properties:
+        reading_id:
+          type: string
+          title: Reading Id
+        corridor_id:
+          type: string
+          title: Corridor Id
+        gvw_kg:
+          type: number
+          title: Gvw Kg
+        overload_detected:
+          type: boolean
+          title: Overload Detected
+        axle_violations:
+          items:
+            $ref: '#/components/schemas/AxleViolation'
+          type: array
+          title: Axle Violations
+        gvw_overload_kg:
+          type: number
+          title: Gvw Overload Kg
+          default: 0.0
+      type: object
+      required:
+      - reading_id
+      - corridor_id
+      - gvw_kg
+      - overload_detected
+      - axle_violations
+      title: OverloadVerdict
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    WIMReading:
+      properties:
+        reading_id:
+          type: string
+          title: Reading Id
+        corridor_id:
+          type: string
+          title: Corridor Id
+        station_id:
+          type: string
+          title: Station Id
+        axle_weights_kg:
+          items:
+            type: number
+          type: array
+          title: Axle Weights Kg
+        speed_kmh:
+          type: number
+          minimum: 0.0
+          title: Speed Kmh
+        vehicle_plate:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Vehicle Plate
+          description: populated directly or via ANPR correlation
+        recorded_at:
+          type: string
+          format: date-time
+          title: Recorded At
+      type: object
+      required:
+      - reading_id
+      - corridor_id
+      - station_id
+      - axle_weights_kg
+      - speed_kmh
+      title: WIMReading
+      description: High-speed weigh-in-motion sensor reading from a piezo/bending-plate site.
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: transport
+- name: wim
+- name: fines

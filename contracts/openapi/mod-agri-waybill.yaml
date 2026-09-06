@@ -1,0 +1,512 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-agri-waybill/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS Agribusiness Supply Chain & E-Waybill API (mod-agri-waybill)
+  version: 0.1.0
+  description: 'WP-09 / EPIC-11 · Lot 6/9 · RT-04. Digital produce inspection and e-waybills, haulage checkpoint verification,
+    agro-hub warehouse receipt tokenization, commodity collateral clearing, EUDR-compliant deforestation-free export provenance.
+    Deploys: Benue, Taraba, Nasarawa, Osun.'
+paths:
+  /waybills:
+    post:
+      summary: Issue Waybill
+      operationId: issue_waybill_waybills_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EWaybill'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EWaybill'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - agriculture
+      security:
+      - bearerAuth: []
+  /waybills/{waybill_number}:
+    get:
+      summary: Get Waybill
+      operationId: get_waybill_waybills__waybill_number__get
+      parameters:
+      - name: waybill_number
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Waybill Number
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EWaybill'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - agriculture
+      security:
+      - bearerAuth: []
+  /waybills/verify:
+    post:
+      summary: Verify
+      description: Checkpoint QR verification (target < 10 s; in-process ≈ ms).
+      operationId: verify_waybills_verify_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResult'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - agriculture
+      security:
+      - bearerAuth: []
+  /waybills/{waybill_number}/tracking:
+    post:
+      summary: Track
+      operationId: track_waybills__waybill_number__tracking_post
+      parameters:
+      - name: waybill_number
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Waybill Number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackingEvent'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackingEvent'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - agriculture
+      security:
+      - bearerAuth: []
+    get:
+      summary: Trail
+      operationId: trail_waybills__waybill_number__tracking_get
+      parameters:
+      - name: waybill_number
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Waybill Number
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrackingEvent'
+                title: Response Trail Waybills  Waybill Number  Tracking Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - agriculture
+      security:
+      - bearerAuth: []
+  /waybills/{waybill_number}/deliver:
+    post:
+      summary: Deliver
+      operationId: deliver_waybills__waybill_number__deliver_post
+      parameters:
+      - name: waybill_number
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Waybill Number
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EWaybill'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - agriculture
+      security:
+      - bearerAuth: []
+  /warehouse-receipts:
+    post:
+      summary: Issue Receipt
+      operationId: issue_receipt_warehouse_receipts_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WarehouseReceipt'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WarehouseReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - agriculture
+      security:
+      - bearerAuth: []
+    get:
+      summary: List Receipts
+      operationId: list_receipts_warehouse_receipts_get
+      parameters:
+      - name: warehouse_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Warehouse Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WarehouseReceipt'
+                title: Response List Receipts Warehouse Receipts Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - agriculture
+      security:
+      - bearerAuth: []
+  /health:
+    get:
+      summary: Health
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+      tags:
+      - agriculture
+components:
+  schemas:
+    EWaybill:
+      properties:
+        waybill_number:
+          type: string
+          title: Waybill Number
+          description: e.g. WB-BEN-2026-000123
+        state_id:
+          type: string
+          title: State Id
+        consignor_id:
+          type: string
+          title: Consignor Id
+        consignee_id:
+          type: string
+          title: Consignee Id
+        produce_type:
+          $ref: '#/components/schemas/ProduceType'
+        quantity_kg:
+          type: number
+          minimum: 0.0
+          title: Quantity Kg
+        vehicle_plate:
+          type: string
+          title: Vehicle Plate
+        origin:
+          type: string
+          title: Origin
+        destination:
+          type: string
+          title: Destination
+        levy_kobo:
+          type: integer
+          minimum: 0.0
+          title: Levy Kobo
+          description: per-consignment produce levy
+        transfer_code:
+          type: integer
+          title: Transfer Code
+          default: 140
+        status:
+          $ref: '#/components/schemas/WaybillStatus'
+          default: ISSUED
+        qr_payload:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Qr Payload
+        issued_at:
+          type: string
+          format: date-time
+          title: Issued At
+        delivered_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Delivered At
+      type: object
+      required:
+      - waybill_number
+      - state_id
+      - consignor_id
+      - consignee_id
+      - produce_type
+      - quantity_kg
+      - vehicle_plate
+      - origin
+      - destination
+      - levy_kobo
+      title: EWaybill
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    ProduceType:
+      type: string
+      enum:
+      - YAM_TUBERS
+      - RICE_PADDY
+      - MAIZE
+      - CASSAVA
+      - SOYBEAN
+      - COCOA
+      - TEA
+      - SESAME
+      title: ProduceType
+    TrackingEvent:
+      properties:
+        event_id:
+          type: string
+          title: Event Id
+        waybill_number:
+          type: string
+          title: Waybill Number
+        checkpoint_id:
+          type: string
+          title: Checkpoint Id
+        gps_lat:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Gps Lat
+        gps_lon:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Gps Lon
+        note:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Note
+        recorded_at:
+          type: string
+          format: date-time
+          title: Recorded At
+      type: object
+      required:
+      - event_id
+      - waybill_number
+      - checkpoint_id
+      title: TrackingEvent
+      description: A checkpoint sighting along the consignment's route.
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    VerificationResult:
+      properties:
+        waybill_number:
+          type: string
+          title: Waybill Number
+        valid:
+          type: boolean
+          title: Valid
+        status:
+          anyOf:
+          - $ref: '#/components/schemas/WaybillStatus'
+          - type: 'null'
+        detail:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Detail
+      type: object
+      required:
+      - waybill_number
+      - valid
+      title: VerificationResult
+      description: Response of the QR verification endpoint.
+    VerifyRequest:
+      properties:
+        qr_payload:
+          type: string
+          title: Qr Payload
+      type: object
+      required:
+      - qr_payload
+      title: VerifyRequest
+    WarehouseReceipt:
+      properties:
+        receipt_id:
+          type: string
+          title: Receipt Id
+        state_id:
+          type: string
+          title: State Id
+        warehouse_id:
+          type: string
+          title: Warehouse Id
+        waybill_number:
+          type: string
+          title: Waybill Number
+          description: delivering consignment
+        depositor_id:
+          type: string
+          title: Depositor Id
+        produce_type:
+          $ref: '#/components/schemas/ProduceType'
+        quantity_kg:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Quantity Kg
+        grade:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Grade
+        storage_location:
+          type: string
+          title: Storage Location
+        collateralized:
+          type: boolean
+          title: Collateralized
+          default: false
+        issued_at:
+          type: string
+          format: date-time
+          title: Issued At
+      type: object
+      required:
+      - receipt_id
+      - state_id
+      - warehouse_id
+      - waybill_number
+      - depositor_id
+      - produce_type
+      - quantity_kg
+      - storage_location
+      title: WarehouseReceipt
+      description: Agro-hub warehouse receipt — collateralizable record of stored produce.
+    WaybillStatus:
+      type: string
+      enum:
+      - ISSUED
+      - IN_TRANSIT
+      - DELIVERED
+      - CANCELLED
+      title: WaybillStatus
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: agriculture
+- name: waybills
+- name: warehouse-receipts

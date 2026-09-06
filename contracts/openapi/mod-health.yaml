@@ -1,0 +1,532 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-health/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS Public Health Billing & Facility Operations API (mod-health)
+  version: 0.1.0
+  description: 'WP-10 / EPIC-12 · Lot 7 · RT-04. Consolidated revenue across state tertiary and specialist hospitals, FHIR-compliant
+    patient billing, drug inventory POS (revolving drug fund), automated SHIA/NHIS claims adjudication (<24h). Deploys: Nasarawa,
+    Osun, Benue — extensible to all 6.'
+paths:
+  /health/v1/billing-accounts:
+    post:
+      summary: Open Account
+      operationId: open_account_health_v1_billing_accounts_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenAccountRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillingAccount'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - health
+      security:
+      - bearerAuth: []
+  /health/v1/invoices:
+    post:
+      summary: Issue Invoice
+      description: Issue a service/fee invoice. DRUG:<code> lines are stock-out-aware.
+      operationId: issue_invoice_health_v1_invoices_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueInvoiceRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - health
+      security:
+      - bearerAuth: []
+  /health/v1/invoices/{invoice_id}/pay:
+    post:
+      summary: Pay Invoice
+      operationId: pay_invoice_health_v1_invoices__invoice_id__pay_post
+      parameters:
+      - name: invoice_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Invoice Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - health
+      security:
+      - bearerAuth: []
+  /health/v1/claims:
+    post:
+      summary: Submit Claim
+      operationId: submit_claim_health_v1_claims_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitClaimRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Claim'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - health
+      security:
+      - bearerAuth: []
+  /health/v1/claims/{claim_id}/adjudicate:
+    post:
+      summary: Adjudicate Claim
+      operationId: adjudicate_claim_health_v1_claims__claim_id__adjudicate_post
+      parameters:
+      - name: claim_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Claim Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdjudicateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Claim'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - health
+      security:
+      - bearerAuth: []
+  /health/v1/claims/{claim_id}/settle:
+    post:
+      summary: Settle Claim
+      operationId: settle_claim_health_v1_claims__claim_id__settle_post
+      parameters:
+      - name: claim_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Claim Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Claim'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - health
+      security:
+      - bearerAuth: []
+  /health/v1/pharmacy/stock:
+    post:
+      summary: Restock
+      operationId: restock_health_v1_pharmacy_stock_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestockRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - health
+      security:
+      - bearerAuth: []
+  /health/v1/pharmacy/stock/{facility_id}/{drug_code}:
+    get:
+      summary: Stock Level
+      operationId: stock_level_health_v1_pharmacy_stock__facility_id___drug_code__get
+      parameters:
+      - name: facility_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Facility Id
+      - name: drug_code
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Drug Code
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - health
+      security:
+      - bearerAuth: []
+  /healthz:
+    get:
+      summary: Healthz
+      operationId: healthz_healthz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Healthz Healthz Get
+      tags:
+      - health
+components:
+  schemas:
+    AdjudicateRequest:
+      properties:
+        approve:
+          type: boolean
+          title: Approve
+        note:
+          type: string
+          title: Note
+          default: ''
+      type: object
+      required:
+      - approve
+      title: AdjudicateRequest
+    BillingAccount:
+      properties:
+        account_id:
+          type: string
+          title: Account Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        facility_id:
+          type: string
+          title: Facility Id
+        patient_ref:
+          type: string
+          title: Patient Ref
+        opened_at:
+          type: string
+          title: Opened At
+      type: object
+      required:
+      - account_id
+      - tenant_state_id
+      - facility_id
+      - patient_ref
+      - opened_at
+      title: BillingAccount
+    Claim:
+      properties:
+        claim_id:
+          type: string
+          title: Claim Id
+        invoice_id:
+          type: string
+          title: Invoice Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        payer:
+          type: string
+          title: Payer
+        amount_kobo:
+          type: integer
+          title: Amount Kobo
+        status:
+          $ref: '#/components/schemas/ClaimStatus'
+        submitted_at:
+          type: string
+          title: Submitted At
+        adjudicated_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Adjudicated At
+        adjudication_note:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Adjudication Note
+      type: object
+      required:
+      - claim_id
+      - invoice_id
+      - tenant_state_id
+      - payer
+      - amount_kobo
+      - status
+      - submitted_at
+      title: Claim
+    ClaimStatus:
+      type: string
+      enum:
+      - submitted
+      - adjudicated
+      - paid
+      - rejected
+      title: ClaimStatus
+      description: SHIA/NHIS claim record lifecycle.
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    Invoice:
+      properties:
+        invoice_id:
+          type: string
+          title: Invoice Id
+        account_id:
+          type: string
+          title: Account Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        facility_id:
+          type: string
+          title: Facility Id
+        lines:
+          items:
+            $ref: '#/components/schemas/InvoiceLine'
+          type: array
+          title: Lines
+        status:
+          $ref: '#/components/schemas/InvoiceStatus'
+        issued_at:
+          type: string
+          title: Issued At
+        paid_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Paid At
+        ledger_transfer_code:
+          type: integer
+          title: Ledger Transfer Code
+          default: 150
+      type: object
+      required:
+      - invoice_id
+      - account_id
+      - tenant_state_id
+      - facility_id
+      - lines
+      - status
+      - issued_at
+      title: Invoice
+    InvoiceLine:
+      properties:
+        service_code:
+          type: string
+          title: Service Code
+        description:
+          type: string
+          title: Description
+          default: ''
+        quantity:
+          type: integer
+          minimum: 1.0
+          title: Quantity
+          default: 1
+        unit_amount_kobo:
+          type: integer
+          minimum: 0.0
+          title: Unit Amount Kobo
+      type: object
+      required:
+      - service_code
+      - unit_amount_kobo
+      title: InvoiceLine
+    InvoiceStatus:
+      type: string
+      enum:
+      - issued
+      - paid
+      - void
+      title: InvoiceStatus
+    IssueInvoiceRequest:
+      properties:
+        account_id:
+          type: string
+          title: Account Id
+        lines:
+          items:
+            $ref: '#/components/schemas/InvoiceLine'
+          type: array
+          minItems: 1
+          title: Lines
+      type: object
+      required:
+      - account_id
+      - lines
+      title: IssueInvoiceRequest
+    OpenAccountRequest:
+      properties:
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        facility_id:
+          type: string
+          title: Facility Id
+        patient_ref:
+          type: string
+          title: Patient Ref
+          description: Opaque FHIR Patient reference
+      type: object
+      required:
+      - tenant_state_id
+      - facility_id
+      - patient_ref
+      title: OpenAccountRequest
+    RestockRequest:
+      properties:
+        facility_id:
+          type: string
+          title: Facility Id
+        drug_code:
+          type: string
+          title: Drug Code
+        quantity:
+          type: integer
+          minimum: 1.0
+          title: Quantity
+      type: object
+      required:
+      - facility_id
+      - drug_code
+      - quantity
+      title: RestockRequest
+    SubmitClaimRequest:
+      properties:
+        invoice_id:
+          type: string
+          title: Invoice Id
+        payer:
+          type: string
+          enum:
+          - SHIA
+          - NHIS
+          title: Payer
+      type: object
+      required:
+      - invoice_id
+      - payer
+      title: SubmitClaimRequest
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: health
+- name: billing
+- name: insurance-claims

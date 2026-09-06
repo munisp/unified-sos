@@ -1,0 +1,57 @@
+asyncapi: 2.6.0
+info:
+  title: SOS Forestry Provenance & Enforcement Events
+  version: 1.0.0
+  description: >-
+    WP-07 / EPIC-08 (mod-forestry). UHF RFID nail-tag chain-of-custody events
+    and illegal-logging enforcement alerts for Taraba (rosewood), Ogun, Osun,
+    Benue. Payload schemas are grounded in services/mod-forestry/app/models.py
+    (ProvenanceEvent, UntaggedTimberAlert).
+channels:
+  ng.sos.forestry.untagged_timber_alert:
+    publish:
+      operationId: untaggedTimberAlert
+      description: >-
+        Emitted when a checkpoint scanner finds timber haulage with no valid
+        RFID tag (services/mod-forestry/app/service.py,
+        TOPIC_UNTAGGED_TIMBER_ALERT). Triggers enforcement dispatch and the
+        untagged-haulage acceptance criterion.
+      message:
+        payload:
+          type: object
+          required: [state_id, checkpoint_id, vehicle_plate, gps, timestamp]
+          properties:
+            state_id:
+              type: string
+              enum: [lagos, ogun, osun, benue, nasarawa, taraba]
+            checkpoint_id: { type: string, description: Ranger/checkpoint scanner station ID }
+            vehicle_plate: { type: string, description: Haulage vehicle registration plate }
+            gps:
+              type: object
+              description: Checkpoint GPS fix as captured by the scanner
+              additionalProperties: true
+            timestamp: { type: string, format: date-time }
+  ng.sos.forestry.provenance_recorded:
+    publish:
+      operationId: provenanceRecorded
+      description: >-
+        One hop in a log's chain of custody: harvest -> transit -> mill
+        (or SEIZED on enforcement seizure). Mirrors
+        services/mod-forestry/app/models.py ProvenanceEvent, recorded via
+        POST /api/v1/states/{state_id}/forestry/provenance-events.
+      message:
+        payload:
+          type: object
+          required: [event_id, tag_id, stage, actor_id, location, recorded_at]
+          properties:
+            event_id: { type: string }
+            tag_id: { type: string, description: UHF RFID EPC, e.g. RFID-TAR-000123 }
+            stage:
+              type: string
+              enum: [ISSUED, HARVESTED, IN_TRANSIT, MILLED, SEIZED]
+            actor_id: { type: string, description: ranger / hauler / mill operator ID }
+            location: { type: string }
+            gps_lat: { type: [number, 'null'] }
+            gps_lon: { type: [number, 'null'] }
+            transit_permit_id: { type: [string, 'null'] }
+            recorded_at: { type: string, format: date-time }

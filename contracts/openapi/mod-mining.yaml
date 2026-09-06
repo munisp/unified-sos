@@ -1,0 +1,730 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-mining/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS Solid Minerals Custody & Levies API (mod-mining)
+  version: 0.1.0
+  description: 'WP-07 / EPIC-07 · Lot 5 · RT-03. Digital mineral e-permit registry, weight-based levy calculation, IoT weighbridge
+    telemetry, RFID truck manifests, quarry checkpoint scanners, artisanal miner registry. Hard constraint: state-competent
+    levies only — federal royalty lines separated by construction. Deploys: Nasarawa, Osun, Taraba, Ogun.'
+paths:
+  /sites:
+    post:
+      summary: Register Site
+      operationId: register_site_sites_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MineralSite'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MineralSite'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mining
+      security:
+      - bearerAuth: []
+  /sites/{site_id}:
+    get:
+      summary: Get Site
+      operationId: get_site_sites__site_id__get
+      parameters:
+      - name: site_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Site Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MineralSite'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mining
+      security:
+      - bearerAuth: []
+  /consignments:
+    post:
+      summary: Create Consignment
+      operationId: create_consignment_consignments_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Consignment-Input'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consignment-Output'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mining
+      security:
+      - bearerAuth: []
+    get:
+      summary: List Consignments
+      operationId: list_consignments_consignments_get
+      parameters:
+      - name: state_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Consignment-Output'
+                title: Response List Consignments Consignments Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mining
+      security:
+      - bearerAuth: []
+  /consignments/{consignment_id}:
+    get:
+      summary: Get Consignment
+      operationId: get_consignment_consignments__consignment_id__get
+      parameters:
+      - name: consignment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Consignment Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consignment-Output'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mining
+      security:
+      - bearerAuth: []
+  /consignments/{consignment_id}/weighbridge:
+    post:
+      summary: Weighbridge
+      operationId: weighbridge_consignments__consignment_id__weighbridge_post
+      parameters:
+      - name: consignment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Consignment Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WeighbridgeReading'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consignment-Output'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mining
+      security:
+      - bearerAuth: []
+  /consignments/{consignment_id}/assay:
+    post:
+      summary: Assay
+      operationId: assay_consignments__consignment_id__assay_post
+      parameters:
+      - name: consignment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Consignment Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssayRecord'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consignment-Output'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mining
+      security:
+      - bearerAuth: []
+  /consignments/{consignment_id}/dispatch:
+    post:
+      summary: Dispatch
+      operationId: dispatch_consignments__consignment_id__dispatch_post
+      parameters:
+      - name: consignment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Consignment Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consignment-Output'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mining
+      security:
+      - bearerAuth: []
+  /consignments/{consignment_id}/deliver:
+    post:
+      summary: Deliver
+      operationId: deliver_consignments__consignment_id__deliver_post
+      parameters:
+      - name: consignment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Consignment Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consignment-Output'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mining
+      security:
+      - bearerAuth: []
+  /split-rules/validate:
+    post:
+      summary: Validate Split Rule
+      description: 'Dry-run validation of a split rule against the royalty constraint.
+
+
+        Constructing a :class:`SplitRule` raises RoyaltyConstraintViolation
+
+        (a ValueError) for any royalty/federal claim; FastAPI maps that to
+
+        422 automatically.'
+      operationId: validate_split_rule_split_rules_validate_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SplitRule'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mining
+      security:
+      - bearerAuth: []
+  /events:
+    get:
+      summary: Published Events
+      operationId: published_events_events_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+      tags:
+      - mining
+      security:
+      - bearerAuth: []
+  /health:
+    get:
+      summary: Health
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+      tags:
+      - mining
+components:
+  schemas:
+    AssayRecord:
+      properties:
+        assay_id:
+          type: string
+          title: Assay Id
+        lab_id:
+          type: string
+          title: Lab Id
+        lithium_oxide_grade_pct:
+          anyOf:
+          - type: number
+            maximum: 100.0
+            minimum: 0.0
+          - type: 'null'
+          title: Lithium Oxide Grade Pct
+        gold_grade_gpt:
+          anyOf:
+          - type: number
+            minimum: 0.0
+          - type: 'null'
+          title: Gold Grade Gpt
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+        taken_at:
+          type: string
+          format: date-time
+          title: Taken At
+      type: object
+      required:
+      - assay_id
+      - lab_id
+      title: AssayRecord
+      description: XRF assay sample attached to a consignment before dispatch.
+    Consignment-Input:
+      properties:
+        consignment_id:
+          type: string
+          title: Consignment Id
+          description: e.g. MIN-NAS-2026-0819
+        state_id:
+          type: string
+          title: State Id
+        site_id:
+          type: string
+          title: Site Id
+        mine_lease_id:
+          type: string
+          title: Mine Lease Id
+        mineral_type:
+          $ref: '#/components/schemas/MineralType'
+        truck_registration:
+          type: string
+          title: Truck Registration
+        rfid_seal_id:
+          type: string
+          title: Rfid Seal Id
+        destination_corridor:
+          type: string
+          title: Destination Corridor
+        status:
+          $ref: '#/components/schemas/ConsignmentStatus'
+          default: CREATED
+        weighbridge:
+          anyOf:
+          - $ref: '#/components/schemas/WeighbridgeReading'
+          - type: 'null'
+        assay:
+          anyOf:
+          - $ref: '#/components/schemas/AssayRecord'
+          - type: 'null'
+        levy:
+          anyOf:
+          - $ref: '#/components/schemas/LevyAssessment'
+          - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        dispatched_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Dispatched At
+        delivered_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Delivered At
+      type: object
+      required:
+      - consignment_id
+      - state_id
+      - site_id
+      - mine_lease_id
+      - mineral_type
+      - truck_registration
+      - rfid_seal_id
+      - destination_corridor
+      title: Consignment
+    Consignment-Output:
+      properties:
+        consignment_id:
+          type: string
+          title: Consignment Id
+          description: e.g. MIN-NAS-2026-0819
+        state_id:
+          type: string
+          title: State Id
+        site_id:
+          type: string
+          title: Site Id
+        mine_lease_id:
+          type: string
+          title: Mine Lease Id
+        mineral_type:
+          $ref: '#/components/schemas/MineralType'
+        truck_registration:
+          type: string
+          title: Truck Registration
+        rfid_seal_id:
+          type: string
+          title: Rfid Seal Id
+        destination_corridor:
+          type: string
+          title: Destination Corridor
+        status:
+          $ref: '#/components/schemas/ConsignmentStatus'
+          default: CREATED
+        weighbridge:
+          anyOf:
+          - $ref: '#/components/schemas/WeighbridgeReading'
+          - type: 'null'
+        assay:
+          anyOf:
+          - $ref: '#/components/schemas/AssayRecord'
+          - type: 'null'
+        levy:
+          anyOf:
+          - $ref: '#/components/schemas/LevyAssessment'
+          - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        dispatched_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Dispatched At
+        delivered_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Delivered At
+      type: object
+      required:
+      - consignment_id
+      - state_id
+      - site_id
+      - mine_lease_id
+      - mineral_type
+      - truck_registration
+      - rfid_seal_id
+      - destination_corridor
+      title: Consignment
+    ConsignmentStatus:
+      type: string
+      enum:
+      - CREATED
+      - WEIGHED
+      - DISPATCHED
+      - DELIVERED
+      title: ConsignmentStatus
+      description: 'Lifecycle: create -> weighbridge reading -> dispatch -> delivery.'
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    LevyAssessment:
+      properties:
+        assessment_id:
+          type: string
+          title: Assessment Id
+        consignment_id:
+          type: string
+          title: Consignment Id
+        state_id:
+          type: string
+          title: State Id
+        lines:
+          items:
+            $ref: '#/components/schemas/LevyLine'
+          type: array
+          title: Lines
+        total_kobo:
+          type: integer
+          minimum: 0.0
+          title: Total Kobo
+        assessed_at:
+          type: string
+          format: date-time
+          title: Assessed At
+        federal_royalty_reference_kobo:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Federal Royalty Reference Kobo
+      type: object
+      required:
+      - assessment_id
+      - consignment_id
+      - state_id
+      - lines
+      - total_kobo
+      title: LevyAssessment
+      description: State levy computed from tonnage + assay at dispatch time.
+    LevyLine:
+      properties:
+        beneficiary:
+          type: string
+          title: Beneficiary
+          description: e.g. STATE_CONSOLIDATED_REVENUE_FUND
+        tigerbeetle_account_code:
+          type: integer
+          title: Tigerbeetle Account Code
+          description: class 1xxx-4xxx
+        transfer_code:
+          type: integer
+          title: Transfer Code
+          default: 110
+        amount_kobo:
+          type: integer
+          minimum: 0.0
+          title: Amount Kobo
+      type: object
+      required:
+      - beneficiary
+      - tigerbeetle_account_code
+      - amount_kobo
+      title: LevyLine
+      description: 'A state-competent levy line (the ONLY payable line mod-mining emits).
+
+
+        ``transfer_code`` 110 per ledger/chart-of-accounts.md; credited to
+
+        account classes 1xxx–4xxx only — never 5xxx federal pass-through.'
+    MineralSite:
+      properties:
+        site_id:
+          type: string
+          title: Site Id
+        state_id:
+          type: string
+          title: State Id
+          description: nasarawa | osun | taraba | ogun
+        mine_lease_id:
+          type: string
+          title: Mine Lease Id
+          description: e.g. ML-NAS-KOKO-04
+        operator_name:
+          type: string
+          title: Operator Name
+        minerals:
+          items:
+            $ref: '#/components/schemas/MineralType'
+          type: array
+          title: Minerals
+        active:
+          type: boolean
+          title: Active
+          default: true
+        registered_at:
+          type: string
+          format: date-time
+          title: Registered At
+      type: object
+      required:
+      - site_id
+      - state_id
+      - mine_lease_id
+      - operator_name
+      - minerals
+      title: MineralSite
+    MineralType:
+      type: string
+      enum:
+      - LITHIUM_SPODUMENE
+      - COLUMBITE
+      - TANTALITE
+      - GOLD_ORE
+      - GRANITE
+      - SAPPHIRE
+      - BARITE
+      title: MineralType
+      description: Enum values from contracts/asyncapi/mining-events.yaml.
+    SplitRule:
+      properties:
+        beneficiary:
+          type: string
+          title: Beneficiary
+        tigerbeetle_account_code:
+          type: integer
+          title: Tigerbeetle Account Code
+        share_bps:
+          type: integer
+          title: Share Bps
+      type: object
+      required:
+      - beneficiary
+      - tigerbeetle_account_code
+      - share_bps
+      title: SplitRule
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    WeighbridgeReading:
+      properties:
+        station_id:
+          type: string
+          title: Station Id
+        gross_weight_kg:
+          type: number
+          minimum: 0.0
+          title: Gross Weight Kg
+        tare_weight_kg:
+          type: number
+          minimum: 0.0
+          title: Tare Weight Kg
+        axle_weights_kg:
+          items:
+            type: number
+          type: array
+          title: Axle Weights Kg
+        anpr_plate:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Anpr Plate
+        taken_at:
+          type: string
+          format: date-time
+          title: Taken At
+      type: object
+      required:
+      - station_id
+      - gross_weight_kg
+      - tare_weight_kg
+      title: WeighbridgeReading
+      description: Reading captured at the site weighbridge before dispatch.
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: mining
+- name: levies
+- name: consignments

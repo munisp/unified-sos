@@ -1,0 +1,451 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-mobility-switch/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS Multimodal Transit Clearing API (mod-mobility-switch)
+  version: 0.1.0
+  description: 'WP-08 / EPIC-10 · Lot 6 · RT-04. Contactless multimodal transit switch (Cowry Gen 2 compatible): bus, rail,
+    ferry clearing; commercial vehicle daily ticketing, park management, driver manifests, gazetted 3–8% union commission
+    auto-splits. Deploys: Lagos, Ogun.'
+paths:
+  /mobility/v1/fares/{tenant_state_id}:
+    put:
+      summary: Put Fare Table
+      description: Configure the state fare table (gazetted; union commission 3–8%).
+      operationId: put_fare_table_mobility_v1_fares__tenant_state_id__put
+      parameters:
+      - name: tenant_state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Tenant State Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FareTableRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FareTable'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mobility
+      security:
+      - bearerAuth: []
+    get:
+      summary: Get Fare Table
+      operationId: get_fare_table_mobility_v1_fares__tenant_state_id__get
+      parameters:
+      - name: tenant_state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Tenant State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FareTable'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mobility
+      security:
+      - bearerAuth: []
+  /mobility/v1/clearing:
+    post:
+      summary: Record Tap
+      description: Record a tap/ticket clearing event, priced from the state fare table.
+      operationId: record_tap_mobility_v1_clearing_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TapRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClearingRecord'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mobility
+      security:
+      - bearerAuth: []
+  /mobility/v1/settlements/{tenant_state_id}/{operator_id}:
+    post:
+      summary: Settle
+      description: 'Close an operator settlement batch with TigerBeetle split legs
+
+        (transfer code 140; accounts 4002 union commission, 3001 CRF, 2010 operator).'
+      operationId: settle_mobility_v1_settlements__tenant_state_id___operator_id__post
+      parameters:
+      - name: tenant_state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Tenant State Id
+      - name: operator_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Operator Id
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettlementBatch'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mobility
+      security:
+      - bearerAuth: []
+  /mobility/v1/settlements:
+    get:
+      summary: List Batches
+      operationId: list_batches_mobility_v1_settlements_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/SettlementBatch'
+                type: array
+                title: Response List Batches Mobility V1 Settlements Get
+      tags:
+      - mobility
+      security:
+      - bearerAuth: []
+  /mobility/v1/cowry/authorize:
+    post:
+      summary: Cowry Authorization
+      description: Cowry-compatible card bridge interface stub (offline-capable).
+      operationId: cowry_authorization_mobility_v1_cowry_authorize_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CowryAuthRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mobility
+      security:
+      - bearerAuth: []
+  /healthz:
+    get:
+      summary: Healthz
+      operationId: healthz_healthz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Healthz Healthz Get
+      tags:
+      - mobility
+components:
+  schemas:
+    ClearingRecord:
+      properties:
+        record_id:
+          type: string
+          title: Record Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        operator_id:
+          type: string
+          title: Operator Id
+        mode:
+          $ref: '#/components/schemas/Mode'
+        route:
+          type: string
+          title: Route
+        fare_kobo:
+          type: integer
+          title: Fare Kobo
+        card_ref:
+          type: string
+          title: Card Ref
+        tapped_at:
+          type: string
+          title: Tapped At
+        settled_batch_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Settled Batch Id
+      type: object
+      required:
+      - record_id
+      - tenant_state_id
+      - operator_id
+      - mode
+      - route
+      - fare_kobo
+      - card_ref
+      - tapped_at
+      title: ClearingRecord
+      description: A settled tap/ticket event awaiting operator settlement.
+    CowryAuthRequest:
+      properties:
+        card_ref:
+          type: string
+          title: Card Ref
+        fare_kobo:
+          type: integer
+          title: Fare Kobo
+      type: object
+      required:
+      - card_ref
+      - fare_kobo
+      title: CowryAuthRequest
+    FareRule:
+      properties:
+        mode:
+          $ref: '#/components/schemas/Mode'
+        route:
+          type: string
+          title: Route
+        fare_kobo:
+          type: integer
+          minimum: 0.0
+          title: Fare Kobo
+      type: object
+      required:
+      - mode
+      - route
+      - fare_kobo
+      title: FareRule
+    FareTable:
+      properties:
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        gazette_reference:
+          type: string
+          title: Gazette Reference
+        union_commission_pct:
+          type: number
+          maximum: 8.0
+          minimum: 3.0
+          title: Union Commission Pct
+          description: Gazetted union commission auto-split (3–8%)
+        fares:
+          items:
+            $ref: '#/components/schemas/FareRule'
+          type: array
+          title: Fares
+        updated_at:
+          type: string
+          title: Updated At
+      type: object
+      required:
+      - tenant_state_id
+      - gazette_reference
+      - union_commission_pct
+      - fares
+      - updated_at
+      title: FareTable
+    FareTableRequest:
+      properties:
+        gazette_reference:
+          type: string
+          title: Gazette Reference
+        union_commission_pct:
+          type: number
+          title: Union Commission Pct
+        fares:
+          items:
+            $ref: '#/components/schemas/FareRule'
+          type: array
+          title: Fares
+      type: object
+      required:
+      - gazette_reference
+      - union_commission_pct
+      - fares
+      title: FareTableRequest
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    Mode:
+      type: string
+      enum:
+      - bus
+      - rail
+      - ferry
+      title: Mode
+    SettlementBatch:
+      properties:
+        batch_id:
+          type: string
+          title: Batch Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        operator_id:
+          type: string
+          title: Operator Id
+        record_count:
+          type: integer
+          title: Record Count
+        gross_kobo:
+          type: integer
+          title: Gross Kobo
+        legs:
+          items:
+            $ref: '#/components/schemas/SettlementLeg'
+          type: array
+          title: Legs
+        created_at:
+          type: string
+          title: Created At
+      type: object
+      required:
+      - batch_id
+      - tenant_state_id
+      - operator_id
+      - record_count
+      - gross_kobo
+      - legs
+      - created_at
+      title: SettlementBatch
+    SettlementLeg:
+      properties:
+        beneficiary:
+          type: string
+          title: Beneficiary
+        tigerbeetle_account_code:
+          type: integer
+          title: Tigerbeetle Account Code
+        amount_kobo:
+          type: integer
+          title: Amount Kobo
+        transfer_code:
+          type: integer
+          title: Transfer Code
+          default: 140
+      type: object
+      required:
+      - beneficiary
+      - tigerbeetle_account_code
+      - amount_kobo
+      title: SettlementLeg
+    TapRequest:
+      properties:
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        operator_id:
+          type: string
+          title: Operator Id
+        mode:
+          $ref: '#/components/schemas/Mode'
+        route:
+          type: string
+          title: Route
+        card_ref:
+          type: string
+          title: Card Ref
+      type: object
+      required:
+      - tenant_state_id
+      - operator_id
+      - mode
+      - route
+      - card_ref
+      title: TapRequest
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: mobility
+- name: transit
+- name: clearing

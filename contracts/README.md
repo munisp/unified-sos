@@ -4,8 +4,8 @@ Contracts-first development: every SOS microservice exposes documented, versione
 
 | Directory | Standard | Contents |
 |---|---|---|
-| [`openapi/`](openapi/) | OpenAPI 3.1 | REST contracts: revenue assessments, cadastre parcels, control-plane tenant provisioning |
-| [`asyncapi/`](asyncapi/) | AsyncAPI 2.x/3.x | Event contracts on `ng.sos.*` topics: mining consignments, tenant lifecycle, payment settlement |
+| [`openapi/`](openapi/) | OpenAPI 3.1 | REST contracts: revenue assessments, cadastre parcels, control-plane tenant provisioning, plus generated+curated contracts for every implemented module (mod-gis-luc, mod-mining, mod-forestry, mod-market, mod-agri-waybill, mod-transport-wim, mod-health, mod-education, mod-police-cad, mod-mobility-switch — regenerate with [`openapi/generate_from_apps.py`](openapi/generate_from_apps.py)) |
+| [`asyncapi/`](asyncapi/) | AsyncAPI 2.x/3.x | Event contracts on `ng.sos.*` topics: mining consignments, tenant lifecycle, payment settlement, forestry provenance & untagged-timber alerts |
 | [`policy-packs/`](policy-packs/) | JSON Schema 2020-12 | Dynamic State Policy Pack schemas (statutory revenue splits, fee schedules, OPA Rego hooks) |
 
 ## Rules

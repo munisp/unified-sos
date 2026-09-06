@@ -1,0 +1,673 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-forestry/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS Timber Provenance & Deforestation Alerts API (mod-forestry)
+  version: 0.1.0
+  description: 'WP-07 / EPIC-08 · Lot 5 · RT-03. UHF RFID nail-tag log provenance, ranger GPS scanners, timber transit permits,
+    and Sentinel-2 NDVI canopy change detection for illegal logging enforcement. Deploys: Taraba, Ogun, Osun, Benue.'
+paths:
+  /tags:
+    post:
+      summary: Register Tag
+      operationId: register_tag_tags_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimberTag'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimberTag'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - forestry
+      security:
+      - bearerAuth: []
+    get:
+      summary: List Tags
+      operationId: list_tags_tags_get
+      parameters:
+      - name: state_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TimberTag'
+                title: Response List Tags Tags Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - forestry
+      security:
+      - bearerAuth: []
+  /tags/{tag_id}:
+    get:
+      summary: Get Tag
+      operationId: get_tag_tags__tag_id__get
+      parameters:
+      - name: tag_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Tag Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimberTag'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - forestry
+      security:
+      - bearerAuth: []
+  /tags/{tag_id}/provenance:
+    get:
+      summary: Provenance
+      operationId: provenance_tags__tag_id__provenance_get
+      parameters:
+      - name: tag_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Tag Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProvenanceEvent'
+                title: Response Provenance Tags  Tag Id  Provenance Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - forestry
+      security:
+      - bearerAuth: []
+  /provenance:
+    post:
+      summary: Record Provenance
+      operationId: record_provenance_provenance_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProvenanceEvent'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProvenanceEvent'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - forestry
+      security:
+      - bearerAuth: []
+  /tags/{tag_id}/stumpage:
+    post:
+      summary: Bill Stumpage
+      operationId: bill_stumpage_tags__tag_id__stumpage_post
+      parameters:
+      - name: tag_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Tag Id
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StumpageInvoice'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - forestry
+      security:
+      - bearerAuth: []
+  /invoices:
+    get:
+      summary: Invoices
+      operationId: invoices_invoices_get
+      parameters:
+      - name: tag_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Tag Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StumpageInvoice'
+                title: Response Invoices Invoices Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - forestry
+      security:
+      - bearerAuth: []
+  /alerts/deforestation:
+    post:
+      summary: Ingest Deforestation Alert
+      operationId: ingest_deforestation_alert_alerts_deforestation_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeforestationAlert-Input'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeforestationAlert-Output'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - forestry
+      security:
+      - bearerAuth: []
+    get:
+      summary: List Alerts
+      operationId: list_alerts_alerts_deforestation_get
+      parameters:
+      - name: state_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: State Id
+      - name: actionable_only
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Actionable Only
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeforestationAlert-Output'
+                title: Response List Alerts Alerts Deforestation Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - forestry
+      security:
+      - bearerAuth: []
+  /alerts/untagged-haulage:
+    post:
+      summary: Untagged Haulage
+      operationId: untagged_haulage_alerts_untagged_haulage_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UntaggedHaulageReport'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UntaggedTimberAlert'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - forestry
+      security:
+      - bearerAuth: []
+  /health:
+    get:
+      summary: Health
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+      tags:
+      - forestry
+components:
+  schemas:
+    DeforestationAlert-Input:
+      properties:
+        alert_id:
+          type: string
+          title: Alert Id
+        state_id:
+          type: string
+          title: State Id
+        coupe_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Coupe Id
+        disturbed_area_ha:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Disturbed Area Ha
+        ndvi_drop:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Ndvi Drop
+          description: NDVI delta magnitude
+        gps_lat:
+          type: number
+          title: Gps Lat
+        gps_lon:
+          type: number
+          title: Gps Lon
+        detected_at:
+          type: string
+          format: date-time
+          title: Detected At
+        ingested_at:
+          type: string
+          format: date-time
+          title: Ingested At
+      type: object
+      required:
+      - alert_id
+      - state_id
+      - disturbed_area_ha
+      - ndvi_drop
+      - gps_lat
+      - gps_lon
+      - detected_at
+      title: DeforestationAlert
+      description: 'Ingested from the Sedona NDVI change-detection job
+
+        (geospatial/sedona/ndvi_change_detection.py).
+
+
+        Acceptance: canopy disturbance > 0.5 ha flagged within 72 h of ingest.'
+    DeforestationAlert-Output:
+      properties:
+        alert_id:
+          type: string
+          title: Alert Id
+        state_id:
+          type: string
+          title: State Id
+        coupe_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Coupe Id
+        disturbed_area_ha:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Disturbed Area Ha
+        ndvi_drop:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Ndvi Drop
+          description: NDVI delta magnitude
+        gps_lat:
+          type: number
+          title: Gps Lat
+        gps_lon:
+          type: number
+          title: Gps Lon
+        detected_at:
+          type: string
+          format: date-time
+          title: Detected At
+        ingested_at:
+          type: string
+          format: date-time
+          title: Ingested At
+        severity:
+          type: string
+          title: Severity
+          readOnly: true
+      type: object
+      required:
+      - alert_id
+      - state_id
+      - disturbed_area_ha
+      - ndvi_drop
+      - gps_lat
+      - gps_lon
+      - detected_at
+      - severity
+      title: DeforestationAlert
+      description: 'Ingested from the Sedona NDVI change-detection job
+
+        (geospatial/sedona/ndvi_change_detection.py).
+
+
+        Acceptance: canopy disturbance > 0.5 ha flagged within 72 h of ingest.'
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    ProvenanceEvent:
+      properties:
+        event_id:
+          type: string
+          title: Event Id
+        tag_id:
+          type: string
+          title: Tag Id
+        stage:
+          $ref: '#/components/schemas/TagStatus'
+        actor_id:
+          type: string
+          title: Actor Id
+          description: ranger / hauler / mill operator ID
+        location:
+          type: string
+          title: Location
+        gps_lat:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Gps Lat
+        gps_lon:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Gps Lon
+        transit_permit_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Transit Permit Id
+        recorded_at:
+          type: string
+          format: date-time
+          title: Recorded At
+      type: object
+      required:
+      - event_id
+      - tag_id
+      - stage
+      - actor_id
+      - location
+      title: ProvenanceEvent
+      description: 'One hop in the log''s chain of custody: harvest -> transit -> mill.'
+    StumpageInvoice:
+      properties:
+        invoice_id:
+          type: string
+          title: Invoice Id
+        tag_id:
+          type: string
+          title: Tag Id
+        state_id:
+          type: string
+          title: State Id
+        species:
+          $ref: '#/components/schemas/TimberSpecies'
+        volume_m3:
+          type: number
+          minimum: 0.0
+          title: Volume M3
+        rate_kobo_per_m3:
+          type: integer
+          minimum: 0.0
+          title: Rate Kobo Per M3
+        amount_kobo:
+          type: integer
+          minimum: 0.0
+          title: Amount Kobo
+        transfer_code:
+          type: integer
+          title: Transfer Code
+          default: 110
+        billed_at:
+          type: string
+          format: date-time
+          title: Billed At
+      type: object
+      required:
+      - invoice_id
+      - tag_id
+      - state_id
+      - species
+      - volume_m3
+      - rate_kobo_per_m3
+      - amount_kobo
+      title: StumpageInvoice
+      description: Levy/stumpage billing hook output for a harvest event.
+    TagStatus:
+      type: string
+      enum:
+      - ISSUED
+      - HARVESTED
+      - IN_TRANSIT
+      - MILLED
+      - SEIZED
+      title: TagStatus
+    TimberSpecies:
+      type: string
+      enum:
+      - ROSEWOOD
+      - IROKO
+      - MAHOGANY
+      - OBECHI
+      - TEAK
+      - AFARA
+      title: TimberSpecies
+    TimberTag:
+      properties:
+        tag_id:
+          type: string
+          title: Tag Id
+          description: UHF RFID EPC, e.g. RFID-TAR-000123
+        state_id:
+          type: string
+          title: State Id
+        species:
+          $ref: '#/components/schemas/TimberSpecies'
+        coupe_id:
+          type: string
+          title: Coupe Id
+          description: licensed harvest compartment
+        licensee_id:
+          type: string
+          title: Licensee Id
+        volume_m3:
+          anyOf:
+          - type: number
+            minimum: 0.0
+          - type: 'null'
+          title: Volume M3
+        status:
+          $ref: '#/components/schemas/TagStatus'
+          default: ISSUED
+        issued_at:
+          type: string
+          format: date-time
+          title: Issued At
+      type: object
+      required:
+      - tag_id
+      - state_id
+      - species
+      - coupe_id
+      - licensee_id
+      title: TimberTag
+      description: UHF RFID nail-tag bound to a single log.
+    UntaggedHaulageReport:
+      properties:
+        state_id:
+          type: string
+          title: State Id
+        checkpoint_id:
+          type: string
+          title: Checkpoint Id
+        vehicle_plate:
+          type: string
+          title: Vehicle Plate
+        gps:
+          additionalProperties: true
+          type: object
+          title: Gps
+      type: object
+      required:
+      - state_id
+      - checkpoint_id
+      - vehicle_plate
+      - gps
+      title: UntaggedHaulageReport
+    UntaggedTimberAlert:
+      properties:
+        state_id:
+          type: string
+          title: State Id
+        checkpoint_id:
+          type: string
+          title: Checkpoint Id
+        vehicle_plate:
+          type: string
+          title: Vehicle Plate
+        gps:
+          additionalProperties: true
+          type: object
+          title: Gps
+        timestamp:
+          type: string
+          format: date-time
+          title: Timestamp
+      type: object
+      required:
+      - state_id
+      - checkpoint_id
+      - vehicle_plate
+      - gps
+      title: UntaggedTimberAlert
+      description: Payload for ``ng.sos.forestry.untagged_timber_alert`` (AsyncAPI).
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: forestry
+- name: provenance
+- name: permits

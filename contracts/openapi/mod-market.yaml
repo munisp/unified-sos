@@ -1,0 +1,698 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-market/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS Commercial Markets & Digital Stall Titling API (mod-market)
+  version: 0.1.0
+  description: 'WP-12 / EPIC-14 · Lot 7 · RT-04. Digital market stall cadastre, concession leases, automated micro-tenancy
+    billing, trader daily stallage micro-collection via USSD/POS with TigerBeetle escrow. Target: >95% collection rate. Deploys:
+    all 6 states.'
+paths:
+  /markets:
+    post:
+      summary: Register Market
+      operationId: register_market_markets_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Market'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Market'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - markets
+      security:
+      - bearerAuth: []
+  /stalls:
+    post:
+      summary: Register Stall
+      operationId: register_stall_stalls_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Stall'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stall'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - markets
+      security:
+      - bearerAuth: []
+  /traders:
+    post:
+      summary: Enumerate Trader
+      operationId: enumerate_trader_traders_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Trader'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trader'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - markets
+      security:
+      - bearerAuth: []
+    get:
+      summary: List Traders
+      operationId: list_traders_traders_get
+      parameters:
+      - name: market_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Market Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Trader'
+                title: Response List Traders Traders Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - markets
+      security:
+      - bearerAuth: []
+  /tickets:
+    post:
+      summary: Issue Ticket
+      operationId: issue_ticket_tickets_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueTicketRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StallageTicket'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - markets
+      security:
+      - bearerAuth: []
+  /tickets/{ticket_id}:
+    get:
+      summary: Get Ticket
+      operationId: get_ticket_tickets__ticket_id__get
+      parameters:
+      - name: ticket_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Ticket Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StallageTicket'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - markets
+      security:
+      - bearerAuth: []
+  /tickets/ingest-edge-batch:
+    post:
+      summary: Ingest Edge Batch
+      description: Ingest signed offline stallage tickets from an edge-daemon batch.
+      operationId: ingest_edge_batch_tickets_ingest_edge_batch_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EdgeSyncBatch'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/IngestedAck'
+                type: array
+                title: Response Ingest Edge Batch Tickets Ingest Edge Batch Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - markets
+      security:
+      - bearerAuth: []
+  /disputes/events:
+    post:
+      summary: Record Dispute Event
+      operationId: record_dispute_event_disputes_events_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisputeEvent'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisputeEvent'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - markets
+      security:
+      - bearerAuth: []
+  /disputes/{ticket_id}/trail:
+    get:
+      summary: Dispute Trail
+      operationId: dispute_trail_disputes__ticket_id__trail_get
+      parameters:
+      - name: ticket_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Ticket Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DisputeEvent'
+                title: Response Dispute Trail Disputes  Ticket Id  Trail Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - markets
+      security:
+      - bearerAuth: []
+  /health:
+    get:
+      summary: Health
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+      tags:
+      - markets
+components:
+  schemas:
+    DisputeAction:
+      type: string
+      enum:
+      - OPENED
+      - EVIDENCE_ATTACHED
+      - ESCALATED_TO_ARBITRATION
+      - RESOLVED_UPHELD
+      - RESOLVED_REFUNDED
+      title: DisputeAction
+    DisputeEvent:
+      properties:
+        event_id:
+          type: string
+          title: Event Id
+        ticket_id:
+          type: string
+          title: Ticket Id
+        action:
+          $ref: '#/components/schemas/DisputeAction'
+        actor_id:
+          type: string
+          title: Actor Id
+          description: trader / market master / arbitrator ID
+        note:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Note
+        evidence_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Evidence Ref
+        recorded_at:
+          type: string
+          format: date-time
+          title: Recorded At
+      type: object
+      required:
+      - event_id
+      - ticket_id
+      - action
+      - actor_id
+      title: DisputeEvent
+      description: One entry in a ticket's append-only arbitration-grade audit trail.
+    EdgeSignedRecord:
+      properties:
+        device_id:
+          type: string
+          title: Device Id
+        sequence:
+          type: integer
+          minimum: 1.0
+          title: Sequence
+        payload:
+          $ref: '#/components/schemas/EdgeTicketPayload'
+        signature:
+          type: string
+          title: Signature
+        signer_public_key:
+          type: string
+          title: Signer Public Key
+      type: object
+      required:
+      - device_id
+      - sequence
+      - payload
+      - signature
+      - signer_public_key
+      title: EdgeSignedRecord
+    EdgeSyncBatch:
+      properties:
+        device_id:
+          type: string
+          title: Device Id
+        records:
+          items:
+            $ref: '#/components/schemas/EdgeSignedRecord'
+          type: array
+          title: Records
+      type: object
+      required:
+      - device_id
+      - records
+      title: EdgeSyncBatch
+    EdgeTicketPayload:
+      properties:
+        kind:
+          type: string
+          const: revenue_ticket
+          title: Kind
+          default: revenue_ticket
+        state_id:
+          type: string
+          title: State Id
+        bill_reference:
+          type: string
+          title: Bill Reference
+        payer_id:
+          type: string
+          title: Payer Id
+        levy_code:
+          type: string
+          title: Levy Code
+        amount_kobo:
+          type: integer
+          minimum: 0.0
+          title: Amount Kobo
+        collector_id:
+          type: string
+          title: Collector Id
+        location:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Location
+        issued_at:
+          type: string
+          format: date-time
+          title: Issued At
+      type: object
+      required:
+      - state_id
+      - bill_reference
+      - payer_id
+      - levy_code
+      - amount_kobo
+      - collector_id
+      - issued_at
+      title: EdgeTicketPayload
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    IngestedAck:
+      properties:
+        device_id:
+          type: string
+          title: Device Id
+        sequence:
+          type: integer
+          title: Sequence
+        status:
+          type: string
+          enum:
+          - accepted
+          - duplicate
+          - rejected
+          title: Status
+        ticket_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ticket Id
+        detail:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Detail
+      type: object
+      required:
+      - device_id
+      - sequence
+      - status
+      title: IngestedAck
+    IssueTicketRequest:
+      properties:
+        stall_id:
+          type: string
+          title: Stall Id
+        service_date:
+          type: string
+          format: date
+          title: Service Date
+        trader_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Trader Id
+      type: object
+      required:
+      - stall_id
+      - service_date
+      title: IssueTicketRequest
+    Market:
+      properties:
+        market_id:
+          type: string
+          title: Market Id
+        state_id:
+          type: string
+          title: State Id
+        name:
+          type: string
+          title: Name
+        market_type:
+          $ref: '#/components/schemas/MarketType'
+        lga:
+          type: string
+          title: Lga
+        stall_capacity:
+          type: integer
+          minimum: 1.0
+          title: Stall Capacity
+        active:
+          type: boolean
+          title: Active
+          default: true
+        registered_at:
+          type: string
+          format: date-time
+          title: Registered At
+      type: object
+      required:
+      - market_id
+      - state_id
+      - name
+      - market_type
+      - lga
+      - stall_capacity
+      title: Market
+    MarketType:
+      type: string
+      enum:
+      - DAILY_MARKET
+      - WEEKLY_MARKET
+      - MOTOR_PARK
+      - NIGHT_MARKET
+      title: MarketType
+    Stall:
+      properties:
+        stall_id:
+          type: string
+          title: Stall Id
+        market_id:
+          type: string
+          title: Market Id
+        block:
+          type: string
+          title: Block
+        number:
+          type: string
+          title: Number
+        daily_fee_kobo:
+          type: integer
+          minimum: 0.0
+          title: Daily Fee Kobo
+          description: Policy-pack configured stallage rate
+        active:
+          type: boolean
+          title: Active
+          default: true
+      type: object
+      required:
+      - stall_id
+      - market_id
+      - block
+      - number
+      - daily_fee_kobo
+      title: Stall
+    StallageTicket:
+      properties:
+        ticket_id:
+          type: string
+          title: Ticket Id
+        state_id:
+          type: string
+          title: State Id
+        market_id:
+          type: string
+          title: Market Id
+        stall_id:
+          type: string
+          title: Stall Id
+        trader_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Trader Id
+        service_date:
+          type: string
+          format: date
+          title: Service Date
+        amount_kobo:
+          type: integer
+          minimum: 0.0
+          title: Amount Kobo
+        transfer_code:
+          type: integer
+          title: Transfer Code
+          default: 130
+        status:
+          $ref: '#/components/schemas/TicketStatus'
+          default: PAID
+        origin:
+          type: string
+          enum:
+          - ONLINE
+          - OFFLINE_EDGE
+          title: Origin
+          default: ONLINE
+        edge_device_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Edge Device Id
+        edge_sequence:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Edge Sequence
+        edge_signature:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Edge Signature
+        issued_at:
+          type: string
+          format: date-time
+          title: Issued At
+      type: object
+      required:
+      - ticket_id
+      - state_id
+      - market_id
+      - stall_id
+      - service_date
+      - amount_kobo
+      title: StallageTicket
+      description: Daily stallage e-ticket. ``(stall_id, service_date)`` is unique.
+    TicketStatus:
+      type: string
+      enum:
+      - PAID
+      - UNDER_DISPUTE
+      - RESOLVED_UPHELD
+      - RESOLVED_REFUNDED
+      title: TicketStatus
+    Trader:
+      properties:
+        trader_id:
+          type: string
+          title: Trader Id
+        state_id:
+          type: string
+          title: State Id
+        full_name:
+          type: string
+          title: Full Name
+        phone:
+          type: string
+          title: Phone
+        market_id:
+          type: string
+          title: Market Id
+        stall_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Stall Id
+        stin:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Stin
+          description: State TIN if issued
+        enumerated_at:
+          type: string
+          format: date-time
+          title: Enumerated At
+      type: object
+      required:
+      - trader_id
+      - state_id
+      - full_name
+      - phone
+      - market_id
+      title: Trader
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: markets
+- name: stalls
+- name: stallage

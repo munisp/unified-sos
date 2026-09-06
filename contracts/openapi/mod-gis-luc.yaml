@@ -1,0 +1,420 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-gis-luc/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS Land Use Charge Valuation API (mod-gis-luc)
+  version: 1.0.0
+  description: 'WP-06 / EPIC-06 · Lot 4 · RT-03. Automated Land Use Charge calculation: Sedona satellite building footprints
+    matched to cadastral parcels, AI property valuation (Ray AVM, >92% R² vs certified surveyor valuations), automated LUC
+    bill issuance. Deploys: Ogun, Benue, Lagos, Nasarawa.'
+paths:
+  /api/v1/states/{state_id}/luc/valuation-runs:
+    post:
+      summary: Trigger Valuation Run
+      operationId: trigger_valuation_run_api_v1_states__state_id__luc_valuation_runs_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValuationRunRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValuationRunSummary'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - luc
+      security:
+      - bearerAuth: []
+    get:
+      summary: List Valuation Runs
+      operationId: list_valuation_runs_api_v1_states__state_id__luc_valuation_runs_get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ValuationRunSummary'
+                title: Response List Valuation Runs Api V1 States  State Id  Luc Valuation Runs Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - luc
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/luc/bills:
+    get:
+      summary: List Bills
+      operationId: list_bills_api_v1_states__state_id__luc_bills_get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      - name: parcel_uin
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parcel Uin
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LUCBill'
+                title: Response List Bills Api V1 States  State Id  Luc Bills Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - luc
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/luc/bills/{bill_id}:
+    get:
+      summary: Get Bill
+      operationId: get_bill_api_v1_states__state_id__luc_bills__bill_id__get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      - name: bill_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Bill Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LUCBill'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - luc
+      security:
+      - bearerAuth: []
+components:
+  schemas:
+    AuditStatus:
+      type: string
+      enum:
+      - UNREGISTERED_ENCROACHMENT
+      - UNASSESSED_IMPROVEMENT
+      - COMPLIANT
+      title: AuditStatus
+      description: 'Classification produced by the unassessed-property spatial join
+
+        (geospatial/sedona/unassessed_property_join.sql — the CASE expression).'
+    BillStatus:
+      type: string
+      enum:
+      - ISSUED
+      - PROVISIONAL
+      - VOID
+      title: BillStatus
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    JoinFinding:
+      properties:
+        building_footprint_id:
+          type: string
+          title: Building Footprint Id
+        estimated_area_sqm:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Estimated Area Sqm
+        parcel_uin:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parcel Uin
+        owner_stin:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner Stin
+        assessed_annual_luc_kobo:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Assessed Annual Luc Kobo
+        audit_status:
+          $ref: '#/components/schemas/AuditStatus'
+      type: object
+      required:
+      - building_footprint_id
+      - estimated_area_sqm
+      - audit_status
+      title: JoinFinding
+      description: One row of the Sedona building-footprint ↔ cadastral-parcel join output.
+    LUCBill:
+      properties:
+        bill_id:
+          type: string
+          format: uuid
+          title: Bill Id
+        valuation_run_id:
+          type: string
+          format: uuid
+          title: Valuation Run Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        parcel_uin:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parcel Uin
+        building_footprint_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Building Footprint Id
+        owner_stin:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner Stin
+        land_use_type:
+          type: string
+          title: Land Use Type
+        charge_area_sqm:
+          type: number
+          title: Charge Area Sqm
+        rate_kobo_per_sqm:
+          type: integer
+          title: Rate Kobo Per Sqm
+        gross_amount_kobo:
+          type: integer
+          title: Gross Amount Kobo
+        relief_fraction:
+          type: number
+          title: Relief Fraction
+        net_amount_kobo:
+          type: integer
+          title: Net Amount Kobo
+        audit_status:
+          $ref: '#/components/schemas/AuditStatus'
+        status:
+          $ref: '#/components/schemas/BillStatus'
+        assessment_year:
+          type: integer
+          title: Assessment Year
+        issued_at:
+          type: string
+          format: date-time
+          title: Issued At
+      type: object
+      required:
+      - bill_id
+      - valuation_run_id
+      - tenant_state_id
+      - parcel_uin
+      - owner_stin
+      - land_use_type
+      - charge_area_sqm
+      - rate_kobo_per_sqm
+      - gross_amount_kobo
+      - relief_fraction
+      - net_amount_kobo
+      - audit_status
+      - status
+      - assessment_year
+      - issued_at
+      title: LUCBill
+      description: A generated Land Use Charge bill tied to a parcel (or footprint).
+    ParcelSnapshot:
+      properties:
+        parcel_uin:
+          type: string
+          title: Parcel Uin
+        owner_stin:
+          type: string
+          title: Owner Stin
+        land_use_type:
+          type: string
+          title: Land Use Type
+        area_sqm:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Area Sqm
+        lga_id:
+          type: string
+          title: Lga Id
+          default: ''
+        relief_codes:
+          items:
+            type: string
+          type: array
+          title: Relief Codes
+      type: object
+      required:
+      - parcel_uin
+      - owner_stin
+      - land_use_type
+      - area_sqm
+      title: ParcelSnapshot
+      description: Cadastral registry row snapshot supplied with a valuation run.
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    ValuationRunRequest:
+      properties:
+        assessment_year:
+          type: integer
+          maximum: 2100.0
+          minimum: 2020.0
+          title: Assessment Year
+        parcels:
+          items:
+            $ref: '#/components/schemas/ParcelSnapshot'
+          type: array
+          title: Parcels
+        findings:
+          items:
+            $ref: '#/components/schemas/JoinFinding'
+          type: array
+          title: Findings
+      type: object
+      required:
+      - assessment_year
+      title: ValuationRunRequest
+      description: 'Trigger body: registry snapshot + classified join findings.'
+    ValuationRunSummary:
+      properties:
+        valuation_run_id:
+          type: string
+          format: uuid
+          title: Valuation Run Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        assessment_year:
+          type: integer
+          title: Assessment Year
+        parcels_assessed:
+          type: integer
+          title: Parcels Assessed
+        bills_generated:
+          type: integer
+          title: Bills Generated
+        findings_ingested:
+          type: integer
+          title: Findings Ingested
+        compliant_findings:
+          type: integer
+          title: Compliant Findings
+        unassessed_improvement_bills:
+          type: integer
+          title: Unassessed Improvement Bills
+        encroachment_provisional_bills:
+          type: integer
+          title: Encroachment Provisional Bills
+        total_billed_kobo:
+          type: integer
+          title: Total Billed Kobo
+      type: object
+      required:
+      - valuation_run_id
+      - tenant_state_id
+      - assessment_year
+      - parcels_assessed
+      - bills_generated
+      - findings_ingested
+      - compliant_findings
+      - unassessed_improvement_bills
+      - encroachment_provisional_bills
+      - total_billed_kobo
+      title: ValuationRunSummary
+      description: Result of one valuation run (triggered via API or the event consumer).
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: luc
+- name: gis
+- name: valuation

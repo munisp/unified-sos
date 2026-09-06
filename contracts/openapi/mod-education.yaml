@@ -1,0 +1,432 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-education/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS Tertiary Consolidated Billing & Bursary API (mod-education)
+  version: 0.1.0
+  description: 'WP-11 / EPIC-13 · Lot 7 · RT-04. Unifies tuition, departmental levies, and accommodation fees across state
+    universities and polytechnics with automated disbursement, course-registration payment lock, and treasury↔CRF reconciliation.
+    Deploys: Osun (lead), all 6.'
+paths:
+  /education/v1/students:
+    post:
+      summary: Enroll
+      operationId: enroll_education_v1_students_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrollRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Student'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - education
+      security:
+      - bearerAuth: []
+  /education/v1/invoices:
+    post:
+      summary: Issue Invoice
+      operationId: issue_invoice_education_v1_invoices_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueInvoiceRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentInvoice'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - education
+      security:
+      - bearerAuth: []
+  /education/v1/students/{student_id}/billing:
+    get:
+      summary: Billing Portal
+      description: 'Student billing portal view: invoices + outstanding + lock status.'
+      operationId: billing_portal_education_v1_students__student_id__billing_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - education
+      security:
+      - bearerAuth: []
+  /education/v1/invoices/{invoice_id}/pay:
+    post:
+      summary: Pay Invoice
+      operationId: pay_invoice_education_v1_invoices__invoice_id__pay_post
+      parameters:
+      - name: invoice_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Invoice Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentInvoice'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - education
+      security:
+      - bearerAuth: []
+  /education/v1/registrations:
+    post:
+      summary: Register
+      description: Course registration — locked (HTTP 423) while fees are outstanding.
+      operationId: register_education_v1_registrations_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Registration'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - education
+      security:
+      - bearerAuth: []
+  /education/v1/webhooks/mojaloop:
+    post:
+      summary: Mojaloop Webhook
+      description: 'Mojaloop-clearing webhook stub: completed transfer credits an invoice.'
+      operationId: mojaloop_webhook_education_v1_webhooks_mojaloop_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MojaloopWebhook'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentInvoice'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - education
+      security:
+      - bearerAuth: []
+  /healthz:
+    get:
+      summary: Healthz
+      operationId: healthz_healthz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Healthz Healthz Get
+      tags:
+      - education
+components:
+  schemas:
+    EnrollRequest:
+      properties:
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        institution_id:
+          type: string
+          title: Institution Id
+        matric_no:
+          type: string
+          title: Matric No
+      type: object
+      required:
+      - tenant_state_id
+      - institution_id
+      - matric_no
+      title: EnrollRequest
+    FeeLine:
+      properties:
+        fee_type:
+          type: string
+          title: Fee Type
+        amount_kobo:
+          type: integer
+          minimum: 0.0
+          title: Amount Kobo
+      type: object
+      required:
+      - fee_type
+      - amount_kobo
+      title: FeeLine
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    InvoiceStatus:
+      type: string
+      enum:
+      - issued
+      - paid
+      - void
+      title: InvoiceStatus
+    IssueInvoiceRequest:
+      properties:
+        student_id:
+          type: string
+          title: Student Id
+        session:
+          type: string
+          title: Session
+          examples:
+          - 2026/2027
+        lines:
+          items:
+            $ref: '#/components/schemas/FeeLine'
+          type: array
+          minItems: 1
+          title: Lines
+      type: object
+      required:
+      - student_id
+      - session
+      - lines
+      title: IssueInvoiceRequest
+    MojaloopWebhook:
+      properties:
+        transfer_id:
+          type: string
+          title: Transfer Id
+        invoice_id:
+          type: string
+          title: Invoice Id
+        amount_kobo:
+          type: integer
+          minimum: 0.0
+          title: Amount Kobo
+        payer_msisdn_alias:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Payer Msisdn Alias
+      type: object
+      required:
+      - transfer_id
+      - invoice_id
+      - amount_kobo
+      title: MojaloopWebhook
+      description: Stub of a Mojaloop clearing transfer notification (FSPIOP-style).
+    RegisterRequest:
+      properties:
+        student_id:
+          type: string
+          title: Student Id
+        session:
+          type: string
+          title: Session
+        courses:
+          items:
+            type: string
+          type: array
+          minItems: 1
+          title: Courses
+      type: object
+      required:
+      - student_id
+      - session
+      - courses
+      title: RegisterRequest
+    Registration:
+      properties:
+        registration_id:
+          type: string
+          title: Registration Id
+        student_id:
+          type: string
+          title: Student Id
+        session:
+          type: string
+          title: Session
+        courses:
+          items:
+            type: string
+          type: array
+          title: Courses
+        registered_at:
+          type: string
+          title: Registered At
+      type: object
+      required:
+      - registration_id
+      - student_id
+      - session
+      - courses
+      - registered_at
+      title: Registration
+    Student:
+      properties:
+        student_id:
+          type: string
+          title: Student Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        institution_id:
+          type: string
+          title: Institution Id
+        matric_no:
+          type: string
+          title: Matric No
+        enrolled_at:
+          type: string
+          title: Enrolled At
+      type: object
+      required:
+      - student_id
+      - tenant_state_id
+      - institution_id
+      - matric_no
+      - enrolled_at
+      title: Student
+    StudentInvoice:
+      properties:
+        invoice_id:
+          type: string
+          title: Invoice Id
+        student_id:
+          type: string
+          title: Student Id
+        session:
+          type: string
+          title: Session
+        lines:
+          items:
+            $ref: '#/components/schemas/FeeLine'
+          type: array
+          title: Lines
+        status:
+          $ref: '#/components/schemas/InvoiceStatus'
+        issued_at:
+          type: string
+          title: Issued At
+        paid_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Paid At
+        ledger_transfer_code:
+          type: integer
+          title: Ledger Transfer Code
+          default: 150
+      type: object
+      required:
+      - invoice_id
+      - student_id
+      - session
+      - lines
+      - status
+      - issued_at
+      title: StudentInvoice
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: education
+- name: bursary
+- name: billing
