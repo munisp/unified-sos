@@ -6,9 +6,11 @@ Executable verification mapped to the procurement acceptance framework (`docs/pr
 |---|---|---|
 | [load/k6-ledger-split.js](load/k6-ledger-split.js) | Stage 2 (Performance/Stress) | 500,000 TPS TigerBeetle; 50,000 req/s APISIX; p99 < 50 ms split |
 | `load/` (planned) | Sedona stress | 10,000 concurrent spatial joins without error |
-| `contract/` (planned) | Stage 1 (FAT) | OpenAPI schema validation; Dapr bindings; > 85% coverage |
-| `security/` (planned) | Stage 3 (Pen-test) | OWASP Top 10 100% block; zero critical/high CVEs |
-| `sat/` (planned) | Stage 4 (SAT) | Hardware integration + live bank clearing settlement |
+| [contract/](contract/) — **delivered** | Stage 1 (FAT) | OpenAPI app↔contract drift gates (explicit expected-drift ledger, no silent skips); AsyncAPI envelope validation against in-memory event-bus payloads + generated registry schemas |
+| [security/](security/) — **delivered** | Stage 3 (Pen-test) | Blocking local gates: read-model PII egress scan (NIN/BVN/MSISDN), tenant-isolation negative tests (citizen-portal/ppp/police-cad), inline-secret scan of `deploy/**` + `infra/**`, USSD/IVR webhook auth (fail-closed) |
+| [sat/](sat/) — **delivered** | Stage 4 (SAT) | Scripted gates emitting per-gate JUnit XML: 10k-assessment zero-discrepancy reconciliation vs mod-rev-core in-memory ledger; offline-POS replay (edge-daemon outbox → mod-market sync). Explicit SKIP locally, fail-closed under `SAT_ENV=production` |
+
+Acceptance entrypoint: `make test-acceptance` (runs `tests/contract`, `tests/security`, `tests/sat`).
 
 ## Go-Live Gates (Stage 5)
 

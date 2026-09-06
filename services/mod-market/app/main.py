@@ -15,6 +15,7 @@ from .models import (
     Stall,
     StallageTicket,
     Trader,
+    TraderRead,
 )
 from .service import ConflictError, MarketService, NotFoundError
 
@@ -53,14 +54,14 @@ def create_app(service: Optional[MarketService] = None) -> FastAPI:
         except (ConflictError, NotFoundError) as exc:
             raise _map(exc)
 
-    @app.post("/traders", response_model=Trader, status_code=201)
+    @app.post("/traders", response_model=TraderRead, status_code=201)
     def enumerate_trader(trader: Trader, request: Request):
         try:
             return svc(request).enumerate_trader(trader)
         except NotFoundError as exc:
             raise _map(exc)
 
-    @app.get("/traders", response_model=List[Trader])
+    @app.get("/traders", response_model=List[TraderRead])
     def list_traders(request: Request, market_id: Optional[str] = None):
         return svc(request).list_traders(market_id)
 

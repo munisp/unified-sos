@@ -49,6 +49,29 @@ class Trader(BaseModel):
     stin: Optional[str] = Field(default=None, description="State TIN if issued")
     enumerated_at: datetime = Field(default_factory=utcnow)
 
+    @property
+    def masked_phone(self) -> str:
+        """Masked MSISDN — country prefix + last two digits only."""
+        tail = self.phone[-2:]
+        return f"{self.phone[:4]}****{tail}" if len(self.phone) > 6 else f"****{tail}"
+
+
+class TraderRead(BaseModel):
+    """Read model for trader records: masked phone only (NDPA gate).
+
+    Raw MSISDNs structurally cannot leave the API — every trader-serving
+    endpoint uses this response model.
+    """
+
+    trader_id: str
+    state_id: str
+    full_name: str
+    masked_phone: str
+    market_id: str
+    stall_id: Optional[str] = None
+    stin: Optional[str] = None
+    enumerated_at: datetime
+
 
 class TicketStatus(str, enum.Enum):
     PAID = "PAID"

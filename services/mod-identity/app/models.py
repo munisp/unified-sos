@@ -54,6 +54,27 @@ class Resident(BaseModel):
     registered_at: datetime = Field(default_factory=utcnow)
     active: bool = True
 
+    @property
+    def masked_nin(self) -> str:
+        """Masked NIN — last three characters only; raw NIN never serialized."""
+        return f"********{self.nin[-3:]}"
+
+
+class ResidentRead(BaseModel):
+    """Read model for resident records: masked NIN only.
+
+    NDPA gate (tests/security): raw NINs structurally cannot leave the
+    module — every resident-serving endpoint uses this response model.
+    """
+
+    resident_id: str
+    state_id: str
+    masked_nin: str
+    full_name: str
+    address: str
+    registered_at: datetime
+    active: bool = True
+
 
 class Credential(BaseModel):
     """A verifiable credential issued against a resident record."""

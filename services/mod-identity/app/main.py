@@ -18,6 +18,7 @@ from .models import (
     ConsentGrant,
     Credential,
     Resident,
+    ResidentRead,
     SettlementRecord,
     VerificationProduct,
     VerificationResult,
@@ -51,11 +52,11 @@ def create_app(repo: Optional[IdentityRepository] = None) -> FastAPI:
     def service(request: Request) -> IdentityService:
         return IdentityService(request.app.state.repo, request.app.state.federation_client)
 
-    @app.post("/residents", response_model=Resident, status_code=201)
+    @app.post("/residents", response_model=ResidentRead, status_code=201)
     def register_resident(resident: Resident, svc: IdentityService = Depends(service)):
         return svc.register_resident(resident)
 
-    @app.get("/residents/{resident_id}", response_model=Resident)
+    @app.get("/residents/{resident_id}", response_model=ResidentRead)
     def get_resident(resident_id: str, request: Request, state_id: str):
         """Registry-operator path only — API consumers NEVER receive records."""
         resident = request.app.state.repo.get_resident(resident_id)
