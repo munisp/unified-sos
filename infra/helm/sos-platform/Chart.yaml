@@ -2,10 +2,10 @@ apiVersion: v2
 name: sos-platform
 description: >-
   SOS umbrella chart — APISIX gateway, Keycloak per-state realm import,
-  mod-rev-core revenue engine, Kubecost metering and KEDA autoscaling.
+  SOS module services, Kubecost metering and KEDA autoscaling.
   Deployed once per state tenant via ArgoCD (see infra/gitops/).
 type: application
-version: 0.1.0
+version: 0.2.0
 appVersion: "2026.1"
 keywords:
   - sos

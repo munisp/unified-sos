@@ -60,11 +60,13 @@ def load_yaml_docs(path: Path) -> list[dict]:
     Returns [] for empty documents / files with only templating left over."""
     text = path.read_text()
     if "{{" in text:  # helm template — neutralize Go template syntax
+        # Strip {{/* ... */}} block comments (may span multiple lines).
+        text = re.sub(r"\{\{-?\s*/\*.*?\*/\s*-?\}\}", "", text, flags=re.DOTALL)
         # Drop lines consisting solely of a template expression
         # (control structures, `include ... | indent N` blocks, toYaml calls).
-        text = re.sub(r"^\s*\{\{-?[^}]*\}\}\s*$", "", text, flags=re.MULTILINE)
+        text = re.sub(r"^\s*\{\{-?.*?-?\}\}\s*$", "", text, flags=re.MULTILINE)
         # Inline expressions become an inert scalar token.
-        text = re.sub(r"\{\{-?[^}]*\}\}", "__tpl__", text)
+        text = re.sub(r"\{\{-?.*?-?\}\}", "__tpl__", text)
     docs = []
     for doc in yaml.safe_load_all(text):
         if doc is None:
@@ -193,9 +195,124 @@ def check_helm_chart() -> None:
         ok(f"helm template {tpl.name}: parses ({len(docs)} doc(s))")
     # scaffolding components required by the mission
     names = " ".join(t.name for t in templates)
-    for component in ("apisix", "keycloak", "mod-rev-core", "kubecost", "keda"):
+    for component in ("apisix", "keycloak", "modules", "kubecost", "keda"):
         if component not in names:
             fail(f"helm: no template covering {component}")
+
+
+def kebab_to_camel(name: str) -> str:
+    """mod-agri-waybill -> modAgriWaybill; control-plane -> controlPlane."""
+    parts = name.split("-")
+    return parts[0] + "".join(p.title() for p in parts[1:])
+
+
+def check_helm_modules_rendered() -> None:
+    print("== helm modules ==")
+    chart = INFRA / "helm" / "sos-platform"
+    values_file = chart / "values.yaml"
+    try:
+        values = load_yaml_docs(values_file)[0]
+    except (yaml.YAMLError, IndexError) as exc:
+        fail(f"helm modules: cannot read values.yaml: {exc}")
+        return
+    modules = values.get("modules")
+    if not isinstance(modules, dict):
+        fail("helm modules: values.yaml has no 'modules' map")
+        return
+
+    # Every module service under services/ must have a values entry.
+    services_dir = REPO_ROOT / "services"
+    service_dirs = sorted(
+        p.name for p in services_dir.iterdir()
+        if p.is_dir() and (p.name.startswith("mod-") or p.name in ("control-plane", "lakehouse"))
+    )
+    for svc in service_dirs:
+        key = kebab_to_camel(svc)
+        entry = modules.get(key)
+        if entry is None:
+            fail(f"helm modules: no values.modules.{key} for services/{svc}")
+            continue
+        for field in ("enabled", "replicaCount", "image", "service", "env", "resources"):
+            if field not in entry:
+                fail(f"helm modules: values.modules.{key} missing '{field}'")
+        if entry.get("image", {}).get("repository") != f"ghcr.io/munisp/{svc}":
+            fail(f"helm modules: values.modules.{key} image.repository != ghcr.io/munisp/{svc}")
+        port = entry.get("service", {}).get("port")
+        if not isinstance(port, int):
+            fail(f"helm modules: values.modules.{key} service.port missing/not int")
+    else:
+        ok(f"helm modules: all {len(service_dirs)} services have values.modules entries")
+
+    # Schema must lock the modules map down to the known service keys.
+    schema_file = chart / "values.schema.json"
+    if not schema_file.exists():
+        fail("helm modules: values.schema.json missing")
+    else:
+        try:
+            import json
+            schema = json.loads(schema_file.read_text())
+            mod_schema = schema.get("properties", {}).get("modules", {})
+            if mod_schema.get("additionalProperties") is not False:
+                fail("helm modules: values.schema.json modules.additionalProperties must be false")
+            declared = set(mod_schema.get("properties", {}))
+            expected = {kebab_to_camel(s) for s in service_dirs}
+            if declared != expected:
+                fail(f"helm modules: schema module keys {sorted(declared)} != services {sorted(expected)}")
+            else:
+                ok("helm modules: values.schema.json modules map is closed and complete")
+        except (ValueError, AttributeError) as exc:
+            fail(f"helm modules: values.schema.json invalid: {exc}")
+
+    # Named template + range template must exist.
+    tpl = chart / "templates" / "_module-deployment.tpl"
+    modules_tpl = chart / "templates" / "modules.yaml"
+    if not tpl.exists() or 'define "sos-platform.moduleDeployment"' not in tpl.read_text():
+        fail("helm modules: _module-deployment.tpl missing sos-platform.moduleDeployment")
+    elif not modules_tpl.exists():
+        fail("helm modules: templates/modules.yaml missing")
+    else:
+        # Parse both via the neutralization approach (also used when helm
+        # is unavailable) to prove they contain no stray YAML errors.
+        try:
+            load_yaml_docs(modules_tpl)
+            load_yaml_docs(tpl)
+            ok("helm modules: modules.yaml + _module-deployment.tpl parse after template substitution")
+        except yaml.YAMLError as exc:
+            fail(f"helm modules: module templates do not parse: {exc}")
+
+    # If helm is available, render for a couple of tenantStateId values and
+    # YAML-parse the output; otherwise note the skip.
+    import shutil
+    import subprocess
+    helm = shutil.which("helm")
+    if not helm:
+        print("  note: helm binary not on PATH — skipping helm template render check")
+        return
+    for state in ("osun", "lagos"):
+        proc = subprocess.run(
+            [helm, "template", f"sos-{state}", str(chart), "--set", f"global.tenantStateId={state}"],
+            capture_output=True, text=True,
+        )
+        if proc.returncode != 0:
+            fail(f"helm modules: helm template failed for tenantStateId={state}: {proc.stderr.strip()}")
+            continue
+        try:
+            docs = [d for d in yaml.safe_load_all(proc.stdout) if d]
+        except yaml.YAMLError as exc:
+            fail(f"helm modules: rendered output for {state} is not valid YAML: {exc}")
+            continue
+        kinds = [d.get("kind") for d in docs if isinstance(d, dict)]
+        enabled = [k for k, m in modules.items() if isinstance(m, dict) and m.get("enabled")]
+        deployments = [d for d in docs if isinstance(d, dict) and d.get("kind") == "Deployment"]
+        rendered_components = {
+            d.get("metadata", {}).get("labels", {}).get("app.kubernetes.io/component")
+            for d in deployments
+        }
+        for key in enabled:
+            kebab = re.sub(r"([a-z0-9])([A-Z])", r"\1-\2", key).lower()
+            if kebab not in rendered_components:
+                fail(f"helm modules: enabled module {key} not rendered for tenantStateId={state}")
+        ok(f"helm modules: helm template renders {len(docs)} docs for tenantStateId={state} ({sorted(set(map(str, kinds)))})")
 
 
 def check_gitops() -> None:
@@ -277,6 +394,7 @@ def check_terraform() -> None:
 def main() -> int:
     check_k8s_overlays()
     check_helm_chart()
+    check_helm_modules_rendered()
     check_terraform()
     check_gitops()
     check_dedicated_isolation()

@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "sos-platform values",
+  "type": "object",
+  "properties": {
+    "global": {
+      "type": "object",
+      "properties": {
+        "tenantStateId": {
+          "type": "string",
+          "enum": ["lagos", "ogun", "osun", "benue", "nasarawa", "taraba"]
+        },
+        "tenancyTier": {
+          "type": "string",
+          "enum": ["dedicated", "hybrid", "shared"]
+        },
+        "domain": { "type": "string" },
+        "keycloakRealm": { "type": "string" },
+        "postgresHost": { "type": "string" },
+        "policyPackPath": { "type": "string" }
+      },
+      "required": ["tenantStateId", "tenancyTier", "postgresHost", "policyPackPath"]
+    },
+    "modules": {
+      "type": "object",
+      "description": "One entry per SOS module service (services/mod-*, control-plane, lakehouse).",
+      "additionalProperties": false,
+      "properties": {
+        "controlPlane": { "$ref": "#/$defs/module" },
+        "lakehouse": { "$ref": "#/$defs/module" },
+        "modAgriWaybill": { "$ref": "#/$defs/module" },
+        "modCitizenPortal": { "$ref": "#/$defs/module" },
+        "modEducation": { "$ref": "#/$defs/module" },
+        "modEnvironment": { "$ref": "#/$defs/module" },
+        "modForestry": { "$ref": "#/$defs/module" },
+        "modGeospatial": { "$ref": "#/$defs/module" },
+        "modGeospatialGateway": { "$ref": "#/$defs/module" },
+        "modGisLands": { "$ref": "#/$defs/module" },
+        "modGisLuc": { "$ref": "#/$defs/module" },
+        "modHealth": { "$ref": "#/$defs/module" },
+        "modIdentity": { "$ref": "#/$defs/module" },
+        "modKycKyb": { "$ref": "#/$defs/module" },
+        "modMarket": { "$ref": "#/$defs/module" },
+        "modMining": { "$ref": "#/$defs/module" },
+        "modMobilitySwitch": { "$ref": "#/$defs/module" },
+        "modPoliceCad": { "$ref": "#/$defs/module" },
+        "modPppInvestment": { "$ref": "#/$defs/module" },
+        "modRevCore": { "$ref": "#/$defs/module" },
+        "modTransportWim": { "$ref": "#/$defs/module" }
+      }
+    },
+    "apisix": { "type": "object" },
+    "keycloak": { "type": "object" },
+    "kubecost": { "type": "object" },
+    "keda": { "type": "object" }
+  },
+  "$defs": {
+    "module": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "replicaCount": { "type": "integer", "minimum": 0 },
+        "image": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "repository": { "type": "string" },
+            "tag": { "type": "string" }
+          },
+          "required": ["repository", "tag"]
+        },
+        "service": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+          },
+          "required": ["port"]
+        },
+        "env": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "resources": { "type": "object" }
+      },
+      "required": ["enabled", "replicaCount", "image", "service"]
+    }
+  }
+}
