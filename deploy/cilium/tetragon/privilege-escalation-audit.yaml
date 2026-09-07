@@ -1,0 +1,77 @@
+# Tetragon: privilege-escalation audit + setuid/setgid watch.
+# SOS containers run as non-root with dropped caps; any uid transition,
+# capability gain or namespace escape attempt is captured to the audit
+# stream and (for setuid execs) killed.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: sos-privilege-escalation-audit
+spec:
+  tracepoints:
+    - subsystem: raw_syscalls
+      event: sys_enter
+      args:
+        - index: 4
+          type: uint64
+      selectors:
+        - matchArgs:
+            - index: 4
+              operator: Equal
+              values:
+                - "105"   # setuid
+                - "106"   # setgid
+                - "117"   # setresuid
+                - "119"   # setresgid
+          matchActions:
+            - action: Post
+    - subsystem: raw_syscalls
+      event: sys_enter
+      args:
+        - index: 4
+          type: uint64
+      selectors:
+        - matchArgs:
+            - index: 4
+              operator: Equal
+              values:
+                - "308"   # setns — namespace escape attempt
+                - "157"   # prctl (captured for cap-set inspection)
+          matchActions:
+            - action: Post
+  kprobes:
+    # setuid binary execution — SOS images ship no setuid binaries; kill
+    - call: security_bprm_check
+      syscall: false
+      return: false
+      args:
+        - index: 0
+          type: linux_binprm
+      selectors:
+        - matchBinaries:
+            - operator: In
+              values:
+                - /usr/bin/sudo
+                - /usr/bin/su
+                - /bin/su
+                - /usr/bin/newuidmap
+                - /usr/bin/newgidmap
+          matchActions:
+            - action: Sigkill
+    # capability changes on running processes
+    - call: commit_creds
+      syscall: false
+      return: false
+      args:
+        - index: 0
+          type: cred
+      selectors:
+        - matchCapabilities:
+            - type: Effective
+              operator: In
+              values:
+                - CAP_SYS_ADMIN
+                - CAP_SYS_MODULE
+                - CAP_SYS_PTRACE
+                - CAP_DAC_OVERRIDE
+          matchActions:
+            - action: Post

@@ -1,0 +1,114 @@
+{
+  "type": "FeatureCollection",
+  "name": "nasarawa-lga-projects-demo",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              7.125,
+              7.5425
+            ],
+            [
+              7.908333,
+              7.5425
+            ],
+            [
+              7.908333,
+              9.2075
+            ],
+            [
+              7.125,
+              9.2075
+            ],
+            [
+              7.125,
+              7.5425
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "lga_id": "NA-LGA-1",
+        "lga_name": "Nasarawa LGA 1",
+        "project_count": 5,
+        "total_value_kobo": 6250000000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              7.958333,
+              7.5425
+            ],
+            [
+              8.741667,
+              7.5425
+            ],
+            [
+              8.741667,
+              9.2075
+            ],
+            [
+              7.958333,
+              9.2075
+            ],
+            [
+              7.958333,
+              7.5425
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "lga_id": "NA-LGA-2",
+        "lga_name": "Nasarawa LGA 2",
+        "project_count": 9,
+        "total_value_kobo": 11250000000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              8.791667,
+              7.5425
+            ],
+            [
+              9.575,
+              7.5425
+            ],
+            [
+              9.575,
+              9.2075
+            ],
+            [
+              8.791667,
+              9.2075
+            ],
+            [
+              8.791667,
+              7.5425
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "lga_id": "NA-LGA-3",
+        "lga_name": "Nasarawa LGA 3",
+        "project_count": 10,
+        "total_value_kobo": 12500000000
+      }
+    }
+  ]
+}

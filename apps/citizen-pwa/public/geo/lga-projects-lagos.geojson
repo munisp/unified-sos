@@ -1,0 +1,114 @@
+{
+  "type": "FeatureCollection",
+  "name": "lagos-lga-projects-demo",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              2.667,
+              6.37
+            ],
+            [
+              3.199667,
+              6.37
+            ],
+            [
+              3.199667,
+              6.73
+            ],
+            [
+              2.667,
+              6.73
+            ],
+            [
+              2.667,
+              6.37
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "lga_id": "LA-LGA-1",
+        "lga_name": "Lagos LGA 1",
+        "project_count": 5,
+        "total_value_kobo": 6250000000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              3.233667,
+              6.37
+            ],
+            [
+              3.766333,
+              6.37
+            ],
+            [
+              3.766333,
+              6.73
+            ],
+            [
+              3.233667,
+              6.73
+            ],
+            [
+              3.233667,
+              6.37
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "lga_id": "LA-LGA-2",
+        "lga_name": "Lagos LGA 2",
+        "project_count": 7,
+        "total_value_kobo": 8750000000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              3.800333,
+              6.37
+            ],
+            [
+              4.333,
+              6.37
+            ],
+            [
+              4.333,
+              6.73
+            ],
+            [
+              3.800333,
+              6.73
+            ],
+            [
+              3.800333,
+              6.37
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "lga_id": "LA-LGA-3",
+        "lga_name": "Lagos LGA 3",
+        "project_count": 6,
+        "total_value_kobo": 7500000000
+      }
+    }
+  ]
+}

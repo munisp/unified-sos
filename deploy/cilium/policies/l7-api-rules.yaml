@@ -1,0 +1,140 @@
+# L7 HTTP API rules. These complement APISIX routing: even if a caller
+# bypasses the gateway inside the cluster, sensitive paths remain callable
+# only from the gateway identity (or explicitly labeled service accounts).
+---
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: sos-l7-sensitive-api-paths
+spec:
+  description: >-
+    Sensitive module endpoints accept HTTP only from the API gateway
+    (app.kubernetes.io/component: api-gateway, sos-gateway). Examples:
+      - POST /cad/v1/arms-register   (mod-police-cad: arms registry write)
+      - /ml/v1/*                     (mod-safecity-vision: CV inference, NDPA-sensitive)
+      - /rev/v1/assessments*         (mod-rev-core: revenue assessments)
+      - /payments/v1/*               (mod-mobility-switch: payment switching)
+  endpointSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - mod-police-cad
+          - mod-safecity-vision
+          - mod-rev-core
+          - mod-mobility-switch
+  namespaceSelector:
+    matchExpressions:
+      - key: sos.gov.ng/tenant-state
+        operator: Exists
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/component: api-gateway
+      fromNamespaces:
+        - matchLabels:
+            kubernetes.io/metadata.name: sos-gateway
+      toPorts:
+        - ports:
+            - port: "8000"
+              protocol: TCP
+            - port: "8080"
+              protocol: TCP
+          rules:
+            http:
+              # police CAD — arms register write path
+              - method: "POST"
+                path: "/cad/v1/arms-register"
+              - method: "GET"
+                path: "/cad/v1/.*"
+              # safecity CV inference — all NDPA-governed
+              - method: "POST"
+                path: "/ml/v1/.*"
+              # revenue assessments
+              - method: "POST"
+                path: "/rev/v1/assessments.*"
+              - method: "GET"
+                path: "/rev/v1/.*"
+              # payment switching
+              - method: "POST"
+                path: "/payments/v1/.*"
+    # Service-to-service calls that are explicitly permitted (e.g.
+    # control-plane orchestration) go on the plain HTTP port without the
+    # sensitive write paths:
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/component: control-plane
+      toPorts:
+        - ports:
+            - port: "8000"
+              protocol: TCP
+            - port: "8080"
+              protocol: TCP
+          rules:
+            http:
+              - method: "GET"
+                path: "/healthz"
+              - method: "GET"
+                path: "/rev/v1/.*"
+    # metrics scraping
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/component: prometheus
+      fromNamespaces:
+        - matchLabels:
+            kubernetes.io/metadata.name: sos-observability
+      toPorts:
+        - ports:
+            - port: "8000"
+              protocol: TCP
+            - port: "8080"
+              protocol: TCP
+          rules:
+            http:
+              - method: "GET"
+                path: "/metrics"
+              - method: "GET"
+                path: "/healthz"
+---
+# Keycloak: OIDC token/userinfo endpoints reachable from tenant modules and
+# the gateway only; admin console restricted to the gateway namespace.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: keycloak-l7-oidc
+  namespace: sos-gateway
+spec:
+  description: "Keycloak serves OIDC endpoints to gateway+tenants; /admin only via gateway subnet."
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/component: keycloak
+  ingress:
+    - fromEndpoints:
+        - matchLabels: {}
+      fromNamespaces:
+        - matchLabels:
+            kubernetes.io/metadata.name: sos-gateway
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels: {}
+      fromNamespaces:
+        - matchExpressions:
+            - key: sos.gov.ng/tenant-state
+              operator: Exists
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+          rules:
+            http:
+              - method: "GET"
+                path: "/realms/.*/\\.well-known/.*"
+              - method: "POST"
+                path: "/realms/.*/protocol/openid-connect/token"
+              - method: "GET"
+                path: "/realms/.*/protocol/openid-connect/userinfo"
+              - method: "GET"
+                path: "/health.*"

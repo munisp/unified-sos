@@ -1,0 +1,75 @@
+# Default-deny for every SOS namespace. Cilium's default isolation only
+# covers pods *selected by* a policy; these catch-all policies ensure every
+# SOS pod is selected and everything not explicitly allowed elsewhere is
+# denied — fail closed.
+# Namespaces:
+#   sos-gateway       — api-gateway (APISIX), keycloak
+#   sos-data          — postgres, tigerbeetle, redis, kafka
+#   sos-observability — prometheus, grafana, hubble-ui
+#   sos-tenant-*      — one per state tenant release (label
+#                       sos.gov.ng/tenant-state on the namespace)
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: sos-data
+spec:
+  description: "Deny all ingress into the shared data plane unless allowed."
+  endpointSelector: {}
+  ingress:
+    - {}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: default-deny-egress
+  namespace: sos-data
+spec:
+  description: "Deny all egress from the shared data plane unless allowed."
+  endpointSelector: {}
+  egress:
+    - {}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: sos-gateway
+spec:
+  description: "Deny all ingress into gateway/keycloak unless allowed."
+  endpointSelector: {}
+  ingress:
+    - {}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: default-deny-egress
+  namespace: sos-gateway
+spec:
+  description: "Deny all egress from gateway/keycloak unless allowed."
+  endpointSelector: {}
+  egress:
+    - {}
+---
+# Tenant namespaces: applied via a CiliumClusterwideNetworkPolicy so the
+# same default-deny covers all 37 state namespaces without 37 copies.
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: sos-default-deny-tenants
+spec:
+  description: >-
+    Default-deny ingress+egress for every SOS tenant namespace
+    (label sos.gov.ng/tenant-state exists on sos-tenant-<state>).
+  endpointSelector:
+    matchLabels: {}
+  namespaceSelector:
+    matchExpressions:
+      - key: sos.gov.ng/tenant-state
+        operator: Exists
+  ingress:
+    - {}
+  egress:
+    - {}

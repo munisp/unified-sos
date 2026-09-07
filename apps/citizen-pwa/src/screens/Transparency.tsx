@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
+import { isWebGLAvailable } from '../lib/mapcore';
 import {
   escrowStatements,
   procurementAudit,
@@ -25,7 +26,12 @@ export function HashPseudonym({ hash, label }: { hash: string | null | undefined
   );
 }
 
-type Tab = 'trust' | 'escrow' | 'audit';
+// Map chunk is code-split: maplibre-gl only loads when the Map tab opens.
+const ProjectsMap = lazy(() =>
+  import('../components/ProjectsMap').then((m) => ({ default: m.ProjectsMap })),
+);
+
+type Tab = 'trust' | 'escrow' | 'audit' | 'map';
 
 export function Transparency({ stateId }: { stateId: StateId }) {
   const [tab, setTab] = useState<Tab>('trust');
@@ -59,7 +65,7 @@ export function Transparency({ stateId }: { stateId: StateId }) {
       {error && <p className="notice notice-bad" role="alert">{error}</p>}
 
       <div role="tablist" aria-label="Transparency feeds" className="row" style={{ justifyContent: 'flex-start' }}>
-        {([['trust', 'Trust fund'], ['escrow', 'Escrow'], ['audit', 'Procurement audit']] as [Tab, string][]).map(([id, label]) => (
+        {([['trust', 'Trust fund'], ['escrow', 'Escrow'], ['audit', 'Procurement audit'], ['map', 'Map']] as [Tab, string][]).map(([id, label]) => (
           <button
             key={id}
             role="tab"
@@ -178,6 +184,23 @@ export function Transparency({ stateId }: { stateId: StateId }) {
                 </li>
               ))}
             </ul>
+          )}
+        </div>
+      )}
+
+      {tab === 'map' && (
+        <div role="tabpanel" aria-label="Projects by LGA map">
+          <p className="muted">
+            Published projects by LGA (choropleth-lite). Identities remain pseudonymised.
+          </p>
+          {isWebGLAvailable() ? (
+            <Suspense fallback={<p role="status">Loading map…</p>}>
+              <ProjectsMap stateId={stateId} />
+            </Suspense>
+          ) : (
+            <p className="small muted" role="note">
+              Map view unavailable on this device — the tabular feeds carry the same data.
+            </p>
           )}
         </div>
       )}

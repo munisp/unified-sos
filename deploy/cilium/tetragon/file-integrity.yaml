@@ -1,0 +1,77 @@
+# Tetragon: file-integrity watch on /etc and ledger data dirs.
+# TigerBeetle ledger data lives on PVCs mounted at /data; postgres WAL +
+# config at /var/lib/postgresql/data; sensitive service config under /etc.
+# Any write outside the owning process is captured (Post) for the audit
+# trail; writes to /etc from data-plane pods are killed outright.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: sos-file-integrity-ledger-etc
+spec:
+  kprobes:
+    - call: security_file_permission
+      syscall: false
+      return: false
+      args:
+        - index: 0
+          type: file
+        - index: 1
+          type: int
+      selectors:
+        # /etc writes from ANY SOS pod are anomalous — kill
+        - matchArgs:
+            - index: 0
+              operator: Prefix
+              values:
+                - /etc
+          matchActions:
+            - action: Sigkill
+        # ledger data dir: only tigerbeetle may write
+        - matchArgs:
+            - index: 0
+              operator: Prefix
+              values:
+                - /data
+          matchBinaries:
+            - operator: NotIn
+              values:
+                - /tigerbeetle
+          matchNamespaces:
+            - namespace: sos-data
+              operator: In
+          matchLabels:
+            - key: app.kubernetes.io/component
+              operator: In
+              values:
+                - tigerbeetle
+          matchActions:
+            - action: Sigkill
+---
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: sos-file-integrity-audit-postgres
+spec:
+  description: "Audit (Post only) writes to postgres data/config — feeds NDPA access logs."
+  kprobes:
+    - call: security_file_permission
+      syscall: false
+      return: false
+      args:
+        - index: 0
+          type: file
+        - index: 1
+          type: int
+      selectors:
+        - matchArgs:
+            - index: 0
+              operator: Prefix
+              values:
+                - /var/lib/postgresql/data
+          matchBinaries:
+            - operator: NotIn
+              values:
+                - /usr/lib/postgresql/16/bin/postgres
+                - /usr/bin/postgres
+          matchActions:
+            - action: Post

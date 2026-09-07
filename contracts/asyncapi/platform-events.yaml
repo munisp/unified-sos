@@ -457,6 +457,23 @@ channels:
             royalty_kobo: { type: integer }
             entry_hash: { type: string }
             timestamp: { type: string, format: date-time }
+  ng.sos.ml.drift_detected:
+    publish:
+      operationId: mlDriftDetected
+      description: >-
+        Emitted by mod-ml-inference when per-feature PSI or prediction shift
+        crosses the drift threshold for a served model version.
+      message:
+        payload:
+          type: object
+          required: [state_id, model_name, version, drift_type, score, timestamp]
+          properties:
+            state_id: { type: string }
+            model_name: { type: string, enum: [fraud_gnn, credit_mlp, luc_avm, crowd_lstm] }
+            version: { type: string }
+            drift_type: { type: string, enum: [feature_psi, prediction_shift] }
+            score: { type: number }
+            timestamp: { type: string, format: date-time }
   ng.sos.safecity.face_match:
     publish:
       operationId: safecityFaceMatch

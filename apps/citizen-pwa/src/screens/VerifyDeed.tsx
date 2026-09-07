@@ -1,7 +1,11 @@
-import { useState, type FormEvent } from 'react';
+import { Suspense, lazy, useState, type FormEvent } from 'react';
 import { verifyDeed } from '../lib/api';
 import { UssdNote } from '../components/UssdNote';
+import { isWebGLAvailable } from '../lib/mapcore';
 import type { DeedVerification, StateId } from '../lib/types';
+
+// Map chunk is code-split: maplibre-gl only loads when a result is shown.
+const ParcelMap = lazy(() => import('../components/ParcelMap').then((m) => ({ default: m.ParcelMap })));
 
 /** Verify a Certificate of Occupancy / deed against the state cadastre (mod-gis-lands). */
 export function VerifyDeed({ stateId }: { stateId: StateId }) {
@@ -58,6 +62,11 @@ export function VerifyDeed({ stateId }: { stateId: StateId }) {
             <p className="small muted">
               Signature chain: {result.signature_chain_valid ? 'valid' : 'invalid'}
             </p>
+          )}
+          {isWebGLAvailable() && (
+            <Suspense fallback={<p role="status">Loading map preview…</p>}>
+              <ParcelMap stateId={stateId} parcelUin={result.parcel_uin ?? (parcelUin.trim() || undefined)} />
+            </Suspense>
           )}
         </div>
       )}

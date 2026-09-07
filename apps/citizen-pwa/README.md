@@ -27,6 +27,24 @@ Supported states (fixed list, no tenant enumeration): lagos, ogun, osun, benue, 
   The tenant branding record's `default_locale` seeds the initial language until the user
   picks one (`applyDefaultLocale` in `src/lib/store.tsx`).
 
+## Maps (maplibre-gl, lazy chunk)
+
+- **VerifyDeed** shows a **parcel boundary preview** after a verification result
+  (`src/components/ParcelMap.tsx`) from bundled per-state cadastral fixture GeoJSON
+  (`public/geo/parcels-<state>.geojson`).
+- **Transparency → Map tab** renders a **projects-by-LGA choropleth-lite**
+  (`src/components/ProjectsMap.tsx`, fixtures `public/geo/lga-projects-<state>.geojson`)
+  with click-to-inspect popups.
+- Demo mode needs **no network**: the base style is built inline
+  (`buildDemoStyle()` in `src/lib/mapcore.ts`, mirrored by
+  `public/geo/demo-style.json`) and fixtures are same-origin. Live mode points at
+  the self-hosted **GeoLibre** stack (`deploy/geolibre/docker-compose.yaml`,
+  PostGIS-backed tiles/styles) via `VITE_MAP_STYLE_URL`; anything missing or
+  unreachable fails soft to the demo style / a plain-text note.
+- `maplibre-gl` loads via dynamic `import()` (separate async chunk) and only when
+  a map is actually shown; a WebGL probe (`isWebGLAvailable`) skips mounting
+  entirely on unsupported devices (and jsdom tests).
+
 ## Whitelabeling
 
 Per-state branding is resolved at runtime by `src/lib/branding.tsx`:

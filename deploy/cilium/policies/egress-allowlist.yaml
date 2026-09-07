@@ -1,0 +1,137 @@
+# Cluster-external egress allowlist (FQDN rules).
+# Only the components that integrate with national/payment rails may leave
+# the cluster, and only to the named endpoints. Everything else is denied
+# by default-deny + tenant-egress-via-gateway.
+#
+#   NIBSS (NIP payments)    — mod-mobility-switch
+#   Mojaloop switch         — mod-mobility-switch / mojaloop adapters
+#   NIMC (NIN verification) — mod-kyc-kyb
+#   CAC (business registry) — mod-kyc-kyb
+#
+# NOTE: replace *.placeholder TLDs with the contracted per-integration
+# hostnames from infra/secrets/ before applying to a live cluster. FQDN
+# rules depend on dns-visibility.yaml (Cilium learns IPs from observed DNS).
+---
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: sos-egress-nibss-mojaloop
+spec:
+  description: "Payment switching pods may egress only to NIBSS NIP and the Mojaloop switch."
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/component: mod-mobility-switch
+  namespaceSelector:
+    matchExpressions:
+      - key: sos.gov.ng/tenant-state
+        operator: Exists
+  egress:
+    - toFQDNs:
+        - matchName: api.nibss-plc.com.ng
+        - matchPattern: "*.nibss-plc.com.ng"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+          rules:
+            http:
+              - method: "POST"
+                path: "/nip/.*"
+    - toFQDNs:
+        - matchPattern: "*.mojaloop.ng.sos.gov.ng"
+        - matchName: switch.mojaloop.ng.sos.gov.ng
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    # DNS needed to learn FQDN IPs
+    - toEndpoints:
+        - matchLabels:
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+          rules:
+            dns:
+              - matchPattern: "*"
+---
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: sos-egress-nimc-cac
+spec:
+  description: "KYC/KYB module may egress only to NIMC (NIN) and CAC (business registry) verification APIs."
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/component: mod-kyc-kyb
+  namespaceSelector:
+    matchExpressions:
+      - key: sos.gov.ng/tenant-state
+        operator: Exists
+  egress:
+    - toFQDNs:
+        - matchPattern: "*.nimc.gov.ng"
+        - matchName: nimc.gov.ng
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    - toFQDNs:
+        - matchPattern: "*.cac.gov.ng"
+        - matchName: cac.gov.ng
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+          rules:
+            dns:
+              - matchPattern: "*"
+---
+# Gateway itself needs outbound TLS for OIDC JWKS rotation webhooks and
+# state-to-state federation — still name-restricted.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: api-gateway-egress
+  namespace: sos-gateway
+spec:
+  description: "APISIX egress: tenant namespaces + national federation endpoints only."
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/component: api-gateway
+  egress:
+    - toEndpoints:
+        - matchLabels: {}
+      toNamespaces:
+        - matchExpressions:
+            - key: sos.gov.ng/tenant-state
+              operator: Exists
+    - toEndpoints:
+        - matchLabels: {}
+      toNamespaces:
+        - matchLabels:
+            kubernetes.io/metadata.name: sos-gateway
+    - toFQDNs:
+        - matchPattern: "*.sos.gov.ng"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+          rules:
+            dns:
+              - matchPattern: "*"

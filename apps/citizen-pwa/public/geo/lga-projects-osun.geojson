@@ -1,0 +1,114 @@
+{
+  "type": "FeatureCollection",
+  "name": "osun-lga-projects-demo",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              4.011,
+              7.1025
+            ],
+            [
+              4.355667,
+              7.1025
+            ],
+            [
+              4.355667,
+              8.0475
+            ],
+            [
+              4.011,
+              8.0475
+            ],
+            [
+              4.011,
+              7.1025
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "lga_id": "OS-LGA-1",
+        "lga_name": "Osun LGA 1",
+        "project_count": 4,
+        "total_value_kobo": 5000000000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              4.377667,
+              7.1025
+            ],
+            [
+              4.722333,
+              7.1025
+            ],
+            [
+              4.722333,
+              8.0475
+            ],
+            [
+              4.377667,
+              8.0475
+            ],
+            [
+              4.377667,
+              7.1025
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "lga_id": "OS-LGA-2",
+        "lga_name": "Osun LGA 2",
+        "project_count": 9,
+        "total_value_kobo": 11250000000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              4.744333,
+              7.1025
+            ],
+            [
+              5.089,
+              7.1025
+            ],
+            [
+              5.089,
+              8.0475
+            ],
+            [
+              4.744333,
+              8.0475
+            ],
+            [
+              4.744333,
+              7.1025
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "lga_id": "OS-LGA-3",
+        "lga_name": "Osun LGA 3",
+        "project_count": 6,
+        "total_value_kobo": 7500000000
+      }
+    }
+  ]
+}

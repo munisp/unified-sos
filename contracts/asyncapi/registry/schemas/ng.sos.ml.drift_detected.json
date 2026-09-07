@@ -1,0 +1,46 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.ml.drift_detected.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.ml.drift_detected' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "drift_type": {
+      "enum": [
+        "feature_psi",
+        "prediction_shift"
+      ],
+      "type": "string"
+    },
+    "model_name": {
+      "enum": [
+        "fraud_gnn",
+        "credit_mlp",
+        "luc_avm",
+        "crowd_lstm"
+      ],
+      "type": "string"
+    },
+    "score": {
+      "type": "number"
+    },
+    "state_id": {
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "model_name",
+    "version",
+    "drift_type",
+    "score",
+    "timestamp"
+  ],
+  "title": "ng.sos.ml.drift_detected",
+  "type": "object"
+}

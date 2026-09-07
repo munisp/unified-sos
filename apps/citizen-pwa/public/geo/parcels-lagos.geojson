@@ -1,0 +1,240 @@
+{
+  "type": "FeatureCollection",
+  "name": "lagos-cadastral-parcels-demo",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              3.394096,
+              6.575086
+            ],
+            [
+              3.415266,
+              6.575086
+            ],
+            [
+              3.415266,
+              6.613395
+            ],
+            [
+              3.394096,
+              6.613395
+            ],
+            [
+              3.394096,
+              6.575086
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "LA-PCL-0001",
+        "cofo_number": "LA-2024-018800",
+        "lga": "lagos-lga-1",
+        "luc_band": "A1-COMMERCIAL",
+        "cofo_status": "VERIFIED",
+        "area_sqm": 9979628,
+        "height_m": 20
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              3.215729,
+              6.409328
+            ],
+            [
+              3.251151,
+              6.409328
+            ],
+            [
+              3.251151,
+              6.431896
+            ],
+            [
+              3.215729,
+              6.431896
+            ],
+            [
+              3.215729,
+              6.409328
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "LA-PCL-0002",
+        "cofo_number": "LA-2024-018807",
+        "lga": "lagos-lga-2",
+        "luc_band": "B2-RESIDENTIAL",
+        "cofo_status": "PENDING",
+        "area_sqm": 9837190,
+        "height_m": 22
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              3.502675,
+              6.605125
+            ],
+            [
+              3.525171,
+              6.605125
+            ],
+            [
+              3.525171,
+              6.634764
+            ],
+            [
+              3.502675,
+              6.634764
+            ],
+            [
+              3.502675,
+              6.605125
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "LA-PCL-0003",
+        "cofo_number": "LA-2024-018814",
+        "lga": "lagos-lga-3",
+        "luc_band": "C3-INDUSTRIAL",
+        "cofo_status": "VERIFIED",
+        "area_sqm": 8204677,
+        "height_m": 27
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              3.506631,
+              6.475419
+            ],
+            [
+              3.553821,
+              6.475419
+            ],
+            [
+              3.553821,
+              6.505469
+            ],
+            [
+              3.506631,
+              6.505469
+            ],
+            [
+              3.506631,
+              6.475419
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "LA-PCL-0004",
+        "cofo_number": "LA-2024-018821",
+        "lga": "lagos-lga-1",
+        "luc_band": "A2-MIXED",
+        "cofo_status": "DISPUTED",
+        "area_sqm": 17449296,
+        "height_m": 14
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              3.586778,
+              6.624576
+            ],
+            [
+              3.61576,
+              6.624576
+            ],
+            [
+              3.61576,
+              6.656417
+            ],
+            [
+              3.586778,
+              6.656417
+            ],
+            [
+              3.586778,
+              6.624576
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "LA-PCL-0005",
+        "cofo_number": "LA-2024-018828",
+        "lga": "lagos-lga-2",
+        "luc_band": "B1-RESIDENTIAL",
+        "cofo_status": "VERIFIED",
+        "area_sqm": 11355538,
+        "height_m": 7
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              3.56069,
+              6.481738
+            ],
+            [
+              3.607814,
+              6.481738
+            ],
+            [
+              3.607814,
+              6.524574
+            ],
+            [
+              3.56069,
+              6.524574
+            ],
+            [
+              3.56069,
+              6.481738
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "LA-PCL-0006",
+        "cofo_number": "LA-2024-018835",
+        "lga": "lagos-lga-3",
+        "luc_band": "C1-AGRICULTURAL",
+        "cofo_status": "PENDING",
+        "area_sqm": 24839022,
+        "height_m": 19
+      }
+    }
+  ]
+}

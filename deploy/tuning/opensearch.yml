@@ -1,0 +1,71 @@
+# deploy/tuning/opensearch.yml
+# OpenSearch 2.16 tuning (dev: opensearchproject/opensearch:2.16.0 single-node
+# in deploy/docker-compose.yml; production: 3+ dedicated data/master nodes).
+# Roles: (a) immutable WORM fiscal audit archive — 7-year tamper-evident
+# retention per docs/architecture/06-tenancy-security.md, and (b) Wazuh/SOC
+# security analytics.
+
+cluster.name: sos-audit
+node.name: ${HOSTNAME}
+network.host: 0.0.0.0
+
+# --- Topology ------------------------------------------------------------------
+discovery.seed_hosts: ["sos-opensearch-0", "sos-opensearch-1", "sos-opensearch-2"]
+cluster.initial_master_nodes: ["sos-opensearch-0", "sos-opensearch-1", "sos-opensearch-2"]
+node.roles: [master, data, ingest]   # split into dedicated masters at ≥5 nodes
+
+# --- Heap: 50% rule --------------------------------------------------------------
+# Heap = 50% of node RAM, never above 30.5 GB (compressed oops cutoff).
+# For a 32 GiB data node: OPENSEARCH_JAVA_OPTS="-Xms16g -Xmx16g"
+# (compose dev uses -Xms512m -Xmx512m). Remaining RAM serves Lucene off-heap
+# file-system cache — that cache is what makes audit search fast.
+bootstrap.memory_lock: true          # never swap heap (compose sets this too)
+OPENSEARCH_JAVA_OPTS: -Xms16g -Xmx16g
+
+# --- Thread pools / bulk -----------------------------------------------------------
+thread_pool.write.queue_size: 2000   # audit ingest bursts from control-plane + Wazuh
+action.auto_create_index: false      # explicit index templates only
+
+# --- Shard sizing ---------------------------------------------------------------------
+# Target 20–50 GiB per shard, ~20 shards per GB of heap max.
+# Audit indices: monthly rollover, 3 primary shards, 1 replica (dedicated: 2).
+# Wazuh/SOC indices: daily rollover, 2 primary, 1 replica.
+# Total shards per data node ≤ 600; force_merge warm indices to 1 segment.
+
+# --- ISM policy: sos-audit-worm-7y -------------------------------------------------------
+# Mirrors the 7-year fiscal audit retention requirement
+# (docs/architecture/06-tenancy-security.md; NFR-08 in
+# docs/delivery/backlog/nfr-catalog.md; runbook
+# docs/operations/runbooks/audit-chain-tamper-alert.md).
+# NOTE: mission brief referenced services/mod-transparency/archive — that path
+# does not exist in this checkout; the authoritative 7-year ISM anchor is the
+# tenancy-security doc above. This policy is the enforceable form of it.
+#
+# Apply with: PUT _plugins/_ism/policies/sos-audit-worm-7y
+# {
+#   "policy": {
+#     "description": "WORM fiscal audit: hot 7d -> warm 30d -> cold snapshot -> delete after 7y",
+#     "default_state": "hot",
+#     "ism_template": [{"index_patterns": ["sos-audit-*"], "priority": 100}],
+#     "states": [
+#       {"name": "hot", "actions": [], "transitions":
+#         [{"state_name": "warm", "conditions": {"min_index_age": "7d"}}]},
+#       {"name": "warm", "actions": [
+#           {"force_merge": {"max_num_segments": 1}},
+#           {"readonly": {}},
+#           {"allocation": {"require": {"temp": "warm"}, "wait_for": false}}],
+#        "transitions": [{"state_name": "cold", "conditions": {"min_index_age": "30d"}}]},
+#       {"name": "cold", "actions": [
+#           {"snapshot": {"repository": "sos-worm-snapshots", "snapshot": "audit-{{ctx.index}}"}}],
+#        "transitions": [{"state_name": "delete", "conditions": {"min_index_age": "2555d"}}]},
+#       {"name": "delete", "actions": [{"delete": {}}], "transitions": []}
+#     ]
+#   }
+# }
+# Snapshot repository: MinIO bucket with object-lock (compliance mode, 7y) —
+# that object lock, not OpenSearch, is the WORM guarantee.
+
+# --- Security (production; compose dev disables it) ---------------------------------
+plugins.security.ssl.http.enabled: true
+plugins.security.audit.type: internal_opensearch
+plugins.security.audit.config.index: "'security-auditlog-'yyyy.MM.dd"

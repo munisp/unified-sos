@@ -389,6 +389,53 @@ services:
       timeout: 5s
       retries: 5
 
+
+  # --- Caddy edge: automatic HTTPS + per-state whitelabel domains ----------
+
+  caddy:
+    build:
+      context: ../deploy/caddy
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/sos-caddy-edge:dev
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+
+  # --- ML inference (CPU) + MLflow tracking --------------------------------
+
+  mod-ml-inference:
+    build:
+      context: ..
+      dockerfile: services/mod-ml-inference/Dockerfile
+    image: ghcr.io/munisp/mod-ml-inference:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+      # fixture default = deterministic heuristic tagged model_version=fixture;
+      # production: SOS_ML_PROFILE=production + SOS_ML_ARTIFACTS_DIR +
+      # SOS_MLFLOW_TRACKING_URI (fail closed otherwise)
+      SOS_ML_PROFILE: ${SOS_ML_PROFILE:-fixture}
+      EVENT_BUS: ${EVENT_BUS:-memory}
+    volumes:
+      - ../ml/artifacts:/app/ml/artifacts:ro
+    ports:
+      - "8021:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.16.0
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:///mlflow.db --default-artifact-root /mlruns
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow-data:/mlruns
+
   mod-geospatial-gateway:
     build:
       context: ../services/mod-geospatial-gateway
@@ -424,4 +471,7 @@ volumes:
   redis-data:
   tigerbeetle-data:
   minio-data:
+  caddy-data:
+  caddy-config:
+  mlflow-data:
   opensearch-data:

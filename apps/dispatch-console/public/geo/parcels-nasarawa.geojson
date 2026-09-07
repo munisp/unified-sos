@@ -1,0 +1,240 @@
+{
+  "type": "FeatureCollection",
+  "name": "nasarawa-cadastral-parcels-demo",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              8.0732,
+              8.484247
+            ],
+            [
+              8.12245,
+              8.484247
+            ],
+            [
+              8.12245,
+              8.509213
+            ],
+            [
+              8.0732,
+              8.509213
+            ],
+            [
+              8.0732,
+              8.484247
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "NA-PCL-0001",
+        "cofo_number": "NA-2024-018800",
+        "lga": "nasarawa-lga-1",
+        "luc_band": "A1-COMMERCIAL",
+        "cofo_status": "VERIFIED",
+        "area_sqm": 15129705,
+        "height_m": 19
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              8.298393,
+              8.023777
+            ],
+            [
+              8.340008,
+              8.023777
+            ],
+            [
+              8.340008,
+              8.063961
+            ],
+            [
+              8.298393,
+              8.063961
+            ],
+            [
+              8.298393,
+              8.023777
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "NA-PCL-0002",
+        "cofo_number": "NA-2024-018807",
+        "lga": "nasarawa-lga-2",
+        "luc_band": "B2-RESIDENTIAL",
+        "cofo_status": "PENDING",
+        "area_sqm": 20577647,
+        "height_m": 11
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              8.534115,
+              8.806984
+            ],
+            [
+              8.559635,
+              8.806984
+            ],
+            [
+              8.559635,
+              8.851071
+            ],
+            [
+              8.534115,
+              8.851071
+            ],
+            [
+              8.534115,
+              8.806984
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "NA-PCL-0003",
+        "cofo_number": "NA-2024-018814",
+        "lga": "nasarawa-lga-3",
+        "luc_band": "C3-INDUSTRIAL",
+        "cofo_status": "VERIFIED",
+        "area_sqm": 13844710,
+        "height_m": 29
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              8.179312,
+              7.937505
+            ],
+            [
+              8.223188,
+              7.937505
+            ],
+            [
+              8.223188,
+              7.975667
+            ],
+            [
+              8.179312,
+              7.975667
+            ],
+            [
+              8.179312,
+              7.937505
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "NA-PCL-0004",
+        "cofo_number": "NA-2024-018821",
+        "lga": "nasarawa-lga-1",
+        "luc_band": "A2-MIXED",
+        "cofo_status": "DISPUTED",
+        "area_sqm": 20604435,
+        "height_m": 11
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              7.808746,
+              8.284488
+            ],
+            [
+              7.856304,
+              8.284488
+            ],
+            [
+              7.856304,
+              8.316329
+            ],
+            [
+              7.808746,
+              8.316329
+            ],
+            [
+              7.808746,
+              8.284488
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "NA-PCL-0005",
+        "cofo_number": "NA-2024-018828",
+        "lga": "nasarawa-lga-2",
+        "luc_band": "B1-RESIDENTIAL",
+        "cofo_status": "VERIFIED",
+        "area_sqm": 18633865,
+        "height_m": 28
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              8.640226,
+              8.271665
+            ],
+            [
+              8.660374,
+              8.271665
+            ],
+            [
+              8.660374,
+              8.3061
+            ],
+            [
+              8.640226,
+              8.3061
+            ],
+            [
+              8.640226,
+              8.271665
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "NA-PCL-0006",
+        "cofo_number": "NA-2024-018835",
+        "lga": "nasarawa-lga-3",
+        "luc_band": "C1-AGRICULTURAL",
+        "cofo_status": "PENDING",
+        "area_sqm": 8537206,
+        "height_m": 7
+      }
+    }
+  ]
+}

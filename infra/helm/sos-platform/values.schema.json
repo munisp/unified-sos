@@ -44,6 +44,7 @@
         "modIdentity": { "$ref": "#/$defs/module" },
         "modKycKyb": { "$ref": "#/$defs/module" },
         "modMarket": { "$ref": "#/$defs/module" },
+        "modMlInference": { "$ref": "#/$defs/module" },
         "modMining": { "$ref": "#/$defs/module" },
         "modMobilitySwitch": { "$ref": "#/$defs/module" },
         "modPoliceCad": { "$ref": "#/$defs/module" },

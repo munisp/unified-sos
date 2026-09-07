@@ -1,0 +1,114 @@
+{
+  "type": "FeatureCollection",
+  "name": "ogun-lga-projects-demo",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              2.6695,
+              6.3525
+            ],
+            [
+              3.2805,
+              6.3525
+            ],
+            [
+              3.2805,
+              7.2975
+            ],
+            [
+              2.6695,
+              7.2975
+            ],
+            [
+              2.6695,
+              6.3525
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "lga_id": "OG-LGA-1",
+        "lga_name": "Ogun LGA 1",
+        "project_count": 3,
+        "total_value_kobo": 3750000000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              3.3195,
+              6.3525
+            ],
+            [
+              3.9305,
+              6.3525
+            ],
+            [
+              3.9305,
+              7.2975
+            ],
+            [
+              3.3195,
+              7.2975
+            ],
+            [
+              3.3195,
+              6.3525
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "lga_id": "OG-LGA-2",
+        "lga_name": "Ogun LGA 2",
+        "project_count": 11,
+        "total_value_kobo": 13750000000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              3.9695,
+              6.3525
+            ],
+            [
+              4.5805,
+              6.3525
+            ],
+            [
+              4.5805,
+              7.2975
+            ],
+            [
+              3.9695,
+              7.2975
+            ],
+            [
+              3.9695,
+              6.3525
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "lga_id": "OG-LGA-3",
+        "lga_name": "Ogun LGA 3",
+        "project_count": 6,
+        "total_value_kobo": 7500000000
+      }
+    }
+  ]
+}

@@ -1,0 +1,240 @@
+{
+  "type": "FeatureCollection",
+  "name": "taraba-cadastral-parcels-demo",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              10.02102,
+              9.024957
+            ],
+            [
+              10.055597,
+              9.024957
+            ],
+            [
+              10.055597,
+              9.045251
+            ],
+            [
+              10.02102,
+              9.045251
+            ],
+            [
+              10.02102,
+              9.024957
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "TA-PCL-0001",
+        "cofo_number": "TA-2024-018800",
+        "lga": "taraba-lga-1",
+        "luc_band": "A1-COMMERCIAL",
+        "cofo_status": "VERIFIED",
+        "area_sqm": 8634707,
+        "height_m": 27
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              9.967516,
+              7.749203
+            ],
+            [
+              9.988056,
+              7.749203
+            ],
+            [
+              9.988056,
+              7.798318
+            ],
+            [
+              9.967516,
+              7.798318
+            ],
+            [
+              9.967516,
+              7.749203
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "TA-PCL-0002",
+        "cofo_number": "TA-2024-018807",
+        "lga": "taraba-lga-2",
+        "luc_band": "B2-RESIDENTIAL",
+        "cofo_status": "PENDING",
+        "area_sqm": 12413872,
+        "height_m": 28
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              9.872187,
+              8.79897
+            ],
+            [
+              9.899509,
+              8.79897
+            ],
+            [
+              9.899509,
+              8.827718
+            ],
+            [
+              9.872187,
+              8.827718
+            ],
+            [
+              9.872187,
+              8.79897
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "TA-PCL-0003",
+        "cofo_number": "TA-2024-018814",
+        "lga": "taraba-lga-3",
+        "luc_band": "C3-INDUSTRIAL",
+        "cofo_status": "VERIFIED",
+        "area_sqm": 9665597,
+        "height_m": 10
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              10.939447,
+              6.94854
+            ],
+            [
+              10.980549,
+              6.94854
+            ],
+            [
+              10.980549,
+              6.976325
+            ],
+            [
+              10.939447,
+              6.976325
+            ],
+            [
+              10.939447,
+              6.94854
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "TA-PCL-0004",
+        "cofo_number": "TA-2024-018821",
+        "lga": "taraba-lga-1",
+        "luc_band": "A2-MIXED",
+        "cofo_status": "DISPUTED",
+        "area_sqm": 14052902,
+        "height_m": 14
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              9.963278,
+              8.923627
+            ],
+            [
+              9.993835,
+              8.923627
+            ],
+            [
+              9.993835,
+              8.972757
+            ],
+            [
+              9.963278,
+              8.972757
+            ],
+            [
+              9.963278,
+              8.923627
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "TA-PCL-0005",
+        "cofo_number": "TA-2024-018828",
+        "lga": "taraba-lga-2",
+        "luc_band": "B1-RESIDENTIAL",
+        "cofo_status": "VERIFIED",
+        "area_sqm": 18473540,
+        "height_m": 27
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              9.772774,
+              7.494161
+            ],
+            [
+              9.816894,
+              7.494161
+            ],
+            [
+              9.816894,
+              7.521136
+            ],
+            [
+              9.772774,
+              7.521136
+            ],
+            [
+              9.772774,
+              7.494161
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "TA-PCL-0006",
+        "cofo_number": "TA-2024-018835",
+        "lga": "taraba-lga-3",
+        "luc_band": "C1-AGRICULTURAL",
+        "cofo_status": "PENDING",
+        "area_sqm": 14645008,
+        "height_m": 25
+      }
+    }
+  ]
+}

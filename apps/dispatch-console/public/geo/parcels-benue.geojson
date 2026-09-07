@@ -1,0 +1,240 @@
+{
+  "type": "FeatureCollection",
+  "name": "benue-cadastral-parcels-demo",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              8.865687,
+              7.051856
+            ],
+            [
+              8.907313,
+              7.051856
+            ],
+            [
+              8.907313,
+              7.083484
+            ],
+            [
+              8.865687,
+              7.083484
+            ],
+            [
+              8.865687,
+              7.051856
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "BE-PCL-0001",
+        "cofo_number": "BE-2024-018800",
+        "lga": "benue-lga-1",
+        "luc_band": "A1-COMMERCIAL",
+        "cofo_status": "VERIFIED",
+        "area_sqm": 16200913,
+        "height_m": 18
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              8.813566,
+              7.627447
+            ],
+            [
+              8.847084,
+              7.627447
+            ],
+            [
+              8.847084,
+              7.658113
+            ],
+            [
+              8.813566,
+              7.658113
+            ],
+            [
+              8.813566,
+              7.627447
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "BE-PCL-0002",
+        "cofo_number": "BE-2024-018807",
+        "lga": "benue-lga-2",
+        "luc_band": "B2-RESIDENTIAL",
+        "cofo_status": "PENDING",
+        "area_sqm": 12647763,
+        "height_m": 21
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              8.782534,
+              7.324417
+            ],
+            [
+              8.804966,
+              7.324417
+            ],
+            [
+              8.804966,
+              7.373991
+            ],
+            [
+              8.782534,
+              7.373991
+            ],
+            [
+              8.782534,
+              7.324417
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "BE-PCL-0003",
+        "cofo_number": "BE-2024-018814",
+        "lga": "benue-lga-3",
+        "luc_band": "C3-INDUSTRIAL",
+        "cofo_status": "VERIFIED",
+        "area_sqm": 13684659,
+        "height_m": 13
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              8.973553,
+              7.739239
+            ],
+            [
+              9.008397,
+              7.739239
+            ],
+            [
+              9.008397,
+              7.784082
+            ],
+            [
+              8.973553,
+              7.784082
+            ],
+            [
+              8.973553,
+              7.739239
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "BE-PCL-0004",
+        "cofo_number": "BE-2024-018821",
+        "lga": "benue-lga-1",
+        "luc_band": "A2-MIXED",
+        "cofo_status": "DISPUTED",
+        "area_sqm": 19227168,
+        "height_m": 18
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              8.819069,
+              7.020624
+            ],
+            [
+              8.868532,
+              7.020624
+            ],
+            [
+              8.868532,
+              7.051521
+            ],
+            [
+              8.819069,
+              7.051521
+            ],
+            [
+              8.819069,
+              7.020624
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "BE-PCL-0005",
+        "cofo_number": "BE-2024-018828",
+        "lga": "benue-lga-2",
+        "luc_band": "B1-RESIDENTIAL",
+        "cofo_status": "VERIFIED",
+        "area_sqm": 18805088,
+        "height_m": 29
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              8.608876,
+              7.465615
+            ],
+            [
+              8.635974,
+              7.465615
+            ],
+            [
+              8.635974,
+              7.512253
+            ],
+            [
+              8.608876,
+              7.512253
+            ],
+            [
+              8.608876,
+              7.465615
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "BE-PCL-0006",
+        "cofo_number": "BE-2024-018835",
+        "lga": "benue-lga-3",
+        "luc_band": "C1-AGRICULTURAL",
+        "cofo_status": "PENDING",
+        "area_sqm": 15551078,
+        "height_m": 28
+      }
+    }
+  ]
+}

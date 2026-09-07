@@ -1,0 +1,126 @@
+{
+  "title": "SOS — Cilium/Hubble Network & Runtime Security",
+  "uid": "sos-cilium-hubble",
+  "tags": ["sos", "cilium", "hubble", "tetragon", "zero-trust"],
+  "timezone": "Africa/Lagos",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {"from": "now-6h", "to": "now"},
+  "annotations": {"list": []},
+  "templating": {
+    "list": [
+      {
+        "name": "tenant_namespace",
+        "label": "Tenant namespace",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(hubble_flows_processed_total, source_namespace)",
+        "includeAll": true,
+        "multi": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Flow drops by reason (policy verdicts)",
+      "description": "Hubble drop_total split by drop reason — spikes indicate policy denials (expected for fail-closed) or datapath faults (investigate).",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [
+        {
+          "expr": "sum by (reason, destination_namespace) (rate(hubble_drop_total{destination_namespace=~\"$tenant_namespace\"}[5m]))",
+          "legendFormat": "{{reason}} -> {{destination_namespace}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Policy verdicts (forwarded vs denied)",
+      "description": "All flows by verdict across tenant namespaces. DENIED should equal policy drops; ERROR indicates agent problems.",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [
+        {
+          "expr": "sum by (verdict) (rate(hubble_flows_processed_total{source_namespace=~\"$tenant_namespace\"}[5m]))",
+          "legendFormat": "{{verdict}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "DNS requests (FQDN egress visibility)",
+      "description": "DNS lookups observed by Hubble — used to audit NIBSS/Mojaloop/NIMC/CAC FQDN egress and detect DNS-tunnel anomalies.",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [
+        {
+          "expr": "sum by (rcode, source_workload) (rate(hubble_dns_queries_total{source_namespace=~\"$tenant_namespace\"}[5m]))",
+          "legendFormat": "{{source_workload}} rcode={{rcode}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(hubble_dns_responses_total{rcode!=\"No Error\"}[5m]))",
+          "legendFormat": "failed lookups",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "HTTP request latency (L7, p50/p95/p99)",
+      "description": "Hubble httpV2 latency for service-to-service HTTP — watch mod-rev-core and mod-mobility-switch on the payment path.",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le, destination_workload) (rate(hubble_http_request_duration_seconds_bucket{destination_namespace=~\"$tenant_namespace\"}[5m])))",
+          "legendFormat": "p50 {{destination_workload}}",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, destination_workload) (rate(hubble_http_request_duration_seconds_bucket{destination_namespace=~\"$tenant_namespace\"}[5m])))",
+          "legendFormat": "p95 {{destination_workload}}",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(hubble_http_request_duration_seconds_bucket{destination_namespace=~\"$tenant_namespace\"}[5m])))",
+          "legendFormat": "p99 all",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "s"}}
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Cross-tenant flow attempts (must be zero)",
+      "description": "Flows where source and destination namespaces are different tenant namespaces — any non-zero value is a tenant-isolation breach.",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "targets": [
+        {
+          "expr": "sum by (source_namespace, destination_namespace) (rate(hubble_flows_processed_total{source_namespace=~\"sos-tenant-.+\", destination_namespace=~\"sos-tenant-.+\", source_namespace!=\"\", destination_namespace!=\"\"}[5m])) and on() (label_replace(vector(1), \"x\", \"1\", \"\", \"\"))",
+          "legendFormat": "{{source_namespace}} -> {{destination_namespace}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Tetragon enforcement actions (5m)",
+      "description": "Sigkill/Post events from TracingPolicies — non-zero Sigkill on payment/ledger pods pages the security on-call.",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "targets": [
+        {
+          "expr": "sum(increase(tetragon_tracingpolicy_sigkill_total[5m]))",
+          "legendFormat": "sigkills",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

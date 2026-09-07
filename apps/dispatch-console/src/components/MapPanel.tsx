@@ -25,8 +25,7 @@ export function MapPanel() {
   const br = projectNational(maxLon, minLat, VIEW);
 
   return (
-    <section className="panel" aria-label="Map">
-      <h2>Map — {stateId}</h2>
+    <div data-testid="schematic-map">
       <svg
         role="img"
         aria-label={`map of ${stateId} with incidents and units`}
@@ -90,6 +89,6 @@ export function MapPanel() {
         <span className="dot dot-incident" /> incident (size = priority) ·{' '}
         <span className="dot dot-unit" /> unit
       </p>
-    </section>
+    </div>
   );
 }

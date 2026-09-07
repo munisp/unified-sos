@@ -1,0 +1,141 @@
+# Data-plane access control (namespace sos-data).
+# postgres / tigerbeetle / redis / kafka accept connections ONLY from pods
+# carrying an explicit data-access label. Labels are granted per-service by
+# the platform team — a pod without the label cannot reach the data plane
+# even from inside a tenant namespace.
+#
+#   sos.gov.ng/data-access: postgres | tigerbeetle | redis | kafka
+#
+# Mapping (from infra/helm/sos-platform/values.yaml + deploy/docker-compose):
+#   postgres    <- mod-gis-lands, mod-geospatial, mod-kyc-kyb, control-plane,
+#                  keycloak (realm store)
+#   tigerbeetle <- mod-rev-core (ledger), control-plane (reconciliation)
+#   redis       <- mod-police-cad (CAD cache), mod-citizen-portal (sessions)
+#   kafka       <- mod-rev-core (assessment producer/consumer), control-plane,
+#                  mod-mobility-switch (payment events), keda scaler
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: postgres-access
+  namespace: sos-data
+spec:
+  description: "Postgres reachable only from pods labeled sos.gov.ng/data-access=postgres."
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/component: postgres
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            sos.gov.ng/data-access: postgres
+        - matchLabels:
+            app.kubernetes.io/component: keycloak
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: tigerbeetle-access
+  namespace: sos-data
+spec:
+  description: >-
+    TigerBeetle ledger reachable only from the ledger writers
+    (mod-rev-core, control-plane reconciliation) via the
+    sos.gov.ng/data-access=tigerbeetle label.
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/component: tigerbeetle
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            sos.gov.ng/data-access: tigerbeetle
+      toPorts:
+        - ports:
+            - port: "3000"
+              protocol: TCP
+    # VSR replica-to-replica consensus inside the StatefulSet
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/component: tigerbeetle
+      toPorts:
+        - ports:
+            - port: "3000"
+              protocol: TCP
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: redis-access
+  namespace: sos-data
+spec:
+  description: "Redis reachable only from pods labeled sos.gov.ng/data-access=redis."
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/component: redis
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            sos.gov.ng/data-access: redis
+      toPorts:
+        - ports:
+            - port: "6379"
+              protocol: TCP
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: kafka-access
+  namespace: sos-data
+spec:
+  description: >-
+    Kafka (event bus, kafka.sos-data:9092) reachable only from labeled
+    producers/consumers; KEDA in sos-observability reads lag for scaling.
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/component: kafka
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            sos.gov.ng/data-access: kafka
+      toPorts:
+        - ports:
+            - port: "9092"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/component: keda
+      fromNamespaces:
+        - matchLabels:
+            kubernetes.io/metadata.name: sos-observability
+      toPorts:
+        - ports:
+            - port: "9092"
+              protocol: TCP
+    # broker-to-broker
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/component: kafka
+      toPorts:
+        - ports:
+            - port: "9092"
+              protocol: TCP
+            - port: "9093"
+              protocol: TCP
+---
+# Data-plane pods get minimal egress: DNS only (see dns-visibility.yaml).
+# Nothing in sos-data initiates connections to tenant namespaces.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: data-plane-egress-restriction
+  namespace: sos-data
+spec:
+  description: "Data-plane pods may only egress within sos-data (replication)."
+  endpointSelector:
+    matchLabels: {}
+  egress:
+    - toEndpoints:
+        - matchLabels: {}

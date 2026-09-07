@@ -80,3 +80,8 @@ sbom*.json
 # Acceptance gate evidence artifacts
 tests/evidence/
 .coverage
+
+# ML runtime state (trained artifacts land here by default; shipped baselines
+# are force-added explicitly, runtime registry stays untracked)
+ml/artifacts/
+ml/registry/

@@ -151,6 +151,12 @@
       "topic": "ng.sos.mining.weighbridge_reading"
     },
     {
+      "channel": "ng.sos.ml.drift_detected",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.ml.drift_detected.json",
+      "topic": "ng.sos.ml.drift_detected"
+    },
+    {
       "channel": "ng.sos.payments.settlement_completed",
       "contract": "platform-events.yaml",
       "schema": "schemas/ng.sos.payments.settlement_completed.json",

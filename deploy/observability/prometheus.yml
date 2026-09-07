@@ -261,6 +261,20 @@ scrape_configs:
     action: keep
   - target_label: service
     replacement: mod-police-cad
+- job_name: mod-ml-inference
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-ml-inference
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: mod-ml-inference
 - job_name: mod-waterways
   kubernetes_sd_configs:
   - role: endpoints

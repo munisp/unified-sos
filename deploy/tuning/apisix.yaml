@@ -1,0 +1,85 @@
+# deploy/tuning/apisix.yaml
+# Apache APISIX 3.9 gateway tuning (apisix.image.tag 3.9.1-debian in
+# infra/helm/sos-platform/values.yaml). Mount via the apisix subchart's
+# `extraConfigConfigMap` or the gateway Helm values override.
+# Layer 1 role: TLS 1.3 termination, rate limiting, WAF (~1.2 ms overhead budget).
+
+apisix:
+  node_listen: 9080
+  enable_admin: false              # etcd-driven config in prod; admin API off
+  enable_ipv6: true
+  # TLS 1.3 only; certs per state via cert-manager/OpenBao
+  # (secretName: sos-gateway-tls in values.yaml)
+  ssl:
+    ssl_protocols: TLSv1.3
+    ssl_ciphers: TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256
+
+nginx_config:
+  # One worker per vCPU; helm limits cpu=1 today — raise limit to 4 on the
+  # gateway pods and workers=4 here for production ingress.
+  worker_processes: 4
+  event:
+    worker_connections: 16384
+  http:
+    # Keepalive pools to upstream module services (mod-*), Keycloak, MinIO.
+    upstream:
+      keepalive: 320               # idle conns per worker per upstream
+      keepalive_requests: 10000    # recycle before FD exhaustion
+      keepalive_timeout: 75s
+    client_max_body_size: 64m      # KYC document uploads; POS sync batches
+    proxy_cache_path: /tmp/apisix-cache levels=1:2 keys_zone=sos-cache:64m inactive=10m max_size=2g
+
+etcd:
+  host:
+    - "http://etcd.sos-data:2379"
+  prefix: /apisix
+  timeout: 30
+
+plugins:
+  - prometheus                   # /apisix/prometheus/metrics; scraped by the
+                                 # in-cluster Prometheus (values.yaml prometheus.enabled)
+  - limit-req                    # leaky-bucket per route
+  - limit-count                  # quota per tenant
+  - proxy-rewrite
+  - jwt-auth
+  - key-auth
+  - cors
+  - ip-restriction
+  - gzip
+  - response-rewrite
+  - openid-connect               # Keycloak realm SSO at the edge where needed
+  - opentelemetry                # trace to Jaeger per blueprint supplemental stack
+
+plugin_attr:
+  prometheus:
+    export_uri: /apisix/prometheus/metrics
+    metric_prefix: apisix_
+  # openAppSec ML-WAF wiring (Layer 1: zero-day API threat protection):
+  # APISIX 3.9 does not ship a native openappsec plugin in-tree; wire it as
+  # an HTTP callout via the `ext-plugin-pre-req` runner or deploy the
+  # openappsec agent as a sidecar on the gateway pods with the attachment
+  # registered against these routes. Config keys below are consumed by the
+  # SOS gateway chart wrapper:
+  openappsec:
+    agent_address: "127.0.0.1:8282"   # sidecar nano-agent
+    mode: "prevent"                   # 'detect' during rollout, then prevent
+    failover_mode: "fail_open_log"    # WAF outage must not take down the gateway;
+                                      # alert immediately (Layer 1 XDR correlation)
+
+# --- Per-state-tenant rate-limit defaults ------------------------------------
+# Applied per route with ${tenant_state_id} interpolated by the control plane.
+# Shared tier must enforce tenant quotas; dedicated tier doubles them.
+# Route plugin snippet (rendered per tenant, not literal YAML here):
+#   limit-count:
+#     count: 10000            # shared tier; 20000 dedicated
+#     time_window: 60
+#     key_type: var
+#     key: http_x_sos_tenant_state
+#     rejected_code: 429
+#     policy: redis           # shared counter across gateway replicas (Role A cache)
+#   limit-req:
+#     rate: 2000              # req/s per tenant, shared tier
+#     burst: 1000
+#     key: http_x_sos_tenant_state
+# Exemptions: edge POS offline-sync bursts are shaped, not hard-rejected
+# (see fluvio.md); /healthz and /apisix/prometheus/metrics are unlimited.

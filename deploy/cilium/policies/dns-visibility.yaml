@@ -1,0 +1,42 @@
+# DNS visibility + restriction for all SOS pods.
+# Every pod may resolve only via the cluster DNS (kube-dns / CoreDNS) and
+# every lookup is recorded by Hubble (dns metrics in install/values.yaml).
+# This gives the NDPA audit trail "which service resolved which external
+# endpoint, when" and blocks DNS-tunnel exfiltration to rogue resolvers.
+---
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: sos-dns-visibility
+spec:
+  description: >-
+    Allow DNS to kube-dns from every SOS pod and surface lookups to Hubble
+    (toFQDN rules in egress-allowlist.yaml depend on this).
+  endpointSelector:
+    matchLabels: {}
+  namespaceSelector:
+    matchExpressions:
+      - key: sos.gov.ng/platform
+        operator: Exists
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+          rules:
+            dns:
+              - matchPattern: "*"
+    # data-plane namespace pods (same rule; sos-data does not carry the
+    # sos.gov.ng/platform label in some overlays)
+    - toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+          rules:
+            dns:
+              - matchPattern: "*"

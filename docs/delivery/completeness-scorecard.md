@@ -323,3 +323,14 @@ Validation: control-plane 73 passed / 4 pre-existing skips, sosctl 39 passed,
 both frontends rebuilt green, registry 36 artifacts in sync, 37 packs + infra
 gates green. Residual: DNS/certificate issuance per state domain (operational),
 build-time PWA manifest override for installed-app naming.
+
+## 14. Stage 11 update — Real ML stack, Caddy edge, Cilium/eBPF, infra tuning, mapping engine
+
+See `docs/delivery/production-readiness-review.md` (full evidence-based audit).
+Headlines: real PyTorch models with shipped CPU weights (fraud GNN AUC 0.968,
+credit MLP, LUC AVM, crowd LSTM) + training/continuous-training/registry/drift/
+A-B via `ml/` + `mod-ml-inference` (46 tests); Caddy edge with on-demand TLS for
+all 37 whitelabel domains; Cilium+eBPF zero-trust layer (35 validation tests);
+tuning pack for 11 infra components incl. Mojaloop-MySQL decision record;
+MapLibre GL + CesiumJS mapping engine in both frontends (citizen 41 tests,
+dispatch 53). Weighted readiness ≈ 96%.

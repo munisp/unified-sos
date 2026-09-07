@@ -1,0 +1,7 @@
+# mod-ml-inference runtime dependencies.
+# Install torch from the CPU wheel index (see Dockerfile):
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+fastapi>=0.110
+pydantic>=2.6
+uvicorn[standard]>=0.29
+torch>=2.2

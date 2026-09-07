@@ -1,0 +1,121 @@
+# Tenant isolation for the shared tier.
+# Shared-tier tenant namespaces may only reach the data plane (sos-data) and
+# the outside world VIA the API gateway identity — never pod-to-pod across
+# tenants, never directly to postgres/tigerbeetle/redis/kafka from
+# arbitrary pods.
+---
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: sos-tenant-no-cross-tenant
+spec:
+  description: >-
+    Pods in a tenant namespace may not talk to pods in any other tenant
+    namespace. Tenant-to-tenant traffic must traverse the API gateway so
+    Keycloak (OIDC) and APISIX (routing/quotas) see every call.
+  endpointSelector:
+    matchLabels: {}
+  namespaceSelector:
+    matchExpressions:
+      - key: sos.gov.ng/tenant-state
+        operator: Exists
+  ingressDeny:
+    - fromEndpoints:
+        - matchLabels: {}
+      fromNamespaces:
+        - matchExpressions:
+            - key: sos.gov.ng/tenant-state
+              operator: Exists
+---
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: sos-tenant-egress-via-gateway
+spec:
+  description: >-
+    Shared-tier tenant pods may egress only to their own namespace, to
+    kube-dns (via the DNS policy), to the gateway/keycloak namespace, and
+    to the data plane endpoints explicitly opened by
+    data-plane-access.yaml. No direct cluster-external egress from tenant
+    pods: external calls (NIBSS/Mojaloop/NIMC/CAC) leave via the gateway
+    or the payment adapters under egress-allowlist.yaml.
+  endpointSelector:
+    matchLabels: {}
+  namespaceSelector:
+    matchExpressions:
+      - key: sos.gov.ng/tenant-state
+        operator: Exists
+  egress:
+    # same-namespace traffic
+    - toEndpoints:
+        - matchLabels: {}
+      toNamespaces:
+        - matchExpressions:
+            - key: sos.gov.ng/tenant-state
+              operator: Exists
+    # gateway + keycloak
+    - toEndpoints:
+        - matchLabels: {}
+      toNamespaces:
+        - matchLabels:
+            kubernetes.io/metadata.name: sos-gateway
+    # data plane — further constrained by data-plane-access.yaml
+    - toEndpoints:
+        - matchLabels: {}
+      toNamespaces:
+        - matchLabels:
+            kubernetes.io/metadata.name: sos-data
+    # observability scraping target allowance (prometheus pulls metrics)
+    - toEndpoints:
+        - matchLabels: {}
+      toNamespaces:
+        - matchLabels:
+            kubernetes.io/metadata.name: sos-observability
+---
+# Ingress into tenant namespaces: from the API gateway, from within the
+# tenant's own namespace, and from observability (metrics scrape).
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: sos-tenant-ingress-from-gateway
+spec:
+  description: >-
+    External/API traffic enters tenant workloads only through the APISIX
+    gateway pods (app.kubernetes.io/component: api-gateway in sos-gateway).
+  endpointSelector:
+    matchLabels: {}
+  namespaceSelector:
+    matchExpressions:
+      - key: sos.gov.ng/tenant-state
+        operator: Exists
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/component: api-gateway
+      fromNamespaces:
+        - matchLabels:
+            kubernetes.io/metadata.name: sos-gateway
+      toPorts:
+        - ports:
+            - port: "8000"
+              protocol: TCP
+            - port: "8080"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels: {}
+      fromNamespaces:
+        - matchExpressions:
+            - key: sos.gov.ng/tenant-state
+              operator: Exists
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/component: prometheus
+      fromNamespaces:
+        - matchLabels:
+            kubernetes.io/metadata.name: sos-observability
+      toPorts:
+        - ports:
+            - port: "8000"
+              protocol: TCP
+            - port: "8080"
+              protocol: TCP

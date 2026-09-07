@@ -1,0 +1,58 @@
+# Hubble/Cilium metrics scrape config — drop-in jobs for the existing SOS
+# Prometheus (deploy/observability/prometheus.yml). Merge these
+# scrape_configs into that file, or mount as an additional scrape config.
+# install/values.yaml already enables the endpoints + ServiceMonitors:
+#   cilium-agent   :9962/metrics   (policy verdicts, drops, bpf pressure)
+#   cilium-envoy   :9964/metrics   (L7 proxy)
+#   hubble         :9965/metrics   (flow, dns, drop, tcp, httpV2)
+#   hubble-relay   :9966/metrics
+#   tetragon       :2112/metrics   (runtime enforcement events)
+scrape_configs:
+  - job_name: cilium-agent
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_k8s_app]
+        regex: cilium
+        action: keep
+      - source_labels: [__meta_kubernetes_pod_container_port_number]
+        regex: "9962"
+        action: keep
+  - job_name: hubble
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_k8s_app]
+        regex: cilium
+        action: keep
+      - source_labels: [__meta_kubernetes_pod_container_port_number]
+        regex: "9965"
+        action: keep
+  - job_name: hubble-relay
+    kubernetes_sd_configs:
+      - role: endpoints
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_label_k8s_app]
+        regex: hubble-relay
+        action: keep
+      - source_labels: [__meta_kubernetes_pod_container_port_number]
+        regex: "9966"
+        action: keep
+  - job_name: tetragon
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+        regex: tetragon
+        action: keep
+      - source_labels: [__meta_kubernetes_pod_container_port_number]
+        regex: "2112"
+        action: keep
+
+# Alert additions for deploy/observability/alerts.yml:
+#   - alert: CiliumPolicyDropsSpike
+#     expr: rate(hubble_drop_total[5m]) > 100
+#   - alert: CiliumAgentUnreachable
+#     expr: up{job="cilium-agent"} == 0
+#   - alert: TetragonSigkillFired
+#     expr: increase(tetragon_tracingpolicy_sigkill_total[5m]) > 0

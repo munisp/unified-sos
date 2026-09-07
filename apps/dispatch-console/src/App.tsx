@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 
 import { Header } from './components/Header';
+import { Cadastre3D } from './components/Cadastre3D';
 import { IncidentQueue } from './components/IncidentQueue';
-import { MapPanel } from './components/MapPanel';
+import { MapView } from './components/MapView';
 import { SloBanner } from './components/SloBanner';
 import { StreamViewer } from './components/StreamViewer';
 import { TrustFundPanel } from './components/TrustFundPanel';
@@ -40,7 +41,8 @@ function ConsoleBody() {
       <div className="grid">
         <div className="col">
           <IncidentQueue now={now} />
-          <MapPanel />
+          <MapView />
+          <Cadastre3D />
         </div>
         <div className="col">
           <UnitRoster />

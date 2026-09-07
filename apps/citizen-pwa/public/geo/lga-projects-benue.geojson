@@ -1,0 +1,114 @@
+{
+  "type": "FeatureCollection",
+  "name": "benue-lga-projects-demo",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              7.525,
+              6.4425
+            ],
+            [
+              8.308333,
+              6.4425
+            ],
+            [
+              8.308333,
+              8.1075
+            ],
+            [
+              7.525,
+              8.1075
+            ],
+            [
+              7.525,
+              6.4425
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "lga_id": "BE-LGA-1",
+        "lga_name": "Benue LGA 1",
+        "project_count": 11,
+        "total_value_kobo": 13750000000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              8.358333,
+              6.4425
+            ],
+            [
+              9.141667,
+              6.4425
+            ],
+            [
+              9.141667,
+              8.1075
+            ],
+            [
+              8.358333,
+              8.1075
+            ],
+            [
+              8.358333,
+              6.4425
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "lga_id": "BE-LGA-2",
+        "lga_name": "Benue LGA 2",
+        "project_count": 3,
+        "total_value_kobo": 3750000000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              9.191667,
+              6.4425
+            ],
+            [
+              9.975,
+              6.4425
+            ],
+            [
+              9.975,
+              8.1075
+            ],
+            [
+              9.191667,
+              8.1075
+            ],
+            [
+              9.191667,
+              6.4425
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "lga_id": "BE-LGA-3",
+        "lga_name": "Benue LGA 3",
+        "project_count": 3,
+        "total_value_kobo": 3750000000
+      }
+    }
+  ]
+}

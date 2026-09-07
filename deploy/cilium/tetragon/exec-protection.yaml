@@ -1,0 +1,64 @@
+# Tetragon: block unexpected execve in payment/ledger pods.
+# mod-rev-core, mod-mobility-switch (payment switching) and tigerbeetle
+# (ledger) run single static binaries — any interactive shell or
+# interpreter exec is anomalous and is killed (Sigkill) at the kernel.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: sos-block-unexpected-exec-payment-ledger
+spec:
+  kprobes:
+    - call: security_bprm_check
+      syscall: false
+      return: false
+      args:
+        - index: 0
+          type: linux_binprm
+      selectors:
+        - matchNamespaces:
+            - namespace: sos-data
+              operator: In
+          matchLabels:
+            - key: app.kubernetes.io/component
+              operator: In
+              values:
+                - tigerbeetle
+          matchBinaries:
+            - operator: NotIn
+              values:
+                - /tigerbeetle
+          matchActions:
+            - action: Sigkill
+---
+# Same enforcement for tenant-namespace payment/ledger services.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicyNamespaced
+metadata:
+  name: sos-block-unexpected-exec-modules
+  namespace: sos-tenant-default
+spec:
+  kprobes:
+    - call: security_bprm_check
+      syscall: false
+      return: false
+      args:
+        - index: 0
+          type: linux_binprm
+      selectors:
+        - matchLabels:
+            - key: app.kubernetes.io/component
+              operator: In
+              values:
+                - mod-rev-core
+                - mod-mobility-switch
+          matchBinaries:
+            - operator: NotIn
+              values:
+                - /app/mod-rev-core
+                - /usr/local/bin/mod-rev-core
+                - /app/mod-mobility-switch
+                - /usr/local/bin/mod-mobility-switch
+                - /sbin/tini
+                - /usr/bin/dumb-init
+          matchActions:
+            - action: Sigkill

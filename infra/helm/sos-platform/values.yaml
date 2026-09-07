@@ -15,6 +15,16 @@ global:
   postgresHost: sos-postgres-shared.sos-data
   policyPackPath: config/states/osun/policy-pack.json
 
+caddy:
+  enabled: false
+  image:
+    repository: ghcr.io/munisp/sos-caddy-edge
+    tag: "0.1.0"
+  service:
+    type: LoadBalancer
+    ports: {http: 80, https: 443}
+  # On-demand TLS gated by deploy/caddy/allowed_domains.json (generated from
+  # config/states/*/branding.json). Cert storage: per-release volume.
 apisix:
   enabled: true
   replicaCount: 2
@@ -252,6 +262,20 @@ modules:
     service:
       port: 8000
     env: {}
+    resources: {}
+  modMlInference:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-ml-inference
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env:
+      # fixture | production — production fails closed without
+      # SOS_ML_ARTIFACTS_DIR (+ SOS_MLFLOW_TRACKING_URI recommended)
+      SOS_ML_PROFILE: "fixture"
+      EVENT_BUS: "memory"
     resources: {}
   modMining:
     enabled: false

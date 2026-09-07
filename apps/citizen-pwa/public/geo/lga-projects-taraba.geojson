@@ -1,0 +1,114 @@
+{
+  "type": "FeatureCollection",
+  "name": "taraba-lga-projects-demo",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              9.422,
+              6.56
+            ],
+            [
+              10.111333,
+              6.56
+            ],
+            [
+              10.111333,
+              9.44
+            ],
+            [
+              9.422,
+              9.44
+            ],
+            [
+              9.422,
+              6.56
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "lga_id": "TA-LGA-1",
+        "lga_name": "Taraba LGA 1",
+        "project_count": 7,
+        "total_value_kobo": 8750000000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              10.155333,
+              6.56
+            ],
+            [
+              10.844667,
+              6.56
+            ],
+            [
+              10.844667,
+              9.44
+            ],
+            [
+              10.155333,
+              9.44
+            ],
+            [
+              10.155333,
+              6.56
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "lga_id": "TA-LGA-2",
+        "lga_name": "Taraba LGA 2",
+        "project_count": 7,
+        "total_value_kobo": 8750000000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              10.888667,
+              6.56
+            ],
+            [
+              11.578,
+              6.56
+            ],
+            [
+              11.578,
+              9.44
+            ],
+            [
+              10.888667,
+              9.44
+            ],
+            [
+              10.888667,
+              6.56
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "lga_id": "TA-LGA-3",
+        "lga_name": "Taraba LGA 3",
+        "project_count": 5,
+        "total_value_kobo": 6250000000
+      }
+    }
+  ]
+}

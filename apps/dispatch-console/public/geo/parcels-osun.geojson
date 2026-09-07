@@ -1,0 +1,240 @@
+{
+  "type": "FeatureCollection",
+  "name": "osun-cadastral-parcels-demo",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              4.166447,
+              7.758313
+            ],
+            [
+              4.191274,
+              7.758313
+            ],
+            [
+              4.191274,
+              7.803141
+            ],
+            [
+              4.166447,
+              7.803141
+            ],
+            [
+              4.166447,
+              7.758313
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "OS-PCL-0001",
+        "cofo_number": "OS-2024-018800",
+        "lga": "osun-lga-1",
+        "luc_band": "A1-COMMERCIAL",
+        "cofo_status": "VERIFIED",
+        "area_sqm": 13695133,
+        "height_m": 19
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              4.900784,
+              7.350208
+            ],
+            [
+              4.947502,
+              7.350208
+            ],
+            [
+              4.947502,
+              7.394073
+            ],
+            [
+              4.900784,
+              7.394073
+            ],
+            [
+              4.900784,
+              7.350208
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "OS-PCL-0002",
+        "cofo_number": "OS-2024-018807",
+        "lga": "osun-lga-2",
+        "luc_band": "B2-RESIDENTIAL",
+        "cofo_status": "PENDING",
+        "area_sqm": 25217094,
+        "height_m": 15
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              4.894289,
+              7.729441
+            ],
+            [
+              4.92181,
+              7.729441
+            ],
+            [
+              4.92181,
+              7.754102
+            ],
+            [
+              4.894289,
+              7.754102
+            ],
+            [
+              4.894289,
+              7.729441
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "OS-PCL-0003",
+        "cofo_number": "OS-2024-018814",
+        "lga": "osun-lga-3",
+        "luc_band": "C3-INDUSTRIAL",
+        "cofo_status": "VERIFIED",
+        "area_sqm": 8351898,
+        "height_m": 7
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              4.731623,
+              7.917495
+            ],
+            [
+              4.770163,
+              7.917495
+            ],
+            [
+              4.770163,
+              7.966034
+            ],
+            [
+              4.731623,
+              7.966034
+            ],
+            [
+              4.731623,
+              7.917495
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "OS-PCL-0004",
+        "cofo_number": "OS-2024-018821",
+        "lga": "osun-lga-1",
+        "luc_band": "A2-MIXED",
+        "cofo_status": "DISPUTED",
+        "area_sqm": 23019463,
+        "height_m": 20
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              4.674557,
+              7.512649
+            ],
+            [
+              4.697715,
+              7.512649
+            ],
+            [
+              4.697715,
+              7.547241
+            ],
+            [
+              4.674557,
+              7.547241
+            ],
+            [
+              4.674557,
+              7.512649
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "OS-PCL-0005",
+        "cofo_number": "OS-2024-018828",
+        "lga": "osun-lga-2",
+        "luc_band": "B1-RESIDENTIAL",
+        "cofo_status": "VERIFIED",
+        "area_sqm": 9857985,
+        "height_m": 6
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              4.812518,
+              7.27396
+            ],
+            [
+              4.852816,
+              7.27396
+            ],
+            [
+              4.852816,
+              7.295685
+            ],
+            [
+              4.812518,
+              7.295685
+            ],
+            [
+              4.812518,
+              7.27396
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "parcel_uin": "OS-PCL-0006",
+        "cofo_number": "OS-2024-018835",
+        "lga": "osun-lga-3",
+        "luc_band": "C1-AGRICULTURAL",
+        "cofo_status": "PENDING",
+        "area_sqm": 10772982,
+        "height_m": 29
+      }
+    }
+  ]
+}
