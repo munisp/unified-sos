@@ -175,6 +175,12 @@
       "topic": "ng.sos.safecity.face_match"
     },
     {
+      "channel": "ng.sos.tenant.branding_updated",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.tenant.branding_updated.json",
+      "topic": "ng.sos.tenant.branding_updated"
+    },
+    {
       "channel": "ng.sos.tenant.provisioned",
       "contract": "platform-events.yaml",
       "schema": "schemas/ng.sos.tenant.provisioned.json",

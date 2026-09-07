@@ -307,3 +307,19 @@ six-state edition), the platform now covers the national scope:
 Residual (external, by design): gazetted fee instruments replace derived
 placeholders at state onboarding; live exchange/RFID/Sedona/AIS bindings are
 fail-closed adapter seams pending certification.
+
+## 13. Stage 10 update — Whitelabel, custom domains & state self-management
+
+Each state now runs the platform as its own product:
+
+| Capability | Delivery |
+|---|---|
+| Whitelabel branding | `GET/PUT /cp/v1/tenants/{state}/branding` (public read, admin-token write, fail-closed); 37 seeded `branding.json` (name, muted per-state palette, locales ha/yo/ig + en); hash-chained audit + `ng.sos.tenant.branding_updated` event |
+| Custom domains | Per-state `sos.<state>state.gov.ng` registry + `POST /cp/v1/domains/verify` host→tenant resolution for gateway routing; sosctl tenant bundles now emit `ingress/host-routing.json` + branding seed |
+| Frontend whitelabel | Citizen PWA (20/20) & dispatch console (29/29) consume branding: CSS vars, title, favicon, monogram, footer contacts/domain, default locale, "Powered by SOS" attribution |
+| Data ownership | (pre-existing, re-affirmed) schema-per-tenant RLS, per-state KMS keys, dedicated-tier physical isolation, per-state Keycloak realm, hash-chained per-tenant audit |
+
+Validation: control-plane 73 passed / 4 pre-existing skips, sosctl 39 passed,
+both frontends rebuilt green, registry 36 artifacts in sync, 37 packs + infra
+gates green. Residual: DNS/certificate issuance per state domain (operational),
+build-time PWA manifest override for installed-app naming.
