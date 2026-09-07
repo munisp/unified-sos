@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "oyo",
+  "display_name": "Oyo State",
+  "portal_title": "Oyo State One-Gov Portal",
+  "tagline": "One portal for all Oyo State government services.",
+  "primary_color": "#77417f",
+  "secondary_color": "#a86f8a",
+  "logo_url": "/branding/oyo/logo.svg",
+  "favicon_url": "/branding/oyo/favicon.ico",
+  "support_email": "support@sos.oyostate.gov.ng",
+  "support_phone": "+234 700 000 0031",
+  "custom_domain": "sos.oyostate.gov.ng",
+  "locales": [
+    "yo",
+    "en"
+  ],
+  "default_locale": "yo",
+  "pwa_theme_color": "#77417f",
+  "pwa_name": "Oyo State SOS"
+}

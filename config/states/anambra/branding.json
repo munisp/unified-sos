@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "anambra",
+  "display_name": "Anambra State",
+  "portal_title": "Anambra State One-Gov Portal",
+  "tagline": "One portal for all Anambra State government services.",
+  "primary_color": "#7f6041",
+  "secondary_color": "#a0a86f",
+  "logo_url": "/branding/anambra/logo.svg",
+  "favicon_url": "/branding/anambra/favicon.ico",
+  "support_email": "support@sos.anambrastate.gov.ng",
+  "support_phone": "+234 700 000 0004",
+  "custom_domain": "sos.anambrastate.gov.ng",
+  "locales": [
+    "ig",
+    "en"
+  ],
+  "default_locale": "ig",
+  "pwa_theme_color": "#7f6041",
+  "pwa_name": "Anambra State SOS"
+}

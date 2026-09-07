@@ -513,3 +513,22 @@ channels:
             severity: { type: string, enum: [low, medium, high, critical] }
             details: { type: string, nullable: true }
             timestamp: { type: string, format: date-time }
+  ng.sos.tenant.branding_updated:
+    publish:
+      operationId: tenantBrandingUpdated
+      description: >-
+        Emitted by the control plane when a state tenant's whitelabel branding
+        record (display name, portal title, colors, logo, custom domain,
+        locales) is updated. Consumers (portal frontends, API gateway host
+        routing, PWA manifests) refresh their cached branding. Carries the
+        hash-chain audit link of the branding update — metadata only, zero
+        citizen PII.
+      message:
+        payload:
+          type: object
+          required: [state_id, updated_by, entry_hash, timestamp]
+          properties:
+            state_id: { type: string, description: Tenant state id (e.g. lagos) }
+            updated_by: { type: string, description: Actor identity from the admin token subject }
+            entry_hash: { type: string, description: Hash-chain link of the branding audit entry }
+            timestamp: { type: string, format: date-time }

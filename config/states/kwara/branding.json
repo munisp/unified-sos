@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "kwara",
+  "display_name": "Kwara State",
+  "portal_title": "Kwara State One-Gov Portal",
+  "tagline": "One portal for all Kwara State government services.",
+  "primary_color": "#41527f",
+  "secondary_color": "#866fa8",
+  "logo_url": "/branding/kwara/logo.svg",
+  "favicon_url": "/branding/kwara/favicon.ico",
+  "support_email": "support@sos.kwarastate.gov.ng",
+  "support_phone": "+234 700 000 0024",
+  "custom_domain": "sos.kwarastate.gov.ng",
+  "locales": [
+    "ha",
+    "en"
+  ],
+  "default_locale": "ha",
+  "pwa_theme_color": "#41527f",
+  "pwa_name": "Kwara State SOS"
+}

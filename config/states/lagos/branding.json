@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "lagos",
+  "display_name": "Lagos State",
+  "portal_title": "Lagos State One-Gov Portal",
+  "tagline": "One portal for all Lagos State government services.",
+  "primary_color": "#41487f",
+  "secondary_color": "#8f6fa8",
+  "logo_url": "/branding/lagos/logo.svg",
+  "favicon_url": "/branding/lagos/favicon.ico",
+  "support_email": "support@sos.lagosstate.gov.ng",
+  "support_phone": "+234 700 000 0025",
+  "custom_domain": "sos.lagosstate.gov.ng",
+  "locales": [
+    "yo",
+    "en"
+  ],
+  "default_locale": "yo",
+  "pwa_theme_color": "#41487f",
+  "pwa_name": "Lagos State SOS"
+}

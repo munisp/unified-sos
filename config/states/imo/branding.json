@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "imo",
+  "display_name": "Imo State",
+  "portal_title": "Imo State One-Gov Portal",
+  "tagline": "One portal for all Imo State government services.",
+  "primary_color": "#417f66",
+  "secondary_color": "#6f99a8",
+  "logo_url": "/branding/imo/logo.svg",
+  "favicon_url": "/branding/imo/favicon.ico",
+  "support_email": "support@sos.imostate.gov.ng",
+  "support_phone": "+234 700 000 0017",
+  "custom_domain": "sos.imostate.gov.ng",
+  "locales": [
+    "ig",
+    "en"
+  ],
+  "default_locale": "ig",
+  "pwa_theme_color": "#417f66",
+  "pwa_name": "Imo State SOS"
+}

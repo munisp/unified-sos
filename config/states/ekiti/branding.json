@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "ekiti",
+  "display_name": "Ekiti State",
+  "portal_title": "Ekiti State One-Gov Portal",
+  "tagline": "One portal for all Ekiti State government services.",
+  "primary_color": "#457f41",
+  "secondary_color": "#6fa892",
+  "logo_url": "/branding/ekiti/logo.svg",
+  "favicon_url": "/branding/ekiti/favicon.ico",
+  "support_email": "support@sos.ekitistate.gov.ng",
+  "support_phone": "+234 700 000 0013",
+  "custom_domain": "sos.ekitistate.gov.ng",
+  "locales": [
+    "yo",
+    "en"
+  ],
+  "default_locale": "yo",
+  "pwa_theme_color": "#457f41",
+  "pwa_name": "Ekiti State SOS"
+}

@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "adamawa",
+  "display_name": "Adamawa State",
+  "portal_title": "Adamawa State One-Gov Portal",
+  "tagline": "One portal for all Adamawa State government services.",
+  "primary_color": "#7f4b41",
+  "secondary_color": "#a89f6f",
+  "logo_url": "/branding/adamawa/logo.svg",
+  "favicon_url": "/branding/adamawa/favicon.ico",
+  "support_email": "support@sos.adamawastate.gov.ng",
+  "support_phone": "+234 700 000 0002",
+  "custom_domain": "sos.adamawastate.gov.ng",
+  "locales": [
+    "ha",
+    "en"
+  ],
+  "default_locale": "ha",
+  "pwa_theme_color": "#7f4b41",
+  "pwa_name": "Adamawa State SOS"
+}

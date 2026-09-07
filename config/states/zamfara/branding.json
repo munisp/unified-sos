@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "zamfara",
+  "display_name": "Zamfara State",
+  "portal_title": "Zamfara State One-Gov Portal",
+  "tagline": "One portal for all Zamfara State government services.",
+  "primary_color": "#7f414b",
+  "secondary_color": "#a88c6f",
+  "logo_url": "/branding/zamfara/logo.svg",
+  "favicon_url": "/branding/zamfara/favicon.ico",
+  "support_email": "support@sos.zamfarastate.gov.ng",
+  "support_phone": "+234 700 000 0037",
+  "custom_domain": "sos.zamfarastate.gov.ng",
+  "locales": [
+    "ha",
+    "en"
+  ],
+  "default_locale": "ha",
+  "pwa_theme_color": "#7f414b",
+  "pwa_name": "Zamfara State SOS"
+}

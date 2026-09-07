@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "ebonyi",
+  "display_name": "Ebonyi State",
+  "portal_title": "Ebonyi State One-Gov Portal",
+  "tagline": "One portal for all Ebonyi State government services.",
+  "primary_color": "#597f41",
+  "secondary_color": "#6fa880",
+  "logo_url": "/branding/ebonyi/logo.svg",
+  "favicon_url": "/branding/ebonyi/favicon.ico",
+  "support_email": "support@sos.ebonyistate.gov.ng",
+  "support_phone": "+234 700 000 0011",
+  "custom_domain": "sos.ebonyistate.gov.ng",
+  "locales": [
+    "ig",
+    "en"
+  ],
+  "default_locale": "ig",
+  "pwa_theme_color": "#597f41",
+  "pwa_name": "Ebonyi State SOS"
+}

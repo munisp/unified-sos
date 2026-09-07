@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "plateau",
+  "display_name": "Plateau State",
+  "portal_title": "Plateau State One-Gov Portal",
+  "tagline": "One portal for all Plateau State government services.",
+  "primary_color": "#7f417e",
+  "secondary_color": "#a86f81",
+  "logo_url": "/branding/plateau/logo.svg",
+  "favicon_url": "/branding/plateau/favicon.ico",
+  "support_email": "support@sos.plateaustate.gov.ng",
+  "support_phone": "+234 700 000 0032",
+  "custom_domain": "sos.plateaustate.gov.ng",
+  "locales": [
+    "ha",
+    "en"
+  ],
+  "default_locale": "ha",
+  "pwa_theme_color": "#7f417e",
+  "pwa_name": "Plateau State SOS"
+}

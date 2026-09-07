@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "ondo",
+  "display_name": "Ondo State",
+  "portal_title": "Ondo State One-Gov Portal",
+  "tagline": "One portal for all Ondo State government services.",
+  "primary_color": "#63417f",
+  "secondary_color": "#a86f9d",
+  "logo_url": "/branding/ondo/logo.svg",
+  "favicon_url": "/branding/ondo/favicon.ico",
+  "support_email": "support@sos.ondostate.gov.ng",
+  "support_phone": "+234 700 000 0029",
+  "custom_domain": "sos.ondostate.gov.ng",
+  "locales": [
+    "yo",
+    "en"
+  ],
+  "default_locale": "yo",
+  "pwa_theme_color": "#63417f",
+  "pwa_name": "Ondo State SOS"
+}

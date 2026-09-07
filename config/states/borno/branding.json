@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "borno",
+  "display_name": "Borno State",
+  "portal_title": "Borno State One-Gov Portal",
+  "tagline": "One portal for all Borno State government services.",
+  "primary_color": "#777f41",
+  "secondary_color": "#7aa86f",
+  "logo_url": "/branding/borno/logo.svg",
+  "favicon_url": "/branding/borno/favicon.ico",
+  "support_email": "support@sos.bornostate.gov.ng",
+  "support_phone": "+234 700 000 0008",
+  "custom_domain": "sos.bornostate.gov.ng",
+  "locales": [
+    "ha",
+    "en"
+  ],
+  "default_locale": "ha",
+  "pwa_theme_color": "#777f41",
+  "pwa_name": "Borno State SOS"
+}

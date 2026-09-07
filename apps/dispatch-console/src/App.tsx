@@ -7,7 +7,23 @@ import { SloBanner } from './components/SloBanner';
 import { StreamViewer } from './components/StreamViewer';
 import { TrustFundPanel } from './components/TrustFundPanel';
 import { UnitRoster } from './components/UnitRoster';
+import { useBranding } from './lib/branding';
 import { ConsoleProvider, useConsole } from './lib/store';
+
+function BrandFooter() {
+  const { stateId } = useConsole();
+  const brandingResult = useBranding(stateId);
+  if (!brandingResult) return null;
+  const b = brandingResult.branding;
+  return (
+    <footer className="app-footer">
+      <span>
+        Support: <a href={`mailto:${b.support_email}`}>{b.support_email}</a> · {b.support_phone}
+      </span>
+      <span className="muted">{b.custom_domain} — Powered by SOS</span>
+    </footer>
+  );
+}
 
 function ConsoleBody() {
   const { loading } = useConsole();
@@ -42,6 +58,7 @@ export default function App() {
       <div className="app-shell">
         <Header />
         <ConsoleBody />
+        <BrandFooter />
       </div>
     </ConsoleProvider>
   );

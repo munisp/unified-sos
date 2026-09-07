@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "kaduna",
+  "display_name": "Kaduna State",
+  "portal_title": "Kaduna State One-Gov Portal",
+  "tagline": "One portal for all Kaduna State government services.",
+  "primary_color": "#417f7a",
+  "secondary_color": "#6f87a8",
+  "logo_url": "/branding/kaduna/logo.svg",
+  "favicon_url": "/branding/kaduna/favicon.ico",
+  "support_email": "support@sos.kadunastate.gov.ng",
+  "support_phone": "+234 700 000 0019",
+  "custom_domain": "sos.kadunastate.gov.ng",
+  "locales": [
+    "ha",
+    "en"
+  ],
+  "default_locale": "ha",
+  "pwa_theme_color": "#417f7a",
+  "pwa_name": "Kaduna State SOS"
+}

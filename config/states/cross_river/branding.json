@@ -1,0 +1,19 @@
+{
+  "tenant_state_id": "cross_river",
+  "display_name": "Cross River State",
+  "portal_title": "Cross River State One-Gov Portal",
+  "tagline": "One portal for all Cross River State government services.",
+  "primary_color": "#6d7f41",
+  "secondary_color": "#71a86f",
+  "logo_url": "/branding/cross_river/logo.svg",
+  "favicon_url": "/branding/cross_river/favicon.ico",
+  "support_email": "support@sos.crossriverstate.gov.ng",
+  "support_phone": "+234 700 000 0009",
+  "custom_domain": "sos.crossriverstate.gov.ng",
+  "locales": [
+    "en"
+  ],
+  "default_locale": "en",
+  "pwa_theme_color": "#6d7f41",
+  "pwa_name": "Cross River State SOS"
+}

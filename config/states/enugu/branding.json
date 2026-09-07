@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "enugu",
+  "display_name": "Enugu State",
+  "portal_title": "Enugu State One-Gov Portal",
+  "tagline": "One portal for all Enugu State government services.",
+  "primary_color": "#417f48",
+  "secondary_color": "#6fa89c",
+  "logo_url": "/branding/enugu/logo.svg",
+  "favicon_url": "/branding/enugu/favicon.ico",
+  "support_email": "support@sos.enugustate.gov.ng",
+  "support_phone": "+234 700 000 0014",
+  "custom_domain": "sos.enugustate.gov.ng",
+  "locales": [
+    "ig",
+    "en"
+  ],
+  "default_locale": "ig",
+  "pwa_theme_color": "#417f48",
+  "pwa_name": "Enugu State SOS"
+}

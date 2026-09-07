@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "osun",
+  "display_name": "Osun State",
+  "portal_title": "Osun State One-Gov Portal",
+  "tagline": "One portal for all Osun State government services.",
+  "primary_color": "#6d417f",
+  "secondary_color": "#a86f93",
+  "logo_url": "/branding/osun/logo.svg",
+  "favicon_url": "/branding/osun/favicon.ico",
+  "support_email": "support@sos.osunstate.gov.ng",
+  "support_phone": "+234 700 000 0030",
+  "custom_domain": "sos.osunstate.gov.ng",
+  "locales": [
+    "yo",
+    "en"
+  ],
+  "default_locale": "yo",
+  "pwa_theme_color": "#6d417f",
+  "pwa_name": "Osun State SOS"
+}

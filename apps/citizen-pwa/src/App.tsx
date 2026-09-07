@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { isDemoMode, onDemoModeChange } from './lib/api';
+import { isPlaceholderLogo, monogram, useBranding } from './lib/branding';
 import { useHashRoute, Link } from './lib/router';
 import { useAppStore } from './lib/store';
 import { STATES } from './lib/types';
@@ -23,11 +24,16 @@ const NAV = [
 
 export function App() {
   const route = useHashRoute();
-  const { stateId } = useAppStore();
+  const { stateId, applyDefaultLocale } = useAppStore();
+  const brandingResult = useBranding(stateId);
   const [demo, setDemo] = useState(isDemoMode());
   const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
 
   useEffect(() => onDemoModeChange(setDemo), []);
+  // Honor the tenant's default locale until the user picks a language.
+  useEffect(() => {
+    if (brandingResult) applyDefaultLocale(brandingResult.branding.default_locale);
+  }, [brandingResult, applyDefaultLocale]);
   useEffect(() => {
     const on = () => setOnline(true);
     const off = () => setOnline(false);
@@ -58,8 +64,17 @@ export function App() {
       <a href="#main" className="sr-only">Skip to content</a>
       <header className="app-header">
         <span className="brand">
-          <img src="/icons/icon.svg" alt="" width={28} height={28} />
-          SOS Citizen
+          {brandingResult && !isPlaceholderLogo(brandingResult.branding) ? (
+            <img src={brandingResult.branding.logo_url} alt="" width={28} height={28} />
+          ) : (
+            <span className="brand-monogram" aria-hidden="true" data-testid="brand-monogram">
+              {brandingResult ? monogram(brandingResult.branding.display_name) : 'SOS'}
+            </span>
+          )}
+          <span className="brand-text">
+            {brandingResult ? brandingResult.branding.portal_title : 'SOS Citizen'}
+            {brandingResult && <span className="brand-tagline">{brandingResult.branding.tagline}</span>}
+          </span>
         </span>
         <Link to="/profile" className="state-chip" style={{ textTransform: 'capitalize' }}>
           {state?.name ?? stateId}
@@ -76,6 +91,18 @@ export function App() {
         </p>
       )}
       <main id="main">{screen}</main>
+      {brandingResult && (
+        <footer className="app-footer">
+          <span>
+            Support:{' '}
+            <a href={`mailto:${brandingResult.branding.support_email}`}>
+              {brandingResult.branding.support_email}
+            </a>{' '}
+            · {brandingResult.branding.support_phone}
+          </span>
+          <span className="muted small">{brandingResult.branding.custom_domain}</span>
+        </footer>
+      )}
       <nav className="app-nav" aria-label="Primary">
         {NAV.map((n) => (
           <Link key={n.to} to={n.to} aria-current={n.match.test(route) ? 'page' : undefined}>

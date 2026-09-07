@@ -1,0 +1,19 @@
+{
+  "tenant_state_id": "bayelsa",
+  "display_name": "Bayelsa State",
+  "portal_title": "Bayelsa State One-Gov Portal",
+  "tagline": "One portal for all Bayelsa State government services.",
+  "primary_color": "#7f7441",
+  "secondary_color": "#8da86f",
+  "logo_url": "/branding/bayelsa/logo.svg",
+  "favicon_url": "/branding/bayelsa/favicon.ico",
+  "support_email": "support@sos.bayelsastate.gov.ng",
+  "support_phone": "+234 700 000 0006",
+  "custom_domain": "sos.bayelsastate.gov.ng",
+  "locales": [
+    "en"
+  ],
+  "default_locale": "en",
+  "pwa_theme_color": "#7f7441",
+  "pwa_name": "Bayelsa State SOS"
+}

@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "nasarawa",
+  "display_name": "Nasarawa State",
+  "portal_title": "Nasarawa State One-Gov Portal",
+  "tagline": "One portal for all Nasarawa State government services.",
+  "primary_color": "#45417f",
+  "secondary_color": "#986fa8",
+  "logo_url": "/branding/nasarawa/logo.svg",
+  "favicon_url": "/branding/nasarawa/favicon.ico",
+  "support_email": "support@sos.nasarawastate.gov.ng",
+  "support_phone": "+234 700 000 0026",
+  "custom_domain": "sos.nasarawastate.gov.ng",
+  "locales": [
+    "ha",
+    "en"
+  ],
+  "default_locale": "ha",
+  "pwa_theme_color": "#45417f",
+  "pwa_name": "Nasarawa State SOS"
+}

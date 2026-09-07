@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "jigawa",
+  "display_name": "Jigawa State",
+  "portal_title": "Jigawa State One-Gov Portal",
+  "tagline": "One portal for all Jigawa State government services.",
+  "primary_color": "#417f70",
+  "secondary_color": "#6f90a8",
+  "logo_url": "/branding/jigawa/logo.svg",
+  "favicon_url": "/branding/jigawa/favicon.ico",
+  "support_email": "support@sos.jigawastate.gov.ng",
+  "support_phone": "+234 700 000 0018",
+  "custom_domain": "sos.jigawastate.gov.ng",
+  "locales": [
+    "ha",
+    "en"
+  ],
+  "default_locale": "ha",
+  "pwa_theme_color": "#417f70",
+  "pwa_name": "Jigawa State SOS"
+}

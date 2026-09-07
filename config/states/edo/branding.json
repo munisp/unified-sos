@@ -1,0 +1,19 @@
+{
+  "tenant_state_id": "edo",
+  "display_name": "Edo State",
+  "portal_title": "Edo State One-Gov Portal",
+  "tagline": "One portal for all Edo State government services.",
+  "primary_color": "#4f7f41",
+  "secondary_color": "#6fa889",
+  "logo_url": "/branding/edo/logo.svg",
+  "favicon_url": "/branding/edo/favicon.ico",
+  "support_email": "support@sos.edostate.gov.ng",
+  "support_phone": "+234 700 000 0012",
+  "custom_domain": "sos.edostate.gov.ng",
+  "locales": [
+    "en"
+  ],
+  "default_locale": "en",
+  "pwa_theme_color": "#4f7f41",
+  "pwa_name": "Edo State SOS"
+}

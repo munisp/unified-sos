@@ -1,0 +1,19 @@
+{
+  "tenant_state_id": "akwa_ibom",
+  "display_name": "Akwa Ibom State",
+  "portal_title": "Akwa Ibom State One-Gov Portal",
+  "tagline": "One portal for all Akwa Ibom State government services.",
+  "primary_color": "#7f5641",
+  "secondary_color": "#a8a86f",
+  "logo_url": "/branding/akwa_ibom/logo.svg",
+  "favicon_url": "/branding/akwa_ibom/favicon.ico",
+  "support_email": "support@sos.akwaibomstate.gov.ng",
+  "support_phone": "+234 700 000 0003",
+  "custom_domain": "sos.akwaibomstate.gov.ng",
+  "locales": [
+    "en"
+  ],
+  "default_locale": "en",
+  "pwa_theme_color": "#7f5641",
+  "pwa_name": "Akwa Ibom State SOS"
+}

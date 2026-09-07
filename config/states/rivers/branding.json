@@ -1,0 +1,19 @@
+{
+  "tenant_state_id": "rivers",
+  "display_name": "Rivers State",
+  "portal_title": "Rivers State One-Gov Portal",
+  "tagline": "One portal for all Rivers State government services.",
+  "primary_color": "#7f4174",
+  "secondary_color": "#a86f77",
+  "logo_url": "/branding/rivers/logo.svg",
+  "favicon_url": "/branding/rivers/favicon.ico",
+  "support_email": "support@sos.riversstate.gov.ng",
+  "support_phone": "+234 700 000 0033",
+  "custom_domain": "sos.riversstate.gov.ng",
+  "locales": [
+    "en"
+  ],
+  "default_locale": "en",
+  "pwa_theme_color": "#7f4174",
+  "pwa_name": "Rivers State SOS"
+}

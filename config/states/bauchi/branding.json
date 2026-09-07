@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "bauchi",
+  "display_name": "Bauchi State",
+  "portal_title": "Bauchi State One-Gov Portal",
+  "tagline": "One portal for all Bauchi State government services.",
+  "primary_color": "#7f6a41",
+  "secondary_color": "#96a86f",
+  "logo_url": "/branding/bauchi/logo.svg",
+  "favicon_url": "/branding/bauchi/favicon.ico",
+  "support_email": "support@sos.bauchistate.gov.ng",
+  "support_phone": "+234 700 000 0005",
+  "custom_domain": "sos.bauchistate.gov.ng",
+  "locales": [
+    "ha",
+    "en"
+  ],
+  "default_locale": "ha",
+  "pwa_theme_color": "#7f6a41",
+  "pwa_name": "Bauchi State SOS"
+}

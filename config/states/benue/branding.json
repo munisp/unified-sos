@@ -1,0 +1,19 @@
+{
+  "tenant_state_id": "benue",
+  "display_name": "Benue State",
+  "portal_title": "Benue State One-Gov Portal",
+  "tagline": "One portal for all Benue State government services.",
+  "primary_color": "#7f7e41",
+  "secondary_color": "#84a86f",
+  "logo_url": "/branding/benue/logo.svg",
+  "favicon_url": "/branding/benue/favicon.ico",
+  "support_email": "support@sos.benuestate.gov.ng",
+  "support_phone": "+234 700 000 0007",
+  "custom_domain": "sos.benuestate.gov.ng",
+  "locales": [
+    "en"
+  ],
+  "default_locale": "en",
+  "pwa_theme_color": "#7f7e41",
+  "pwa_name": "Benue State SOS"
+}

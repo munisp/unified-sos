@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "katsina",
+  "display_name": "Katsina State",
+  "portal_title": "Katsina State One-Gov Portal",
+  "tagline": "One portal for all Katsina State government services.",
+  "primary_color": "#41707f",
+  "secondary_color": "#6f74a8",
+  "logo_url": "/branding/katsina/logo.svg",
+  "favicon_url": "/branding/katsina/favicon.ico",
+  "support_email": "support@sos.katsinastate.gov.ng",
+  "support_phone": "+234 700 000 0021",
+  "custom_domain": "sos.katsinastate.gov.ng",
+  "locales": [
+    "ha",
+    "en"
+  ],
+  "default_locale": "ha",
+  "pwa_theme_color": "#41707f",
+  "pwa_name": "Katsina State SOS"
+}

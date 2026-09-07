@@ -24,6 +24,29 @@ Supported states (fixed list, no tenant enumeration): lagos, ogun, osun, benue, 
 - Low-saturation warm palette, mobile-first, semantic HTML, skip link, focus rings.
 - Naira formatting with kobo→naira conversion (`src/lib/format.ts`).
 - i18n seam: English complete; `yo`, `ha`, `ig` stubbed with English fallback (`src/lib/i18n.ts`).
+  The tenant branding record's `default_locale` seeds the initial language until the user
+  picks one (`applyDefaultLocale` in `src/lib/store.tsx`).
+
+## Whitelabeling
+
+Per-state branding is resolved at runtime by `src/lib/branding.tsx`:
+
+- **Live mode**: `GET {VITE_API_BASE_URL}/cp/v1/tenants/{state}/branding` returns the
+  tenant record (display name, portal title, tagline, colors, logo/favicon, support
+  contacts, custom domain, locales, PWA name/theme color).
+- **Demo/fallback**: any fetch failure (or unset `VITE_API_BASE_URL`) yields the
+  deterministic per-state fixture, so the portal is always branded — demo mode never
+  depends on the backend.
+- Applied surfaces: CSS custom properties (`--brand-primary`, `--brand-secondary`;
+  the accent palette consumes them), `document.title`, favicon link,
+  `<meta name="theme-color">`, header monogram (initials when the logo is a
+  placeholder), footer support contacts, and the initial locale.
+- **Static-manifest limitation**: the installable web app manifest
+  (`name`, `short_name`, `theme_color` in `vite.config.ts`) is generated at build time
+  and cannot be rewritten by the client. Runtime branding updates
+  `<meta name="theme-color">` and the document title, which browsers prefer for the
+  UI chrome, but the installed-app label keeps the build-time `SOS Citizen` default
+  unless the deployment builds with per-tenant manifest overrides.
 - USSD parity: every screen shows the state's USSD shortcode as a feature-phone alternative.
 - Screens: state selector, service catalog by category, service request flow with offline
   queue, "My requests" status tracking + sync, payments (stub FSPIOP quote → confirm),

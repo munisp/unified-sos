@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "ogun",
+  "display_name": "Ogun State",
+  "portal_title": "Ogun State One-Gov Portal",
+  "tagline": "One portal for all Ogun State government services.",
+  "primary_color": "#59417f",
+  "secondary_color": "#a86fa6",
+  "logo_url": "/branding/ogun/logo.svg",
+  "favicon_url": "/branding/ogun/favicon.ico",
+  "support_email": "support@sos.ogunstate.gov.ng",
+  "support_phone": "+234 700 000 0028",
+  "custom_domain": "sos.ogunstate.gov.ng",
+  "locales": [
+    "yo",
+    "en"
+  ],
+  "default_locale": "yo",
+  "pwa_theme_color": "#59417f",
+  "pwa_name": "Ogun State SOS"
+}

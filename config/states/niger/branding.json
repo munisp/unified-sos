@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "niger",
+  "display_name": "Niger State",
+  "portal_title": "Niger State One-Gov Portal",
+  "tagline": "One portal for all Niger State government services.",
+  "primary_color": "#4f417f",
+  "secondary_color": "#a26fa8",
+  "logo_url": "/branding/niger/logo.svg",
+  "favicon_url": "/branding/niger/favicon.ico",
+  "support_email": "support@sos.nigerstate.gov.ng",
+  "support_phone": "+234 700 000 0027",
+  "custom_domain": "sos.nigerstate.gov.ng",
+  "locales": [
+    "ha",
+    "en"
+  ],
+  "default_locale": "ha",
+  "pwa_theme_color": "#4f417f",
+  "pwa_name": "Niger State SOS"
+}

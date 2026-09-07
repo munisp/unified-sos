@@ -1,4 +1,6 @@
-/* SOS Citizen — low-saturation warm palette, mobile-first. */
+/* SOS Citizen — low-saturation warm palette, mobile-first.
+   Whitelabel: --brand-primary / --brand-secondary are injected at runtime by
+   src/lib/branding.tsx per tenant; the accent palette consumes them. */
 :root {
   --bg: #faf6ef;
   --surface: #ffffff;
@@ -6,8 +8,10 @@
   --ink: #33291f;
   --ink-muted: #6f6154;
   --line: #e3d9c9;
-  --accent: #8c5230; /* clay */
-  --accent-strong: #6f3e22;
+  --brand-primary: #8c5230; /* clay (fallback tenant brand) */
+  --brand-secondary: #6f3e22;
+  --accent: var(--brand-primary);
+  --accent-strong: var(--brand-secondary);
   --accent-soft: #f0e2d4;
   --ok: #3f6b4a;
   --ok-soft: #e2ecdf;
@@ -84,6 +88,32 @@ label { display: block; font-weight: 600; margin-bottom: 0.35rem; }
   z-index: 10;
 }
 .app-header .brand { font-weight: 700; font-size: 1.05rem; display: flex; align-items: center; gap: 0.5rem; }
+.brand-monogram {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--brand-primary);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  flex: none;
+}
+.brand-text { display: flex; flex-direction: column; line-height: 1.2; }
+.brand-tagline { font-size: 0.72rem; font-weight: 400; color: var(--ink-muted); }
+.app-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+  padding: 0.75rem 1rem 6rem;
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+  border-top: 1px solid var(--line);
+}
 .app-header .state-chip {
   margin-left: auto;
   background: var(--accent-soft);

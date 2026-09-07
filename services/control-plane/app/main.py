@@ -12,6 +12,7 @@ import os
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from pydantic import BaseModel
 
+from .branding import Branding, BrandingRegistry
 from .domain import (
     MetadataStore,
     PolicyPackRecord,
@@ -90,6 +91,10 @@ class SuspendRequest(BaseModel):
     reason: str
 
 
+class DomainVerifyRequest(BaseModel):
+    custom_domain: str
+
+
 def get_store(request: Request) -> MetadataStore:
     return request.app.state.store
 
@@ -118,7 +123,36 @@ except ImportError:
         _instrument_fastapi = None
 
 
-def create_app(store: MetadataStore | None = None) -> FastAPI:
+def require_admin(request: Request) -> str:
+    """Admin gate for mutating branding endpoints.
+
+    The token comes from ``SOS_CP_ADMIN_TOKEN`` and is presented in the
+    ``X-Admin-Token`` header. Fail-closed: when the production profile is
+    active (``SOS_PROFILE=production``) and the token is unset, every admin
+    call is rejected with 403 rather than silently open.
+    """
+    expected = os.environ.get("SOS_CP_ADMIN_TOKEN", "")
+    profile = os.environ.get("SOS_PROFILE", "dev")
+    if not expected:
+        if profile == "production":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="SOS_CP_ADMIN_TOKEN is not configured (fail-closed in production)",
+            )
+        return "dev-admin"  # local/dev profile: no token configured, allow
+    presented = request.headers.get("x-admin-token", "")
+    if presented != expected:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="invalid or missing X-Admin-Token")
+    return presented
+
+
+def get_branding(request: Request) -> BrandingRegistry:
+    return request.app.state.branding
+
+
+def create_app(store: MetadataStore | None = None,
+               branding: BrandingRegistry | None = None) -> FastAPI:
     app = FastAPI(
         title="SOS Control Plane — Tenant Provisioning API",
         version="1.0.0",
@@ -133,6 +167,7 @@ def create_app(store: MetadataStore | None = None) -> FastAPI:
             archive=archive_from_env(),
         )
     app.state.store = store
+    app.state.branding = branding if branding is not None else BrandingRegistry()
     app.add_middleware(PiiGuardMiddleware)
 
     @app.post(
@@ -201,6 +236,49 @@ def create_app(store: MetadataStore | None = None) -> FastAPI:
         """Append-only audit feed (production: OpenSearch immutable archive, 7y)."""
         events = store.audit_events()
         return {"count": len(events), "events": [e.model_dump() for e in events]}
+
+    # --- Per-state whitelabel branding (app/branding.py) -------------------
+    @app.get("/cp/v1/tenants/{state}/branding", response_model=Branding)
+    def get_tenant_branding(state: str,
+                            registry: BrandingRegistry = Depends(get_branding)) -> Branding:
+        """PUBLIC read — frontends fetch effective branding unauthenticated."""
+        record = registry.get(state)
+        if record is None:
+            raise HTTPException(status_code=404, detail=f"no branding for tenant '{state}'")
+        return record
+
+    @app.put("/cp/v1/tenants/{state}/branding", response_model=Branding)
+    def put_tenant_branding(state: str, record: Branding,
+                            registry: BrandingRegistry = Depends(get_branding),
+                            _admin: str = Depends(require_admin),
+                            actor_name: str = Depends(actor)) -> Branding:
+        """Admin update: runtime override over the GitOps-seeded record.
+
+        Every update is appended to the hash-chained branding audit log and
+        published as ``ng.sos.tenant.branding_updated``.
+        """
+        try:
+            registry.update(state, record, actor=f"{actor_name}")
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+        return record
+
+    @app.get("/cp/v1/branding", response_model=list[Branding])
+    def list_branding(registry: BrandingRegistry = Depends(get_branding)) -> list[Branding]:
+        """List effective branding for every registered tenant."""
+        return registry.list_all()
+
+    @app.post("/cp/v1/domains/verify")
+    def verify_domain(req: DomainVerifyRequest,
+                      registry: BrandingRegistry = Depends(get_branding)) -> dict:
+        """Gateway host-routing lookup: custom_domain -> tenant_state_id."""
+        state_id = registry.verify_domain(req.custom_domain)
+        if state_id is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"custom_domain '{req.custom_domain}' is not registered to any tenant",
+            )
+        return {"custom_domain": req.custom_domain.strip().lower(), "tenant_state_id": state_id}
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:

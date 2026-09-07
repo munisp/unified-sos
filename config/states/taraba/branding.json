@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "taraba",
+  "display_name": "Taraba State",
+  "portal_title": "Taraba State One-Gov Portal",
+  "tagline": "One portal for all Taraba State government services.",
+  "primary_color": "#7f4160",
+  "secondary_color": "#a8796f",
+  "logo_url": "/branding/taraba/logo.svg",
+  "favicon_url": "/branding/taraba/favicon.ico",
+  "support_email": "support@sos.tarabastate.gov.ng",
+  "support_phone": "+234 700 000 0035",
+  "custom_domain": "sos.tarabastate.gov.ng",
+  "locales": [
+    "ha",
+    "en"
+  ],
+  "default_locale": "ha",
+  "pwa_theme_color": "#7f4160",
+  "pwa_name": "Taraba State SOS"
+}

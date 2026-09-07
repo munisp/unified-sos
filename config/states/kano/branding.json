@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "kano",
+  "display_name": "Kano State",
+  "portal_title": "Kano State One-Gov Portal",
+  "tagline": "One portal for all Kano State government services.",
+  "primary_color": "#417a7f",
+  "secondary_color": "#6f7ea8",
+  "logo_url": "/branding/kano/logo.svg",
+  "favicon_url": "/branding/kano/favicon.ico",
+  "support_email": "support@sos.kanostate.gov.ng",
+  "support_phone": "+234 700 000 0020",
+  "custom_domain": "sos.kanostate.gov.ng",
+  "locales": [
+    "ha",
+    "en"
+  ],
+  "default_locale": "ha",
+  "pwa_theme_color": "#417a7f",
+  "pwa_name": "Kano State SOS"
+}

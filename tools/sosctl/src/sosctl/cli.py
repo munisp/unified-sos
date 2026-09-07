@@ -11,7 +11,7 @@ from rich.table import Table
 
 from . import audit, gitops, ledger, policy, schema_registry
 from .registry import TenantRegistry
-from .states import STATE_TENANT_IDS, TIERS
+from .states import ALL_STATE_IDS, STATE_TENANT_IDS, TIERS
 
 app = typer.Typer(
     name="sosctl",
@@ -125,6 +125,34 @@ def tenant_suspend(
         err_console.print(f"[red]{exc.args[0]}[/red]")
         raise typer.Exit(code=1)
     console.print(f"[yellow]Tenant '{state}' suspended[/yellow]: {record['suspend_reason']}")
+
+
+@tenant_app.command("branding")
+def tenant_branding(
+    state: str = typer.Argument(..., help="State tenant id (any of the 37 states)"),
+    config_root: Optional[Path] = typer.Option(
+        None, "--config-root", help="config/states root (default: repo config/states)"
+    ),
+) -> None:
+    """Print the effective whitelabel branding record for a state tenant."""
+    state = state.lower()
+    if state not in ALL_STATE_IDS:
+        err_console.print(
+            f"[red]unknown state '{state}'[/red]; valid: {', '.join(ALL_STATE_IDS)}"
+        )
+        raise typer.Exit(code=2)
+    try:
+        record = gitops.load_branding(state, config_root)
+    except ValueError as exc:
+        err_console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1)
+    table = Table(title=f"Whitelabel branding — {record['display_name']}")
+    table.add_column("Field")
+    table.add_column("Value")
+    for key in sorted(record):
+        table.add_row(key, ", ".join(record[key]) if isinstance(record[key], list)
+                      else str(record[key]))
+    console.print(table)
 
 
 @policy_app.command("validate")

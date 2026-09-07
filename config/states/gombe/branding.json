@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "gombe",
+  "display_name": "Gombe State",
+  "portal_title": "Gombe State One-Gov Portal",
+  "tagline": "One portal for all Gombe State government services.",
+  "primary_color": "#417f5c",
+  "secondary_color": "#6fa3a8",
+  "logo_url": "/branding/gombe/logo.svg",
+  "favicon_url": "/branding/gombe/favicon.ico",
+  "support_email": "support@sos.gombestate.gov.ng",
+  "support_phone": "+234 700 000 0016",
+  "custom_domain": "sos.gombestate.gov.ng",
+  "locales": [
+    "ha",
+    "en"
+  ],
+  "default_locale": "ha",
+  "pwa_theme_color": "#417f5c",
+  "pwa_name": "Gombe State SOS"
+}

@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "abia",
+  "display_name": "Abia State",
+  "portal_title": "Abia State One-Gov Portal",
+  "tagline": "One portal for all Abia State government services.",
+  "primary_color": "#7f4141",
+  "secondary_color": "#a8956f",
+  "logo_url": "/branding/abia/logo.svg",
+  "favicon_url": "/branding/abia/favicon.ico",
+  "support_email": "support@sos.abiastate.gov.ng",
+  "support_phone": "+234 700 000 0001",
+  "custom_domain": "sos.abiastate.gov.ng",
+  "locales": [
+    "ig",
+    "en"
+  ],
+  "default_locale": "ig",
+  "pwa_theme_color": "#7f4141",
+  "pwa_name": "Abia State SOS"
+}

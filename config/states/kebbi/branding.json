@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "kebbi",
+  "display_name": "Kebbi State",
+  "portal_title": "Kebbi State One-Gov Portal",
+  "tagline": "One portal for all Kebbi State government services.",
+  "primary_color": "#41667f",
+  "secondary_color": "#736fa8",
+  "logo_url": "/branding/kebbi/logo.svg",
+  "favicon_url": "/branding/kebbi/favicon.ico",
+  "support_email": "support@sos.kebbistate.gov.ng",
+  "support_phone": "+234 700 000 0022",
+  "custom_domain": "sos.kebbistate.gov.ng",
+  "locales": [
+    "ha",
+    "en"
+  ],
+  "default_locale": "ha",
+  "pwa_theme_color": "#41667f",
+  "pwa_name": "Kebbi State SOS"
+}

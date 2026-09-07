@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "yobe",
+  "display_name": "Yobe State",
+  "portal_title": "Yobe State One-Gov Portal",
+  "tagline": "One portal for all Yobe State government services.",
+  "primary_color": "#7f4156",
+  "secondary_color": "#a8836f",
+  "logo_url": "/branding/yobe/logo.svg",
+  "favicon_url": "/branding/yobe/favicon.ico",
+  "support_email": "support@sos.yobestate.gov.ng",
+  "support_phone": "+234 700 000 0036",
+  "custom_domain": "sos.yobestate.gov.ng",
+  "locales": [
+    "ha",
+    "en"
+  ],
+  "default_locale": "ha",
+  "pwa_theme_color": "#7f4156",
+  "pwa_name": "Yobe State SOS"
+}

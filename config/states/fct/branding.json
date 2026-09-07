@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "fct",
+  "display_name": "Federal Capital Territory",
+  "portal_title": "FCT One-Gov Portal",
+  "tagline": "One portal for all Federal Capital Territory government services.",
+  "primary_color": "#417f52",
+  "secondary_color": "#6fa8a5",
+  "logo_url": "/branding/fct/logo.svg",
+  "favicon_url": "/branding/fct/favicon.ico",
+  "support_email": "support@sos.fct.gov.ng",
+  "support_phone": "+234 700 000 0015",
+  "custom_domain": "sos.fct.gov.ng",
+  "locales": [
+    "ha",
+    "en"
+  ],
+  "default_locale": "ha",
+  "pwa_theme_color": "#417f52",
+  "pwa_name": "Federal Capital Territory SOS"
+}

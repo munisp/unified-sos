@@ -17,6 +17,17 @@ STATE_TENANT_IDS: dict[str, int] = {
     "taraba": 0x0006,
 }
 
+#: All 37 state tenant directories under config/states/ (whitelabel branding
+#: coverage). Provisioning (`tenant create`) remains restricted to
+#: STATE_TENANT_IDS pending contract enum expansion.
+ALL_STATE_IDS: tuple[str, ...] = (
+    "abia", "adamawa", "akwa_ibom", "anambra", "bauchi", "bayelsa", "benue",
+    "borno", "cross_river", "delta", "ebonyi", "edo", "ekiti", "enugu", "fct",
+    "gombe", "imo", "jigawa", "kaduna", "kano", "katsina", "kebbi", "kogi",
+    "kwara", "lagos", "nasarawa", "niger", "ogun", "ondo", "osun", "oyo",
+    "plateau", "rivers", "sokoto", "taraba", "yobe", "zamfara",
+)
+
 #: Tenant tiers per the control-plane contract.
 TIERS: tuple[str, ...] = ("shared", "hybrid", "dedicated")
 

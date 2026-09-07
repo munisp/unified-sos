@@ -1,0 +1,20 @@
+{
+  "tenant_state_id": "kogi",
+  "display_name": "Kogi State",
+  "portal_title": "Kogi State One-Gov Portal",
+  "tagline": "One portal for all Kogi State government services.",
+  "primary_color": "#415c7f",
+  "secondary_color": "#7d6fa8",
+  "logo_url": "/branding/kogi/logo.svg",
+  "favicon_url": "/branding/kogi/favicon.ico",
+  "support_email": "support@sos.kogistate.gov.ng",
+  "support_phone": "+234 700 000 0023",
+  "custom_domain": "sos.kogistate.gov.ng",
+  "locales": [
+    "ha",
+    "en"
+  ],
+  "default_locale": "ha",
+  "pwa_theme_color": "#415c7f",
+  "pwa_name": "Kogi State SOS"
+}

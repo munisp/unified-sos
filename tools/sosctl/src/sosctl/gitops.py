@@ -18,6 +18,55 @@ from pathlib import Path
 
 from .states import STATE_TENANT_IDS, TIERS
 
+#: Repo-root default for seeded per-state branding (config/states/<state>/branding.json).
+DEFAULT_STATES_CONFIG_ROOT = Path(__file__).resolve().parents[4] / "config" / "states"
+
+
+def default_custom_domain(state: str) -> str:
+    """Default vanity domain pattern; FCT has no 'state' suffix."""
+    if state == "fct":
+        return "sos.fct.gov.ng"
+    return f"sos.{state.replace('_', '')}state.gov.ng"
+
+
+def load_branding(state: str, config_root: Path | None = None) -> dict:
+    """Effective branding seed for a state: config/states file if present,
+    else a deterministic default record (custom domain + logo pattern)."""
+    root = Path(config_root) if config_root else DEFAULT_STATES_CONFIG_ROOT
+    path = root / state / "branding.json"
+    if path.exists():
+        record = json.loads(path.read_text())
+        if record.get("tenant_state_id") != state:
+            raise ValueError(
+                f"{path}: tenant_state_id '{record.get('tenant_state_id')}' "
+                f"does not match '{state}'"
+            )
+        return record
+    display = (
+        "Federal Capital Territory"
+        if state == "fct"
+        else state.replace("_", " ").title() + " State"
+    )
+    domain = default_custom_domain(state)
+    return {
+        "tenant_state_id": state,
+        "display_name": display,
+        "portal_title": ("FCT One-Gov Portal" if state == "fct"
+                         else f"{display} One-Gov Portal"),
+        "tagline": f"One portal for all {display} government services.",
+        "primary_color": "#3f5a7a",
+        "secondary_color": "#7a8b99",
+        "logo_url": f"/branding/{state}/logo.svg",
+        "favicon_url": f"/branding/{state}/favicon.ico",
+        "support_email": f"support@{domain}",
+        "support_phone": "",
+        "custom_domain": domain,
+        "locales": ["en"],
+        "default_locale": "en",
+        "pwa_theme_color": "#3f5a7a",
+        "pwa_name": f"{display} SOS",
+    }
+
 # Resource names follow a strict convention so they are predictable everywhere.
 def k8s_namespace(state: str, tier: str) -> str:
     return f"sos-{state}-{tier}"
@@ -56,6 +105,7 @@ class GitopsBundle:
             "keycloak_realm": keycloak_realm(self.state),
             "s3_bucket": s3_bucket(self.state, self.tier),
             "kms_keyring": kms_keyring(self.state),
+            "custom_domain": load_branding(self.state)["custom_domain"],
         }
 
 
@@ -164,6 +214,43 @@ def _render_storage(state: str, tier: str) -> str:
     return json.dumps(manifest, indent=2, sort_keys=True) + "\n"
 
 
+def _render_host_routing(state: str, tier: str, branding: dict) -> str:
+    """Ingress/gateway host manifest: tenant custom_domain → gateway + frontend."""
+    domain = branding["custom_domain"]
+    ns = k8s_namespace(state, tier)
+    manifest = {
+        "apiVersion": "sos.gov.ng/v1alpha1",
+        "kind": "TenantHostRouting",
+        "metadata": {
+            "name": f"{state}-host-routing",
+            "namespace": ns,
+            "labels": {"sos.gov.ng/tenant": state},
+        },
+        "spec": {
+            "host": domain,
+            "tenant_state_id": state,
+            "tls": {"secretName": f"{state}-portal-tls", "issuer": "letsencrypt-ng"},
+            "routes": [
+                {
+                    "path": "/api",
+                    "backend": {"service": "api-gateway", "namespace": ns, "port": 8080},
+                },
+                {
+                    "path": "/",
+                    "backend": {"service": "portal-frontend", "namespace": ns, "port": 3000},
+                },
+            ],
+            "branding": {
+                "display_name": branding["display_name"],
+                "portal_title": branding["portal_title"],
+                "pwa_name": branding.get("pwa_name", ""),
+                "pwa_theme_color": branding.get("pwa_theme_color", ""),
+            },
+        },
+    }
+    return json.dumps(manifest, indent=2, sort_keys=True) + "\n"
+
+
 def render_bundle(state: str, tier: str) -> dict[str, str]:
     """Render all bundle files as {relative_path: content}. Deterministic."""
     if state not in STATE_TENANT_IDS:
@@ -172,11 +259,14 @@ def render_bundle(state: str, tier: str) -> dict[str, str]:
         )
     if tier not in TIERS:
         raise ValueError(f"unknown tier '{tier}'; valid: {', '.join(TIERS)}")
+    branding = load_branding(state)
     return {
         "k8s/namespace.yaml": _render_namespace(state, tier),
         "postgres/schema-rls.sql": _render_postgres_rls(state),
         "keycloak/realm.json": _render_keycloak_realm(state),
         "storage/s3-kms.json": _render_storage(state, tier),
+        "branding/branding.json": json.dumps(branding, indent=2, sort_keys=True) + "\n",
+        "ingress/host-routing.json": _render_host_routing(state, tier, branding),
     }
 
 

@@ -2,11 +2,13 @@
 // service requests (synced when online).
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import type { Locale } from './i18n';
 import type { ServiceRequest, StateId, WalletRead } from './types';
 
 const STATE_KEY = 'sos-citizen:state';
 const WALLET_KEY = 'sos-citizen:wallet';
 const REQUESTS_KEY = 'sos-citizen:requests';
+const LOCALE_KEY = 'sos-citizen:locale';
 
 interface AppStore {
   stateId: StateId | null;
@@ -17,6 +19,11 @@ interface AppStore {
   requests: ServiceRequest[];
   trackRequest: (r: ServiceRequest) => void;
   updateRequest: (r: ServiceRequest) => void;
+  locale: Locale;
+  /** Persists the user's explicit choice (overrides the tenant default). */
+  setLocale: (l: Locale) => void;
+  /** Applies the tenant branding default only when the user never chose one. */
+  applyDefaultLocale: (l: Locale) => void;
 }
 
 const Ctx = createContext<AppStore | null>(null);
@@ -34,6 +41,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [stateId, setStateId] = useState<StateId | null>(() => readJson<StateId>(STATE_KEY));
   const [wallet, setWalletState] = useState<WalletRead | null>(() => readJson<WalletRead>(WALLET_KEY));
   const [requests, setRequests] = useState<ServiceRequest[]>(() => readJson<ServiceRequest[]>(REQUESTS_KEY) ?? []);
+  const [locale, setLocaleState] = useState<Locale>(() => readJson<Locale>(LOCALE_KEY) ?? 'en');
 
   useEffect(() => {
     if (stateId) window.localStorage.setItem(STATE_KEY, JSON.stringify(stateId));
@@ -52,6 +60,14 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   }, []);
   const setWallet = useCallback((w: WalletRead) => setWalletState(w), []);
 
+  const setLocale = useCallback((l: Locale) => {
+    setLocaleState(l);
+    window.localStorage.setItem(LOCALE_KEY, JSON.stringify(l));
+  }, []);
+  const applyDefaultLocale = useCallback((l: Locale) => {
+    if (!readJson<Locale>(LOCALE_KEY)) setLocaleState(l);
+  }, []);
+
   const trackRequest = useCallback((r: ServiceRequest) => {
     setRequests((prev) => [r, ...prev.filter((x) => x.request_id !== r.request_id)]);
   }, []);
@@ -60,8 +76,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ stateId, selectState, clearState, wallet, setWallet, requests, trackRequest, updateRequest }),
-    [stateId, selectState, clearState, wallet, setWallet, requests, trackRequest, updateRequest],
+    () => ({ stateId, selectState, clearState, wallet, setWallet, requests, trackRequest, updateRequest, locale, setLocale, applyDefaultLocale }),
+    [stateId, selectState, clearState, wallet, setWallet, requests, trackRequest, updateRequest, locale, setLocale, applyDefaultLocale],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
