@@ -1,0 +1,71 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.waterways.royalty_assessed.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.waterways.royalty_assessed' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "dredger_id": {
+      "type": "string"
+    },
+    "entry_hash": {
+      "type": "string"
+    },
+    "royalty_kobo": {
+      "type": "integer"
+    },
+    "state_id": {
+      "enum": [
+        "lagos",
+        "ogun",
+        "osun",
+        "benue",
+        "nasarawa",
+        "taraba",
+        "abia",
+        "adamawa",
+        "akwa_ibom",
+        "anambra",
+        "bauchi",
+        "bayelsa",
+        "borno",
+        "cross_river",
+        "delta",
+        "ebonyi",
+        "edo",
+        "ekiti",
+        "enugu",
+        "gombe",
+        "imo",
+        "jigawa",
+        "kaduna",
+        "kano",
+        "katsina",
+        "kebbi",
+        "kogi",
+        "kwara",
+        "niger",
+        "ondo",
+        "oyo",
+        "plateau",
+        "rivers",
+        "sokoto",
+        "yobe",
+        "zamfara",
+        "fct"
+      ],
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "dredger_id",
+    "royalty_kobo",
+    "entry_hash",
+    "timestamp"
+  ],
+  "title": "ng.sos.waterways.royalty_assessed",
+  "type": "object"
+}

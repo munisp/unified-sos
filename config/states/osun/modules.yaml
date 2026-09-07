@@ -40,3 +40,6 @@ modules:
 - name: mod-erp-bridge
   wave: 2
   rationale: 'ERP-BRIDGE — ERP/IFMIS journal bridge (Odoo/ERPNext/GIFMIS export, settlement-event ingestion, hash-chained outbound log; all states)'
+- name: mod-agri-trace
+  wave: 2
+  rationale: 'National §3 — cocoa traceability & warehouse receipts'

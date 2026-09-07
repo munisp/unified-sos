@@ -261,6 +261,48 @@ scrape_configs:
     action: keep
   - target_label: service
     replacement: mod-police-cad
+- job_name: mod-waterways
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-waterways
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: mod-waterways
+- job_name: mod-border-transit
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-border-transit
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: mod-border-transit
+- job_name: mod-agri-trace
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-agri-trace
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: mod-agri-trace
 - job_name: mod-safecity-vision
   kubernetes_sd_configs:
   - role: endpoints

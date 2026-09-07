@@ -35,7 +35,14 @@ STATES_DIR = REPO_ROOT / "config" / "states"
 SCHEMA_PATH = REPO_ROOT / "contracts" / "policy-packs" / "revenue-split.schema.json"
 OGUN_EXAMPLE = REPO_ROOT / "contracts" / "policy-packs" / "examples" / "ogun-luc-2026.json"
 
-STATES = ["lagos", "ogun", "osun", "benue", "nasarawa", "taraba"]
+STATES = [
+    "lagos", "ogun", "osun", "benue", "nasarawa", "taraba",
+    # National Edition (36 states + FCT) — wave-2 onboarding packs
+    "abia", "adamawa", "akwa_ibom", "anambra", "bauchi", "bayelsa", "borno",
+    "cross_river", "delta", "ebonyi", "edo", "ekiti", "enugu", "gombe", "imo",
+    "jigawa", "kaduna", "kano", "katsina", "kebbi", "kogi", "kwara", "niger",
+    "ondo", "oyo", "plateau", "rivers", "sokoto", "yobe", "zamfara", "fct",
+]
 CONCESSION_CEILING = {"lagos": 8.0, "ogun": 8.0}  # others default to 15%
 DEFAULT_CEILING = 15.0
 CONCESSION_BENEFICIARY = "PPP_TECH_CONCESSIONAIRE_ESCROW"
@@ -49,6 +56,8 @@ KNOWN_MODULES = {
     "mod-geospatial", "mod-geospatial-gateway", "mod-transparency",
     "mod-erp-bridge",
     "mod-safecity-vision",
+    "mod-agri-trace", "mod-border-transit", "mod-waterways",
+    "mod-ppp-investment",
     "lakehouse", "control-plane",
 }
 

@@ -291,3 +291,19 @@ Validation: mod-police-cad 25 tests, mod-safecity-vision 28 tests,
 dispatch-console 20 vitest tests + production build, policy-pack/infra/registry
 gates green. Residual (external, by design): live model weights, camera estate
 procurement, aiortc/Wazuh cluster certification.
+
+## 12. Stage 9 update — National Edition expansion (36 states + FCT, 180 opportunities)
+
+Per the uploaded National Edition blueprint & opportunity atlas (supersedes the
+six-state edition), the platform now covers the national scope:
+
+| Expansion | Delivery |
+|---|---|
+| 3 new canonical modules | `mod-agri-trace` (35 tests), `mod-border-transit` (31 tests), `mod-waterways` (30 tests) — same patterns: fail-closed adapters + deterministic fixtures, TigerBeetle-idiom kobo math, hash-chained audit, tenant-scoped, OpenAPI + AsyncAPI registry entries, compose/Helm/Prometheus wiring |
+| Policy packs | 37 state packs (6 deep-dive + 30 new states + FCT), priority modules per atlas table, universal module set, procurement guardrails (15% standard / 8% Lagos–Ogun ceilings); validator extended & green |
+| Existing-state adoptions | agri-trace → benue/osun/taraba; border-transit → taraba/ogun; waterways → lagos/benue (waves per rollout matrix) |
+| Feature inventory | F-044/F-045/F-046/F-047 → IMPLEMENTED |
+
+Residual (external, by design): gazetted fee instruments replace derived
+placeholders at state onboarding; live exchange/RFID/Sedona/AIS bindings are
+fail-closed adapter seams pending certification.

@@ -1,0 +1,39 @@
+# Enabled SOS modules for Cross River — see README.md for the state profile.
+# Waves per docs/delivery/rollout-matrix.md (National Edition).
+tenant_state_id: cross_river
+tenancy_tier: shared
+rollout_wave: '2'
+modules:
+- name: mod-rev-core
+  wave: 1
+  rationale: 'Revenue Core — statewide IGR collection integrity (universal)'
+- name: mod-market
+  wave: 1
+  rationale: 'Market & Levy — state priority module per National Edition atlas'
+- name: mod-border-transit
+  wave: 2
+  rationale: 'National §3 adoption — cross-border cargo RFID transit'
+- name: mod-citizen-portal
+  wave: 2
+  rationale: 'CIT — unified citizen portal & SSO (universal)'
+- name: mod-kyc-kyb
+  wave: 2
+  rationale: 'KYC-KYB — sovereign identity verification (universal)'
+- name: mod-transparency
+  wave: 2
+  rationale: 'Public audit & transparency views (universal)'
+- name: mod-erp-bridge
+  wave: 2
+  rationale: 'ERP/IFMIS journal bridge (universal)'
+- name: mod-geospatial
+  wave: 3
+  rationale: 'Geospatial orchestration & lakehouse publication'
+- name: mod-geospatial-gateway
+  wave: 3
+  rationale: 'Geospatial validation gateway'
+- name: mod-health
+  wave: 3
+  rationale: 'Sovereign health e-billing (universal per national catalog)'
+- name: mod-education
+  wave: 3
+  rationale: 'Tertiary education bursary & tuition clearing (universal per national catalog)'

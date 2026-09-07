@@ -1,0 +1,1374 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-border-transit/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS Cross-Border Cargo Transit API (mod-border-transit)
+  version: 0.1.0
+  description: 'National Edition §3. Cross-border cargo RFID tracking, transit telematics with corridor geofencing, tamper
+    alerts, transit levy assessment (integer kobo). Adoptions: Taraba, Borno, Katsina, Sokoto, Ogun, Cross River.'
+paths:
+  /border/v1/crossings:
+    get:
+      tags:
+      - crossings
+      summary: List Crossings
+      operationId: list_crossings_border_v1_crossings_get
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Crossing'
+                title: Response List Crossings Border V1 Crossings Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /border/v1/crossings/{crossing_id}:
+    post:
+      tags:
+      - crossings
+      summary: Create Crossing
+      operationId: create_crossing_border_v1_crossings__crossing_id__post
+      parameters:
+      - name: crossing_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Crossing Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrossingUpsert'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Crossing'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - crossings
+      summary: Get Crossing
+      operationId: get_crossing_border_v1_crossings__crossing_id__get
+      parameters:
+      - name: crossing_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Crossing Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Crossing'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+    patch:
+      tags:
+      - crossings
+      summary: Update Crossing
+      operationId: update_crossing_border_v1_crossings__crossing_id__patch
+      parameters:
+      - name: crossing_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Crossing Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrossingUpsert'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Crossing'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+    delete:
+      tags:
+      - crossings
+      summary: Delete Crossing
+      operationId: delete_crossing_border_v1_crossings__crossing_id__delete
+      parameters:
+      - name: crossing_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Crossing Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /border/v1/consignments:
+    post:
+      tags:
+      - consignments
+      summary: Declare Consignment
+      operationId: declare_consignment_border_v1_consignments_post
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsignmentDeclare'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consignment'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - consignments
+      summary: List Consignments
+      operationId: list_consignments_border_v1_consignments_get
+      parameters:
+      - name: state
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: State
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Consignment'
+                title: Response List Consignments Border V1 Consignments Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /border/v1/consignments/{consignment_id}:
+    get:
+      tags:
+      - consignments
+      summary: Get Consignment
+      operationId: get_consignment_border_v1_consignments__consignment_id__get
+      parameters:
+      - name: consignment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Consignment Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consignment'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /border/v1/consignments/{consignment_id}/seal:
+    post:
+      tags:
+      - consignments
+      summary: Seal Consignment
+      operationId: seal_consignment_border_v1_consignments__consignment_id__seal_post
+      parameters:
+      - name: consignment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Consignment Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consignment'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /border/v1/consignments/{consignment_id}/arrive:
+    post:
+      tags:
+      - consignments
+      summary: Arrive Consignment
+      operationId: arrive_consignment_border_v1_consignments__consignment_id__arrive_post
+      parameters:
+      - name: consignment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Consignment Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consignment'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /border/v1/consignments/{consignment_id}/clear:
+    post:
+      tags:
+      - consignments
+      summary: Clear Consignment
+      description: Clear the consignment and append a hash-chained audit record.
+      operationId: clear_consignment_border_v1_consignments__consignment_id__clear_post
+      parameters:
+      - name: consignment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Consignment Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClearanceRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /border/v1/clearance-audit:
+    get:
+      tags:
+      - consignments
+      summary: Clearance Audit
+      description: 'Hash-chained clearance decisions for this tenant plus chain
+
+        integrity status (errors non-empty ⇒ tampering detected).'
+      operationId: clearance_audit_border_v1_clearance_audit_get
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /border/v1/scans:
+    post:
+      tags:
+      - rfid
+      summary: Ingest Scan
+      operationId: ingest_scan_border_v1_scans_post
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScanIngest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanEvent'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - rfid
+      summary: List Scans
+      operationId: list_scans_border_v1_scans_get
+      parameters:
+      - name: consignment_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Consignment Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScanEvent'
+                title: Response List Scans Border V1 Scans Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /border/v1/scans/pull:
+    post:
+      tags:
+      - rfid
+      summary: Pull Reader Scans
+      description: 'Pull pending scans from the bound RFID reader adapter (fixture by
+
+        default; live seam ``SOS_BORDER_RFID_URL`` in production).'
+      operationId: pull_reader_scans_border_v1_scans_pull_post
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /border/v1/telematics/pings:
+    post:
+      tags:
+      - telematics
+      summary: Ingest Ping
+      description: 'GPS ping ingest with corridor geofence check; out-of-corridor pings
+
+        raise a ``geofence_deviation`` tamper alert.'
+      operationId: ingest_ping_border_v1_telematics_pings_post
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PingIngest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelematicsPing'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - telematics
+      summary: List Pings
+      operationId: list_pings_border_v1_telematics_pings_get
+      parameters:
+      - name: truck_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Truck Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TelematicsPing'
+                title: Response List Pings Border V1 Telematics Pings Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /border/v1/telematics/pull:
+    post:
+      tags:
+      - telematics
+      summary: Pull Telematics
+      description: Pull pending GPS pings from the bound telematics adapter.
+      operationId: pull_telematics_border_v1_telematics_pull_post
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /border/v1/tamper-alerts:
+    get:
+      tags:
+      - alerts
+      summary: List Tamper Alerts
+      operationId: list_tamper_alerts_border_v1_tamper_alerts_get
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TamperAlert'
+                title: Response List Tamper Alerts Border V1 Tamper Alerts Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /border/v1/levy/quote:
+    post:
+      tags:
+      - levy
+      summary: Levy Quote
+      operationId: levy_quote_border_v1_levy_quote_post
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LevyQuoteRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /border/v1/levy/assess/{consignment_id}:
+    post:
+      tags:
+      - levy
+      summary: Levy Assess
+      operationId: levy_assess_border_v1_levy_assess__consignment_id__post
+      parameters:
+      - name: consignment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Consignment Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LevyAssessment'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /border/v1/levy/policy:
+    get:
+      tags:
+      - levy
+      summary: Get Levy Policy
+      operationId: get_levy_policy_border_v1_levy_policy_get
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LevyPolicy'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+    put:
+      tags:
+      - levy
+      summary: Put Levy Policy
+      operationId: put_levy_policy_border_v1_levy_policy_put
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LevyPolicyUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LevyPolicy'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /healthz:
+    get:
+      summary: Healthz
+      operationId: healthz_healthz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Healthz Healthz Get
+      tags:
+      - border
+components:
+  schemas:
+    ClearanceRequest:
+      properties:
+        officer_ref:
+          type: string
+          title: Officer Ref
+      type: object
+      required:
+      - officer_ref
+      title: ClearanceRequest
+    Consignment:
+      properties:
+        consignment_id:
+          type: string
+          title: Consignment Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        trader_ref:
+          type: string
+          title: Trader Ref
+        rfid_tag_id:
+          type: string
+          title: Rfid Tag Id
+        goods_description:
+          type: string
+          title: Goods Description
+        hs_code:
+          type: string
+          title: Hs Code
+        declared_value_kobo:
+          type: integer
+          minimum: 0.0
+          title: Declared Value Kobo
+        origin_crossing_id:
+          type: string
+          title: Origin Crossing Id
+        destination_crossing_id:
+          type: string
+          title: Destination Crossing Id
+        corridor:
+          items:
+            type: string
+          type: array
+          title: Corridor
+        state:
+          type: string
+          title: State
+          default: declared
+        seal_intact:
+          type: boolean
+          title: Seal Intact
+          default: true
+        scans:
+          items:
+            $ref: '#/components/schemas/ScanEvent'
+          type: array
+          title: Scans
+          default: []
+        declared_at:
+          type: string
+          title: Declared At
+      type: object
+      required:
+      - consignment_id
+      - tenant_state_id
+      - trader_ref
+      - rfid_tag_id
+      - goods_description
+      - hs_code
+      - declared_value_kobo
+      - origin_crossing_id
+      - destination_crossing_id
+      - corridor
+      - declared_at
+      title: Consignment
+    ConsignmentDeclare:
+      properties:
+        trader_ref:
+          type: string
+          title: Trader Ref
+        rfid_tag_id:
+          type: string
+          title: Rfid Tag Id
+        goods_description:
+          type: string
+          title: Goods Description
+        hs_code:
+          type: string
+          title: Hs Code
+        declared_value_kobo:
+          type: integer
+          minimum: 0.0
+          title: Declared Value Kobo
+        origin_crossing_id:
+          type: string
+          title: Origin Crossing Id
+        destination_crossing_id:
+          type: string
+          title: Destination Crossing Id
+      type: object
+      required:
+      - trader_ref
+      - rfid_tag_id
+      - goods_description
+      - hs_code
+      - declared_value_kobo
+      - origin_crossing_id
+      - destination_crossing_id
+      title: ConsignmentDeclare
+    Crossing:
+      properties:
+        crossing_id:
+          type: string
+          title: Crossing Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        name:
+          type: string
+          title: Name
+        neighbor_country:
+          type: string
+          title: Neighbor Country
+        latitude:
+          type: number
+          title: Latitude
+        longitude:
+          type: number
+          title: Longitude
+      type: object
+      required:
+      - crossing_id
+      - tenant_state_id
+      - name
+      - neighbor_country
+      - latitude
+      - longitude
+      title: Crossing
+    CrossingUpsert:
+      properties:
+        name:
+          type: string
+          title: Name
+        neighbor_country:
+          type: string
+          title: Neighbor Country
+        latitude:
+          type: number
+          maximum: 90.0
+          minimum: -90.0
+          title: Latitude
+        longitude:
+          type: number
+          maximum: 180.0
+          minimum: -180.0
+          title: Longitude
+      type: object
+      required:
+      - name
+      - neighbor_country
+      - latitude
+      - longitude
+      title: CrossingUpsert
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    LedgerEntry:
+      properties:
+        entry_id:
+          type: string
+          title: Entry Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        consignment_id:
+          type: string
+          title: Consignment Id
+        debit_account:
+          type: string
+          title: Debit Account
+        credit_account:
+          type: string
+          title: Credit Account
+        amount_kobo:
+          type: integer
+          minimum: 0.0
+          title: Amount Kobo
+        memo:
+          type: string
+          title: Memo
+      type: object
+      required:
+      - entry_id
+      - tenant_state_id
+      - consignment_id
+      - debit_account
+      - credit_account
+      - amount_kobo
+      - memo
+      title: LedgerEntry
+      description: Ledger-style double-entry intent (TigerBeetle-ready transfer pair).
+    LevyAssessment:
+      properties:
+        assessment_id:
+          type: string
+          title: Assessment Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        consignment_id:
+          type: string
+          title: Consignment Id
+        flat_fee_kobo:
+          type: integer
+          title: Flat Fee Kobo
+        ad_valorem_bps:
+          type: integer
+          title: Ad Valorem Bps
+        ad_valorem_kobo:
+          type: integer
+          title: Ad Valorem Kobo
+        total_kobo:
+          type: integer
+          title: Total Kobo
+        ledger_entries:
+          items:
+            $ref: '#/components/schemas/LedgerEntry'
+          type: array
+          title: Ledger Entries
+        assessed_at:
+          type: string
+          title: Assessed At
+      type: object
+      required:
+      - assessment_id
+      - tenant_state_id
+      - consignment_id
+      - flat_fee_kobo
+      - ad_valorem_bps
+      - ad_valorem_kobo
+      - total_kobo
+      - ledger_entries
+      - assessed_at
+      title: LevyAssessment
+    LevyPolicy:
+      properties:
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        flat_fee_kobo:
+          type: integer
+          minimum: 0.0
+          title: Flat Fee Kobo
+        ad_valorem_bps:
+          type: integer
+          maximum: 10000.0
+          minimum: 0.0
+          title: Ad Valorem Bps
+      type: object
+      required:
+      - tenant_state_id
+      - flat_fee_kobo
+      - ad_valorem_bps
+      title: LevyPolicy
+    LevyPolicyUpdate:
+      properties:
+        flat_fee_kobo:
+          type: integer
+          minimum: 0.0
+          title: Flat Fee Kobo
+        ad_valorem_bps:
+          type: integer
+          maximum: 10000.0
+          minimum: 0.0
+          title: Ad Valorem Bps
+      type: object
+      required:
+      - flat_fee_kobo
+      - ad_valorem_bps
+      title: LevyPolicyUpdate
+    LevyQuoteRequest:
+      properties:
+        declared_value_kobo:
+          type: integer
+          minimum: 0.0
+          title: Declared Value Kobo
+      type: object
+      required:
+      - declared_value_kobo
+      title: LevyQuoteRequest
+    PingIngest:
+      properties:
+        truck_id:
+          type: string
+          title: Truck Id
+        latitude:
+          type: number
+          maximum: 90.0
+          minimum: -90.0
+          title: Latitude
+        longitude:
+          type: number
+          maximum: 180.0
+          minimum: -180.0
+          title: Longitude
+        speed_kph:
+          type: number
+          minimum: 0.0
+          title: Speed Kph
+        pinged_at:
+          type: string
+          title: Pinged At
+        consignment_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Consignment Id
+      type: object
+      required:
+      - truck_id
+      - latitude
+      - longitude
+      - speed_kph
+      - pinged_at
+      title: PingIngest
+    ScanEvent:
+      properties:
+        scan_id:
+          type: string
+          title: Scan Id
+        consignment_id:
+          type: string
+          title: Consignment Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        rfid_tag_id:
+          type: string
+          title: Rfid Tag Id
+        checkpoint_id:
+          type: string
+          title: Checkpoint Id
+        direction:
+          type: string
+          pattern: ^(entry|exit)$
+          title: Direction
+        scanned_at:
+          type: string
+          title: Scanned At
+        latitude:
+          type: number
+          title: Latitude
+        longitude:
+          type: number
+          title: Longitude
+        seal_intact:
+          type: boolean
+          title: Seal Intact
+          default: true
+      type: object
+      required:
+      - scan_id
+      - consignment_id
+      - tenant_state_id
+      - rfid_tag_id
+      - checkpoint_id
+      - direction
+      - scanned_at
+      - latitude
+      - longitude
+      title: ScanEvent
+    ScanIngest:
+      properties:
+        consignment_id:
+          type: string
+          title: Consignment Id
+        checkpoint_id:
+          type: string
+          title: Checkpoint Id
+        direction:
+          type: string
+          pattern: ^(entry|exit)$
+          title: Direction
+        scanned_at:
+          type: string
+          title: Scanned At
+        latitude:
+          type: number
+          maximum: 90.0
+          minimum: -90.0
+          title: Latitude
+        longitude:
+          type: number
+          maximum: 180.0
+          minimum: -180.0
+          title: Longitude
+        seal_intact:
+          type: boolean
+          title: Seal Intact
+          default: true
+        rfid_tag_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Rfid Tag Id
+      type: object
+      required:
+      - consignment_id
+      - checkpoint_id
+      - direction
+      - scanned_at
+      - latitude
+      - longitude
+      title: ScanIngest
+    TamperAlert:
+      properties:
+        alert_id:
+          type: string
+          title: Alert Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        consignment_id:
+          type: string
+          title: Consignment Id
+        kind:
+          type: string
+          title: Kind
+        detail:
+          type: string
+          title: Detail
+        raised_at:
+          type: string
+          title: Raised At
+      type: object
+      required:
+      - alert_id
+      - tenant_state_id
+      - consignment_id
+      - kind
+      - detail
+      - raised_at
+      title: TamperAlert
+    TelematicsPing:
+      properties:
+        ping_id:
+          type: string
+          title: Ping Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        truck_id:
+          type: string
+          title: Truck Id
+        latitude:
+          type: number
+          title: Latitude
+        longitude:
+          type: number
+          title: Longitude
+        speed_kph:
+          type: number
+          minimum: 0.0
+          title: Speed Kph
+        pinged_at:
+          type: string
+          title: Pinged At
+        in_corridor:
+          type: boolean
+          title: In Corridor
+      type: object
+      required:
+      - ping_id
+      - tenant_state_id
+      - truck_id
+      - latitude
+      - longitude
+      - speed_kph
+      - pinged_at
+      - in_corridor
+      title: TelematicsPing
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: border
+- name: transit
+- name: rfid

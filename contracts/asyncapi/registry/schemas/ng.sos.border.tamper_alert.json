@@ -1,0 +1,72 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.border.tamper_alert.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.border.tamper_alert' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "alert_type": {
+      "enum": [
+        "seal_broken",
+        "route_deviation",
+        "geofence_deviation"
+      ],
+      "type": "string"
+    },
+    "consignment_id": {
+      "type": "string"
+    },
+    "state_id": {
+      "enum": [
+        "lagos",
+        "ogun",
+        "osun",
+        "benue",
+        "nasarawa",
+        "taraba",
+        "abia",
+        "adamawa",
+        "akwa_ibom",
+        "anambra",
+        "bauchi",
+        "bayelsa",
+        "borno",
+        "cross_river",
+        "delta",
+        "ebonyi",
+        "edo",
+        "ekiti",
+        "enugu",
+        "gombe",
+        "imo",
+        "jigawa",
+        "kaduna",
+        "kano",
+        "katsina",
+        "kebbi",
+        "kogi",
+        "kwara",
+        "niger",
+        "ondo",
+        "oyo",
+        "plateau",
+        "rivers",
+        "sokoto",
+        "yobe",
+        "zamfara",
+        "fct"
+      ],
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "consignment_id",
+    "alert_type",
+    "timestamp"
+  ],
+  "title": "ng.sos.border.tamper_alert",
+  "type": "object"
+}

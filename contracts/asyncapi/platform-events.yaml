@@ -315,6 +315,148 @@ channels:
             receipt_id: { type: string }
             event_hash: { type: string, description: Hash-chain link of the outbound log record }
             timestamp: { type: string, format: date-time }
+  ng.sos.agri.warehouse_receipt_issued:
+    publish:
+      operationId: agriWarehouseReceiptIssued
+      description: >-
+        Emitted by mod-agri-trace when a hash-chained warehouse receipt is
+        issued for a stored commodity lot (National Edition mod-agri-trace).
+      message:
+        payload:
+          type: object
+          required: [state_id, receipt_id, lot_id, warehouse_id, commodity, quantity_kg, entry_hash, timestamp]
+          properties:
+            state_id: { type: string, enum: [lagos, ogun, osun, benue, nasarawa, taraba, abia, adamawa, akwa_ibom, anambra, bauchi, bayelsa, borno, cross_river, delta, ebonyi, edo, ekiti, enugu, gombe, imo, jigawa, kaduna, kano, katsina, kebbi, kogi, kwara, niger, ondo, oyo, plateau, rivers, sokoto, yobe, zamfara, fct] }
+            receipt_id: { type: string }
+            lot_id: { type: string }
+            warehouse_id: { type: string }
+            commodity: { type: string }
+            quantity_kg: { type: integer }
+            entry_hash: { type: string, description: Hash-chain link of the receipt record }
+            timestamp: { type: string, format: date-time }
+  ng.sos.agri.receipt_pledged:
+    publish:
+      operationId: agriReceiptPledged
+      description: Emitted by mod-agri-trace when a warehouse receipt is pledged as collateral.
+      message:
+        payload:
+          type: object
+          required: [state_id, receipt_id, holder_ref, timestamp]
+          properties:
+            state_id: { type: string, enum: [lagos, ogun, osun, benue, nasarawa, taraba, abia, adamawa, akwa_ibom, anambra, bauchi, bayelsa, borno, cross_river, delta, ebonyi, edo, ekiti, enugu, gombe, imo, jigawa, kaduna, kano, katsina, kebbi, kogi, kwara, niger, ondo, oyo, plateau, rivers, sokoto, yobe, zamfara, fct] }
+            receipt_id: { type: string }
+            holder_ref: { type: string }
+            timestamp: { type: string, format: date-time }
+  ng.sos.agri.receipt_redeemed:
+    publish:
+      operationId: agriReceiptRedeemed
+      description: Emitted by mod-agri-trace when a warehouse receipt is released/redeemed (settlement intent).
+      message:
+        payload:
+          type: object
+          required: [state_id, receipt_id, timestamp]
+          properties:
+            state_id: { type: string, enum: [lagos, ogun, osun, benue, nasarawa, taraba, abia, adamawa, akwa_ibom, anambra, bauchi, bayelsa, borno, cross_river, delta, ebonyi, edo, ekiti, enugu, gombe, imo, jigawa, kaduna, kano, katsina, kebbi, kogi, kwara, niger, ondo, oyo, plateau, rivers, sokoto, yobe, zamfara, fct] }
+            receipt_id: { type: string }
+            timestamp: { type: string, format: date-time }
+  ng.sos.agri.lot_traced_hop:
+    publish:
+      operationId: agriLotTracedHop
+      description: Emitted by mod-agri-trace for each provenance hop (farm/aggregation/warehouse/processor/export).
+      message:
+        payload:
+          type: object
+          required: [state_id, lot_id, hop, actor_ref, entry_hash, timestamp]
+          properties:
+            state_id: { type: string, enum: [lagos, ogun, osun, benue, nasarawa, taraba, abia, adamawa, akwa_ibom, anambra, bauchi, bayelsa, borno, cross_river, delta, ebonyi, edo, ekiti, enugu, gombe, imo, jigawa, kaduna, kano, katsina, kebbi, kogi, kwara, niger, ondo, oyo, plateau, rivers, sokoto, yobe, zamfara, fct] }
+            lot_id: { type: string }
+            hop: { type: string, enum: [farm, aggregation, warehouse, processor, export] }
+            actor_ref: { type: string }
+            entry_hash: { type: string }
+            timestamp: { type: string, format: date-time }
+  ng.sos.border.transit_crossing_recorded:
+    publish:
+      operationId: borderTransitCrossingRecorded
+      description: Emitted by mod-border-transit when a consignment records an RFID crossing event.
+      message:
+        payload:
+          type: object
+          required: [state_id, consignment_id, crossing_id, direction, timestamp]
+          properties:
+            state_id: { type: string, enum: [lagos, ogun, osun, benue, nasarawa, taraba, abia, adamawa, akwa_ibom, anambra, bauchi, bayelsa, borno, cross_river, delta, ebonyi, edo, ekiti, enugu, gombe, imo, jigawa, kaduna, kano, katsina, kebbi, kogi, kwara, niger, ondo, oyo, plateau, rivers, sokoto, yobe, zamfara, fct] }
+            consignment_id: { type: string }
+            crossing_id: { type: string }
+            direction: { type: string, enum: [EXPORT, IMPORT] }
+            timestamp: { type: string, format: date-time }
+  ng.sos.border.tamper_alert:
+    publish:
+      operationId: borderTamperAlert
+      description: Emitted by mod-border-transit on seal breach or corridor route deviation.
+      message:
+        payload:
+          type: object
+          required: [state_id, consignment_id, alert_type, timestamp]
+          properties:
+            state_id: { type: string, enum: [lagos, ogun, osun, benue, nasarawa, taraba, abia, adamawa, akwa_ibom, anambra, bauchi, bayelsa, borno, cross_river, delta, ebonyi, edo, ekiti, enugu, gombe, imo, jigawa, kaduna, kano, katsina, kebbi, kogi, kwara, niger, ondo, oyo, plateau, rivers, sokoto, yobe, zamfara, fct] }
+            consignment_id: { type: string }
+            alert_type: { type: string, enum: [seal_broken, route_deviation, geofence_deviation] }
+            timestamp: { type: string, format: date-time }
+  ng.sos.border.levy_assessed:
+    publish:
+      operationId: borderLevyAssessed
+      description: Emitted by mod-border-transit when a transit levy (flat + ad-valorem bps, integer kobo) is assessed.
+      message:
+        payload:
+          type: object
+          required: [state_id, consignment_id, levy_kobo, entry_hash, timestamp]
+          properties:
+            state_id: { type: string, enum: [lagos, ogun, osun, benue, nasarawa, taraba, abia, adamawa, akwa_ibom, anambra, bauchi, bayelsa, borno, cross_river, delta, ebonyi, edo, ekiti, enugu, gombe, imo, jigawa, kaduna, kano, katsina, kebbi, kogi, kwara, niger, ondo, oyo, plateau, rivers, sokoto, yobe, zamfara, fct] }
+            consignment_id: { type: string }
+            levy_kobo: { type: integer }
+            entry_hash: { type: string }
+            timestamp: { type: string, format: date-time }
+  ng.sos.waterways.ticket_sold:
+    publish:
+      operationId: waterwaysTicketSold
+      description: Emitted by mod-waterways on ferry e-ticket sale (capacity-enforced, integer kobo fare).
+      message:
+        payload:
+          type: object
+          required: [state_id, trip_id, ticket_ref, fare_kobo, timestamp]
+          properties:
+            state_id: { type: string, enum: [lagos, ogun, osun, benue, nasarawa, taraba, abia, adamawa, akwa_ibom, anambra, bauchi, bayelsa, borno, cross_river, delta, ebonyi, edo, ekiti, enugu, gombe, imo, jigawa, kaduna, kano, katsina, kebbi, kogi, kwara, niger, ondo, oyo, plateau, rivers, sokoto, yobe, zamfara, fct] }
+            trip_id: { type: string }
+            ticket_ref: { type: string }
+            fare_kobo: { type: integer }
+            timestamp: { type: string, format: date-time }
+  ng.sos.waterways.dredging_volume_alert:
+    publish:
+      operationId: waterwaysDredgingVolumeAlert
+      description: Emitted by mod-waterways when a dredger exceeds its licensed monthly volume quota.
+      message:
+        payload:
+          type: object
+          required: [state_id, dredger_id, volume_m3, quota_m3, timestamp]
+          properties:
+            state_id: { type: string, enum: [lagos, ogun, osun, benue, nasarawa, taraba, abia, adamawa, akwa_ibom, anambra, bauchi, bayelsa, borno, cross_river, delta, ebonyi, edo, ekiti, enugu, gombe, imo, jigawa, kaduna, kano, katsina, kebbi, kogi, kwara, niger, ondo, oyo, plateau, rivers, sokoto, yobe, zamfara, fct] }
+            dredger_id: { type: string }
+            volume_m3: { type: number }
+            quota_m3: { type: number }
+            timestamp: { type: string, format: date-time }
+  ng.sos.waterways.royalty_assessed:
+    publish:
+      operationId: waterwaysRoyaltyAssessed
+      description: Emitted by mod-waterways when a dredging royalty (kobo per m3) is assessed, hash-chain audited.
+      message:
+        payload:
+          type: object
+          required: [state_id, dredger_id, royalty_kobo, entry_hash, timestamp]
+          properties:
+            state_id: { type: string, enum: [lagos, ogun, osun, benue, nasarawa, taraba, abia, adamawa, akwa_ibom, anambra, bauchi, bayelsa, borno, cross_river, delta, ebonyi, edo, ekiti, enugu, gombe, imo, jigawa, kaduna, kano, katsina, kebbi, kogi, kwara, niger, ondo, oyo, plateau, rivers, sokoto, yobe, zamfara, fct] }
+            dredger_id: { type: string }
+            royalty_kobo: { type: integer }
+            entry_hash: { type: string }
+            timestamp: { type: string, format: date-time }
   ng.sos.safecity.face_match:
     publish:
       operationId: safecityFaceMatch

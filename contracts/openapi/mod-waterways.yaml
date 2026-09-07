@@ -1,0 +1,874 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-waterways/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS Inland Waterways API (mod-waterways)
+  version: 0.1.0
+  description: 'National Edition §3. Ferry e-ticketing with capacity-enforced manifests, sand-dredging volumetric monitoring
+    (Sedona seam), quota & royalty levies. Adoptions: Lagos, Bayelsa, Rivers, Benue, Delta, Kogi, Niger (LASWA/NIWA liaison).'
+paths:
+  /waterways/v1/routes:
+    get:
+      tags:
+      - registry
+      summary: List Routes
+      operationId: list_routes_waterways_v1_routes_get
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /waterways/v1/jetties:
+    get:
+      tags:
+      - registry
+      summary: List Jetties
+      operationId: list_jetties_waterways_v1_jetties_get
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /waterways/v1/fare-policy:
+    get:
+      tags:
+      - registry
+      summary: Fare Policy
+      operationId: fare_policy_waterways_v1_fare_policy_get
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /waterways/v1/trips:
+    post:
+      tags:
+      - ticketing
+      summary: Schedule Trip
+      operationId: schedule_trip_waterways_v1_trips_post
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripScheduleRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trip'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - ticketing
+      summary: List Trips
+      operationId: list_trips_waterways_v1_trips_get
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Trip'
+                title: Response List Trips Waterways V1 Trips Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /waterways/v1/tickets:
+    post:
+      tags:
+      - ticketing
+      summary: Purchase Ticket
+      operationId: purchase_ticket_waterways_v1_tickets_post
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketPurchaseRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ticket'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - ticketing
+      summary: List Tickets
+      operationId: list_tickets_waterways_v1_tickets_get
+      parameters:
+      - name: trip_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Trip Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Ticket'
+                title: Response List Tickets Waterways V1 Tickets Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /waterways/v1/trips/{trip_id}/manifest:
+    get:
+      tags:
+      - ticketing
+      summary: Trip Manifest
+      operationId: trip_manifest_waterways_v1_trips__trip_id__manifest_get
+      parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Trip Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /waterways/v1/trips/{trip_id}/depart:
+    post:
+      tags:
+      - ticketing
+      summary: Depart Trip
+      description: 'Mark departure — safety rule: manifest locks at departure.'
+      operationId: depart_trip_waterways_v1_trips__trip_id__depart_post
+      parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Trip Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /waterways/v1/dredgers:
+    post:
+      tags:
+      - dredging
+      summary: Register Dredger
+      operationId: register_dredger_waterways_v1_dredgers_post
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DredgerRegistrationRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dredger'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - dredging
+      summary: List Dredgers
+      operationId: list_dredgers_waterways_v1_dredgers_get
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Dredger'
+                title: Response List Dredgers Waterways V1 Dredgers Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /waterways/v1/dredgers/{dredger_id}/position:
+    get:
+      tags:
+      - dredging
+      summary: Dredger Position
+      description: Latest AIS fix for a registered dredger vessel (fixture/live seam).
+      operationId: dredger_position_waterways_v1_dredgers__dredger_id__position_get
+      parameters:
+      - name: dredger_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dredger Id
+      - name: mmsi
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Mmsi
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /waterways/v1/surveys:
+    post:
+      tags:
+      - dredging
+      summary: Ingest Survey
+      description: 'Ingest a volumetric dredging survey. Cross-checks the claimed volume
+
+        against the Sedona volumetric adapter, rolls into the monthly quota,
+
+        and computes a hash-chained royalty levy (integer kobo per m³).'
+      operationId: ingest_survey_waterways_v1_surveys_post
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SurveyIngestRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - dredging
+      summary: List Surveys
+      operationId: list_surveys_waterways_v1_surveys_get
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Survey'
+                title: Response List Surveys Waterways V1 Surveys Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /waterways/v1/quotas:
+    get:
+      tags:
+      - dredging
+      summary: Quota Status
+      description: Monthly cumulative volume per dredger vs licensed quota.
+      operationId: quota_status_waterways_v1_quotas_get
+      parameters:
+      - name: month
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Month
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /waterways/v1/royalties:
+    get:
+      tags:
+      - dredging
+      summary: List Royalties
+      description: Hash-chained royalty assessment audit feed for the tenant.
+      operationId: list_royalties_waterways_v1_royalties_get
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /healthz:
+    get:
+      summary: Healthz
+      operationId: healthz_healthz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Healthz Healthz Get
+      tags:
+      - waterways
+components:
+  schemas:
+    Dredger:
+      properties:
+        dredger_id:
+          type: string
+          title: Dredger Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        vessel_name:
+          type: string
+          title: Vessel Name
+        license_no:
+          type: string
+          title: License No
+        operator_kyb_ref:
+          type: string
+          title: Operator Kyb Ref
+        monthly_quota_m3:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Monthly Quota M3
+        registered_at:
+          type: string
+          title: Registered At
+      type: object
+      required:
+      - dredger_id
+      - tenant_state_id
+      - vessel_name
+      - license_no
+      - operator_kyb_ref
+      - monthly_quota_m3
+      - registered_at
+      title: Dredger
+    DredgerRegistrationRequest:
+      properties:
+        vessel_name:
+          type: string
+          title: Vessel Name
+        license_no:
+          type: string
+          title: License No
+        operator_kyb_ref:
+          type: string
+          title: Operator Kyb Ref
+          description: mod-kyc-kyb business verification ref
+        monthly_quota_m3:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Monthly Quota M3
+      type: object
+      required:
+      - vessel_name
+      - license_no
+      - operator_kyb_ref
+      - monthly_quota_m3
+      title: DredgerRegistrationRequest
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    Survey:
+      properties:
+        survey_id:
+          type: string
+          title: Survey Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        dredger_id:
+          type: string
+          title: Dredger Id
+        polygon:
+          items:
+            items:
+              type: number
+            type: array
+          type: array
+          title: Polygon
+        volume_m3:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Volume M3
+        surveyed_at:
+          type: string
+          title: Surveyed At
+        verified_volume_m3:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Verified Volume M3
+        month:
+          type: string
+          title: Month
+      type: object
+      required:
+      - survey_id
+      - tenant_state_id
+      - dredger_id
+      - polygon
+      - volume_m3
+      - surveyed_at
+      - month
+      title: Survey
+    SurveyIngestRequest:
+      properties:
+        dredger_id:
+          type: string
+          title: Dredger Id
+        polygon:
+          items:
+            items:
+              type: number
+            type: array
+          type: array
+          title: Polygon
+          description: '[lon, lat] ring'
+        volume_m3:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Volume M3
+        surveyed_at:
+          type: string
+          title: Surveyed At
+          description: ISO-8601 survey timestamp
+        depth_m:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Depth M
+          description: bathymetric depth for verification
+          default: 3.0
+      type: object
+      required:
+      - dredger_id
+      - polygon
+      - volume_m3
+      - surveyed_at
+      title: SurveyIngestRequest
+    Ticket:
+      properties:
+        ticket_id:
+          type: string
+          title: Ticket Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        trip_id:
+          type: string
+          title: Trip Id
+        passenger_name:
+          type: string
+          title: Passenger Name
+        fare_kobo:
+          type: integer
+          minimum: 0.0
+          title: Fare Kobo
+        qr_ref:
+          type: string
+          title: Qr Ref
+        sold_at:
+          type: string
+          title: Sold At
+      type: object
+      required:
+      - ticket_id
+      - tenant_state_id
+      - trip_id
+      - passenger_name
+      - fare_kobo
+      - qr_ref
+      - sold_at
+      title: Ticket
+    TicketPurchaseRequest:
+      properties:
+        trip_id:
+          type: string
+          title: Trip Id
+        passenger_name:
+          type: string
+          minLength: 1
+          title: Passenger Name
+      type: object
+      required:
+      - trip_id
+      - passenger_name
+      title: TicketPurchaseRequest
+    Trip:
+      properties:
+        trip_id:
+          type: string
+          title: Trip Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        route_id:
+          type: string
+          title: Route Id
+        vessel:
+          type: string
+          title: Vessel
+        capacity:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Capacity
+        departure:
+          type: string
+          title: Departure
+        status:
+          $ref: '#/components/schemas/TripStatus'
+          default: scheduled
+        manifest_locked:
+          type: boolean
+          title: Manifest Locked
+          default: false
+        created_at:
+          type: string
+          title: Created At
+      type: object
+      required:
+      - trip_id
+      - tenant_state_id
+      - route_id
+      - vessel
+      - capacity
+      - departure
+      - created_at
+      title: Trip
+    TripScheduleRequest:
+      properties:
+        route_id:
+          type: string
+          title: Route Id
+        vessel:
+          type: string
+          title: Vessel
+        capacity:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Capacity
+        departure:
+          type: string
+          title: Departure
+          description: ISO-8601 scheduled departure
+      type: object
+      required:
+      - route_id
+      - vessel
+      - capacity
+      - departure
+      title: TripScheduleRequest
+    TripStatus:
+      type: string
+      enum:
+      - scheduled
+      - departed
+      title: TripStatus
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: waterways
+- name: ferry
+- name: dredging

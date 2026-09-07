@@ -1,0 +1,71 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.waterways.dredging_volume_alert.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.waterways.dredging_volume_alert' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "dredger_id": {
+      "type": "string"
+    },
+    "quota_m3": {
+      "type": "number"
+    },
+    "state_id": {
+      "enum": [
+        "lagos",
+        "ogun",
+        "osun",
+        "benue",
+        "nasarawa",
+        "taraba",
+        "abia",
+        "adamawa",
+        "akwa_ibom",
+        "anambra",
+        "bauchi",
+        "bayelsa",
+        "borno",
+        "cross_river",
+        "delta",
+        "ebonyi",
+        "edo",
+        "ekiti",
+        "enugu",
+        "gombe",
+        "imo",
+        "jigawa",
+        "kaduna",
+        "kano",
+        "katsina",
+        "kebbi",
+        "kogi",
+        "kwara",
+        "niger",
+        "ondo",
+        "oyo",
+        "plateau",
+        "rivers",
+        "sokoto",
+        "yobe",
+        "zamfara",
+        "fct"
+      ],
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "volume_m3": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "state_id",
+    "dredger_id",
+    "volume_m3",
+    "quota_m3",
+    "timestamp"
+  ],
+  "title": "ng.sos.waterways.dredging_volume_alert",
+  "type": "object"
+}

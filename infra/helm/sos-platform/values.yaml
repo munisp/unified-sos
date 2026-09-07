@@ -80,6 +80,19 @@ modules:
     secretEnvFrom:
       - sos-secrets-storage
     resources: {}
+  modAgriTrace:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-agri-trace
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env:
+      # fixture | production — fail closed without SOS_AGRI_EXCHANGE_URL
+      SOS_AGRI_PROFILE: "fixture"
+      EVENT_BUS: "memory"
+    resources: {}
   modAgriWaybill:
     enabled: false
     replicaCount: 1
@@ -89,6 +102,18 @@ modules:
     service:
       port: 8000
     env: {}
+    resources: {}
+  modBorderTransit:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-border-transit
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env:
+      SOS_BORDER_PROFILE: "fixture"
+      EVENT_BUS: "memory"
     resources: {}
   modCitizenPortal:
     enabled: false
@@ -326,6 +351,18 @@ modules:
     service:
       port: 8000
     env: {}
+    resources: {}
+  modWaterways:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-waterways
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env:
+      SOS_WATERWAYS_PROFILE: "fixture"
+      EVENT_BUS: "memory"
     resources: {}
 
 

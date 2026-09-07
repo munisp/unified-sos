@@ -172,6 +172,45 @@ SERVICES: dict[str, dict] = {
             tags=["public-safety", "cv", "analytics"],
         ),
     },
+    "mod-agri-trace": {
+        "package": "app.main",
+        "info": dict(
+            title="SOS Agri Commodity Traceability & Warehouse Receipts API (mod-agri-trace)",
+            description=(
+                "National Edition §3. Commodity aggregation, agro-hub warehouse "
+                "receipts (issued/pledged/redeemed, hash-chained), crop "
+                "traceability provenance chains. Adoptions: Benue (yam), Osun "
+                "(cocoa), Taraba (tea), Kebbi (rice), Kano (grains)."
+            ),
+            tags=["agri", "traceability", "warehouse-receipts"],
+        ),
+    },
+    "mod-border-transit": {
+        "package": "app.main",
+        "info": dict(
+            title="SOS Cross-Border Cargo Transit API (mod-border-transit)",
+            description=(
+                "National Edition §3. Cross-border cargo RFID tracking, transit "
+                "telematics with corridor geofencing, tamper alerts, transit "
+                "levy assessment (integer kobo). Adoptions: Taraba, Borno, "
+                "Katsina, Sokoto, Ogun, Cross River."
+            ),
+            tags=["border", "transit", "rfid"],
+        ),
+    },
+    "mod-waterways": {
+        "package": "app.main",
+        "info": dict(
+            title="SOS Inland Waterways API (mod-waterways)",
+            description=(
+                "National Edition §3. Ferry e-ticketing with capacity-enforced "
+                "manifests, sand-dredging volumetric monitoring (Sedona seam), "
+                "quota & royalty levies. Adoptions: Lagos, Bayelsa, Rivers, "
+                "Benue, Delta, Kogi, Niger (LASWA/NIWA liaison)."
+            ),
+            tags=["waterways", "ferry", "dredging"],
+        ),
+    },
     "mod-mobility-switch": {
         "package": "app.main",
         "info": dict(

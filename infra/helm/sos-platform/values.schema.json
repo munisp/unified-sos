@@ -28,7 +28,9 @@
       "properties": {
         "controlPlane": { "$ref": "#/$defs/module" },
         "lakehouse": { "$ref": "#/$defs/module" },
+        "modAgriTrace": { "$ref": "#/$defs/module" },
         "modAgriWaybill": { "$ref": "#/$defs/module" },
+        "modBorderTransit": { "$ref": "#/$defs/module" },
         "modCitizenPortal": { "$ref": "#/$defs/module" },
         "modEducation": { "$ref": "#/$defs/module" },
         "modEnvironment": { "$ref": "#/$defs/module" },
@@ -49,7 +51,8 @@
         "modRevCore": { "$ref": "#/$defs/module" },
         "modSafecityVision": { "$ref": "#/$defs/module" },
         "modTransparency": { "$ref": "#/$defs/module" },
-        "modTransportWim": { "$ref": "#/$defs/module" }
+        "modTransportWim": { "$ref": "#/$defs/module" },
+        "modWaterways": { "$ref": "#/$defs/module" }
       }
     },
     "apisix": { "type": "object" },

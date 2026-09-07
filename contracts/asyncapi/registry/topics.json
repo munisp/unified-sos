@@ -1,6 +1,48 @@
 {
   "channels": [
     {
+      "channel": "ng.sos.agri.lot_traced_hop",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.agri.lot_traced_hop.json",
+      "topic": "ng.sos.agri.lot_traced_hop"
+    },
+    {
+      "channel": "ng.sos.agri.receipt_pledged",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.agri.receipt_pledged.json",
+      "topic": "ng.sos.agri.receipt_pledged"
+    },
+    {
+      "channel": "ng.sos.agri.receipt_redeemed",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.agri.receipt_redeemed.json",
+      "topic": "ng.sos.agri.receipt_redeemed"
+    },
+    {
+      "channel": "ng.sos.agri.warehouse_receipt_issued",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.agri.warehouse_receipt_issued.json",
+      "topic": "ng.sos.agri.warehouse_receipt_issued"
+    },
+    {
+      "channel": "ng.sos.border.levy_assessed",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.border.levy_assessed.json",
+      "topic": "ng.sos.border.levy_assessed"
+    },
+    {
+      "channel": "ng.sos.border.tamper_alert",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.border.tamper_alert.json",
+      "topic": "ng.sos.border.tamper_alert"
+    },
+    {
+      "channel": "ng.sos.border.transit_crossing_recorded",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.border.transit_crossing_recorded.json",
+      "topic": "ng.sos.border.transit_crossing_recorded"
+    },
+    {
       "channel": "ng.sos.citizen.payroll_audit_completed",
       "contract": "platform-events.yaml",
       "schema": "schemas/ng.sos.citizen.payroll_audit_completed.json",
@@ -137,6 +179,24 @@
       "contract": "platform-events.yaml",
       "schema": "schemas/ng.sos.tenant.provisioned.json",
       "topic": "ng.sos.tenant.provisioned"
+    },
+    {
+      "channel": "ng.sos.waterways.dredging_volume_alert",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.waterways.dredging_volume_alert.json",
+      "topic": "ng.sos.waterways.dredging_volume_alert"
+    },
+    {
+      "channel": "ng.sos.waterways.royalty_assessed",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.waterways.royalty_assessed.json",
+      "topic": "ng.sos.waterways.royalty_assessed"
+    },
+    {
+      "channel": "ng.sos.waterways.ticket_sold",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.waterways.ticket_sold.json",
+      "topic": "ng.sos.waterways.ticket_sold"
     },
     {
       "channel": "transferFulfilment",

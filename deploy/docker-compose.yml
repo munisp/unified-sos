@@ -329,6 +329,66 @@ services:
       timeout: 5s
       retries: 5
 
+
+  # --- Agri commodity traceability & warehouse receipts (National Edition) -
+
+  mod-agri-trace:
+    build:
+      context: ../services/mod-agri-trace
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-agri-trace:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-benue}
+      # fixture default; production: SOS_AGRI_PROFILE=production +
+      # SOS_AGRI_EXCHANGE_URL / SOS_AGRI_IOT_URL (fail closed otherwise)
+      SOS_AGRI_PROFILE: ${SOS_AGRI_PROFILE:-fixture}
+      EVENT_BUS: ${EVENT_BUS:-memory}
+    ports:
+      - "8018:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # --- Cross-border cargo RFID transit (National Edition) ------------------
+
+  mod-border-transit:
+    build:
+      context: ../services/mod-border-transit
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-border-transit:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-taraba}
+      SOS_BORDER_PROFILE: ${SOS_BORDER_PROFILE:-fixture}
+      EVENT_BUS: ${EVENT_BUS:-memory}
+    ports:
+      - "8019:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # --- Inland waterways e-ticketing & dredging volumetrics (National) ------
+
+  mod-waterways:
+    build:
+      context: ../services/mod-waterways
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-waterways:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-lagos}
+      SOS_WATERWAYS_PROFILE: ${SOS_WATERWAYS_PROFILE:-fixture}
+      EVENT_BUS: ${EVENT_BUS:-memory}
+    ports:
+      - "8020:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
   mod-geospatial-gateway:
     build:
       context: ../services/mod-geospatial-gateway

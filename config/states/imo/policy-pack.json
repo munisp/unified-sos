@@ -1,0 +1,59 @@
+{
+ "tenant_state_id": "imo",
+ "policy_id": "POL_REVENUE_SPLIT_IMO_2026",
+ "revenue_head": "REV_PPP_CONCESSION",
+ "effective_date": "2026-10-01",
+ "gazette_reference": "Imo State Revenue Administration (Harmonized Collection) Law; gazetted module fee schedule to be confirmed at onboarding [derived placeholder]",
+ "statutory_split_rules": [
+  {
+   "beneficiary": "STATE_CONSOLIDATED_REVENUE_FUND",
+   "tigerbeetle_account_code": 3001,
+   "split_percentage": 65.0,
+   "deduction_timing": "INSTANT"
+  },
+  {
+   "beneficiary": "MDA_RETENTION_ACCOUNT",
+   "beneficiary_detail": "IMO_LEAD_MDA_OPERATIONS_RETENTION",
+   "tigerbeetle_account_code": 2010,
+   "split_percentage": 15.0,
+   "deduction_timing": "END_OF_MONTH"
+  },
+  {
+   "beneficiary": "PPP_TECH_CONCESSIONAIRE_ESCROW",
+   "tigerbeetle_account_code": 2099,
+   "split_percentage": 10.0,
+   "deduction_timing": "INSTANT"
+  },
+  {
+   "beneficiary": "LOCAL_GOVERNMENT_SHARE_POOL",
+   "tigerbeetle_account_code": 2020,
+   "split_percentage": 5.0,
+   "deduction_timing": "END_OF_MONTH"
+  },
+  {
+   "beneficiary": "SECURITY_TRUST_FUND",
+   "beneficiary_detail": "IMO_SECURITY_TRUST_FUND",
+   "tigerbeetle_account_code": 4001,
+   "split_percentage": 5.0,
+   "deduction_timing": "INSTANT"
+  }
+ ],
+ "concession_guardrails": {
+  "revenue_share_ceiling_pct": 15,
+  "irr_cap_pct": 22,
+  "step_down_schedule": [
+   {
+    "up_to_cumulative_igr_kobo": 500000000000,
+    "share_pct": 10.0
+   },
+   {
+    "up_to_cumulative_igr_kobo": 2000000000000,
+    "share_pct": 7.0
+   },
+   {
+    "up_to_cumulative_igr_kobo": 0,
+    "share_pct": 5.0
+   }
+  ]
+ }
+}

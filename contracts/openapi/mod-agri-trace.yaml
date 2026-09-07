@@ -1,0 +1,1351 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-agri-trace/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS Agri Commodity Traceability & Warehouse Receipts API (mod-agri-trace)
+  version: 0.1.0
+  description: 'National Edition §3. Commodity aggregation, agro-hub warehouse receipts (issued/pledged/redeemed, hash-chained),
+    crop traceability provenance chains. Adoptions: Benue (yam), Osun (cocoa), Taraba (tea), Kebbi (rice), Kano (grains).'
+paths:
+  /agri/v1/farmers:
+    post:
+      tags:
+      - registry
+      summary: Register Farmer
+      operationId: register_farmer_agri_v1_farmers_post
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FarmerRegistration'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Farmer'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - registry
+      summary: List Farmers
+      operationId: list_farmers_agri_v1_farmers_get
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Farmer'
+                title: Response List Farmers Agri V1 Farmers Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /agri/v1/farmers/{farmer_id}:
+    get:
+      tags:
+      - registry
+      summary: Get Farmer
+      operationId: get_farmer_agri_v1_farmers__farmer_id__get
+      parameters:
+      - name: farmer_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Farmer Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Farmer'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /agri/v1/commodities:
+    get:
+      tags:
+      - catalog
+      summary: Commodities
+      description: 'Per-state commodity catalog (Benue yam, Osun cocoa, Taraba tea,
+
+        Kebbi rice, Kano sorghum/maize; generic fallback otherwise).'
+      operationId: commodities_agri_v1_commodities_get
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /agri/v1/lots:
+    post:
+      tags:
+      - aggregation
+      summary: Intake Lot
+      operationId: intake_lot_agri_v1_lots_post
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LotIntake'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lot'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - aggregation
+      summary: List Lots
+      operationId: list_lots_agri_v1_lots_get
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Lot'
+                title: Response List Lots Agri V1 Lots Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /agri/v1/warehouses:
+    post:
+      tags:
+      - warehouse
+      summary: Register Warehouse
+      operationId: register_warehouse_agri_v1_warehouses_post
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WarehouseRegistration'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Warehouse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - warehouse
+      summary: List Warehouses
+      operationId: list_warehouses_agri_v1_warehouses_get
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Warehouse'
+                title: Response List Warehouses Agri V1 Warehouses Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /agri/v1/receipts:
+    post:
+      tags:
+      - warehouse-receipts
+      summary: Issue Receipt
+      operationId: issue_receipt_agri_v1_receipts_post
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReceiptIssueRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WarehouseReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - warehouse-receipts
+      summary: List Receipts
+      operationId: list_receipts_agri_v1_receipts_get
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WarehouseReceipt'
+                title: Response List Receipts Agri V1 Receipts Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /agri/v1/receipts/{receipt_id}:
+    get:
+      tags:
+      - warehouse-receipts
+      summary: Get Receipt
+      operationId: get_receipt_agri_v1_receipts__receipt_id__get
+      parameters:
+      - name: receipt_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Receipt Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WarehouseReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /agri/v1/receipts/{receipt_id}/pledge:
+    post:
+      tags:
+      - warehouse-receipts
+      summary: Pledge Receipt
+      description: Pledge a WR as loan collateral; emits a settlement intent event.
+      operationId: pledge_receipt_agri_v1_receipts__receipt_id__pledge_post
+      parameters:
+      - name: receipt_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Receipt Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PledgeRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WarehouseReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /agri/v1/receipts/{receipt_id}/release:
+    post:
+      tags:
+      - warehouse-receipts
+      summary: Release Receipt
+      operationId: release_receipt_agri_v1_receipts__receipt_id__release_post
+      parameters:
+      - name: receipt_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Receipt Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WarehouseReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /agri/v1/receipts/{receipt_id}/redeem:
+    post:
+      tags:
+      - warehouse-receipts
+      summary: Redeem Receipt
+      operationId: redeem_receipt_agri_v1_receipts__receipt_id__redeem_post
+      parameters:
+      - name: receipt_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Receipt Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WarehouseReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /agri/v1/receipts/{receipt_id}/transfer:
+    post:
+      tags:
+      - warehouse-receipts
+      summary: Transfer Title
+      description: Transfer WR title between holders (double-entry ledger recorded).
+      operationId: transfer_title_agri_v1_receipts__receipt_id__transfer_post
+      parameters:
+      - name: receipt_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Receipt Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WarehouseReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /agri/v1/receipts/{receipt_id}/ledger:
+    get:
+      tags:
+      - warehouse-receipts
+      summary: Title Ledger
+      operationId: title_ledger_agri_v1_receipts__receipt_id__ledger_get
+      parameters:
+      - name: receipt_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Receipt Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /agri/v1/trace/hops:
+    post:
+      tags:
+      - traceability
+      summary: Add Trace Hop
+      operationId: add_trace_hop_agri_v1_trace_hops_post
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TraceHopRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceHop'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /agri/v1/trace/{lot_id}:
+    get:
+      tags:
+      - traceability
+      summary: Trace Lot
+      description: 'Full provenance chain (farm -> ... -> processor/export) with hash
+
+        verification of every hop.'
+      operationId: trace_lot_agri_v1_trace__lot_id__get
+      parameters:
+      - name: lot_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Lot Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /agri/v1/receipt-chain/verify:
+    get:
+      tags:
+      - warehouse-receipts
+      summary: Verify Receipt Chain
+      operationId: verify_receipt_chain_agri_v1_receipt_chain_verify_get
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /agri/v1/prices/{commodity}:
+    get:
+      tags:
+      - exchange
+      summary: Price
+      operationId: price_agri_v1_prices__commodity__get
+      parameters:
+      - name: commodity
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Commodity
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceQuote'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /agri/v1/telemetry:
+    post:
+      tags:
+      - iot
+      summary: Ingest Telemetry
+      operationId: ingest_telemetry_agri_v1_telemetry_post
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelemetryIngestRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelemetryReading'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /agri/v1/telemetry/{warehouse_id}:
+    get:
+      tags:
+      - iot
+      summary: Latest Telemetry
+      operationId: latest_telemetry_agri_v1_telemetry__warehouse_id__get
+      parameters:
+      - name: warehouse_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Warehouse Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TelemetryReading'
+                title: Response Latest Telemetry Agri V1 Telemetry  Warehouse Id  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /healthz:
+    get:
+      summary: Healthz
+      operationId: healthz_healthz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Healthz Healthz Get
+      tags:
+      - agri
+components:
+  schemas:
+    Farmer:
+      properties:
+        farmer_id:
+          type: string
+          title: Farmer Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        name:
+          type: string
+          title: Name
+        kyc_ref:
+          type: string
+          title: Kyc Ref
+          description: Seam to mod-kyc-kyb identity record
+        lga:
+          type: string
+          title: Lga
+          default: ''
+        phone:
+          type: string
+          title: Phone
+          default: ''
+        registered_at:
+          type: string
+          title: Registered At
+      type: object
+      required:
+      - farmer_id
+      - tenant_state_id
+      - name
+      - kyc_ref
+      - registered_at
+      title: Farmer
+    FarmerRegistration:
+      properties:
+        name:
+          type: string
+          title: Name
+        kyc_ref:
+          type: string
+          title: Kyc Ref
+          description: KYC reference from mod-kyc-kyb
+        lga:
+          type: string
+          title: Lga
+          default: ''
+        phone:
+          type: string
+          title: Phone
+          default: ''
+      type: object
+      required:
+      - name
+      - kyc_ref
+      title: FarmerRegistration
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    Lot:
+      properties:
+        lot_id:
+          type: string
+          title: Lot Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        farmer_id:
+          type: string
+          title: Farmer Id
+        commodity:
+          type: string
+          title: Commodity
+        weight_kg:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Weight Kg
+        grade:
+          $ref: '#/components/schemas/QualityGrade'
+        moisture_pct:
+          type: number
+          maximum: 100.0
+          minimum: 0.0
+          title: Moisture Pct
+        latitude:
+          type: number
+          title: Latitude
+        longitude:
+          type: number
+          title: Longitude
+        created_at:
+          type: string
+          title: Created At
+        stored:
+          type: boolean
+          title: Stored
+          default: false
+      type: object
+      required:
+      - lot_id
+      - tenant_state_id
+      - farmer_id
+      - commodity
+      - weight_kg
+      - grade
+      - moisture_pct
+      - latitude
+      - longitude
+      - created_at
+      title: Lot
+    LotIntake:
+      properties:
+        farmer_id:
+          type: string
+          title: Farmer Id
+        commodity:
+          type: string
+          title: Commodity
+        weight_kg:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Weight Kg
+        grade:
+          $ref: '#/components/schemas/QualityGrade'
+        moisture_pct:
+          type: number
+          maximum: 100.0
+          minimum: 0.0
+          title: Moisture Pct
+        latitude:
+          type: number
+          maximum: 90.0
+          minimum: -90.0
+          title: Latitude
+        longitude:
+          type: number
+          maximum: 180.0
+          minimum: -180.0
+          title: Longitude
+      type: object
+      required:
+      - farmer_id
+      - commodity
+      - weight_kg
+      - grade
+      - moisture_pct
+      - latitude
+      - longitude
+      title: LotIntake
+    PledgeRequest:
+      properties:
+        pledgee_ref:
+          type: string
+          title: Pledgee Ref
+          description: Lender / collateral agent reference
+      type: object
+      required:
+      - pledgee_ref
+      title: PledgeRequest
+    PriceQuote:
+      properties:
+        commodity:
+          type: string
+          title: Commodity
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        price_kobo_per_kg:
+          type: integer
+          minimum: 0.0
+          title: Price Kobo Per Kg
+          description: Integer kobo per kg
+        currency:
+          type: string
+          title: Currency
+          default: NGN
+        source:
+          type: string
+          title: Source
+        quoted_at:
+          type: string
+          title: Quoted At
+      type: object
+      required:
+      - commodity
+      - tenant_state_id
+      - price_kobo_per_kg
+      - source
+      - quoted_at
+      title: PriceQuote
+    QualityGrade:
+      type: string
+      enum:
+      - A
+      - B
+      - C
+      title: QualityGrade
+    ReceiptIssueRequest:
+      properties:
+        warehouse_id:
+          type: string
+          title: Warehouse Id
+        lot_id:
+          type: string
+          title: Lot Id
+        storage_fees_kobo:
+          type: integer
+          minimum: 0.0
+          title: Storage Fees Kobo
+      type: object
+      required:
+      - warehouse_id
+      - lot_id
+      - storage_fees_kobo
+      title: ReceiptIssueRequest
+    ReceiptStatus:
+      type: string
+      enum:
+      - issued
+      - pledged
+      - released
+      - redeemed
+      title: ReceiptStatus
+    TelemetryIngestRequest:
+      properties:
+        warehouse_id:
+          type: string
+          title: Warehouse Id
+        moisture_pct:
+          type: number
+          maximum: 100.0
+          minimum: 0.0
+          title: Moisture Pct
+        temperature_c:
+          type: number
+          maximum: 80.0
+          minimum: -40.0
+          title: Temperature C
+      type: object
+      required:
+      - warehouse_id
+      - moisture_pct
+      - temperature_c
+      title: TelemetryIngestRequest
+    TelemetryReading:
+      properties:
+        reading_id:
+          type: string
+          title: Reading Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        warehouse_id:
+          type: string
+          title: Warehouse Id
+        moisture_pct:
+          type: number
+          maximum: 100.0
+          minimum: 0.0
+          title: Moisture Pct
+        temperature_c:
+          type: number
+          maximum: 80.0
+          minimum: -40.0
+          title: Temperature C
+        recorded_at:
+          type: string
+          title: Recorded At
+      type: object
+      required:
+      - reading_id
+      - tenant_state_id
+      - warehouse_id
+      - moisture_pct
+      - temperature_c
+      - recorded_at
+      title: TelemetryReading
+    TraceHop:
+      properties:
+        hop_id:
+          type: string
+          title: Hop Id
+        lot_id:
+          type: string
+          title: Lot Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        stage:
+          $ref: '#/components/schemas/TraceStage'
+        actor:
+          type: string
+          title: Actor
+        latitude:
+          type: number
+          title: Latitude
+        longitude:
+          type: number
+          title: Longitude
+        note:
+          type: string
+          title: Note
+          default: ''
+        occurred_at:
+          type: string
+          title: Occurred At
+        prev_hash:
+          type: string
+          title: Prev Hash
+        event_hash:
+          type: string
+          title: Event Hash
+      type: object
+      required:
+      - hop_id
+      - lot_id
+      - tenant_state_id
+      - stage
+      - actor
+      - latitude
+      - longitude
+      - occurred_at
+      - prev_hash
+      - event_hash
+      title: TraceHop
+    TraceHopRequest:
+      properties:
+        lot_id:
+          type: string
+          title: Lot Id
+        stage:
+          $ref: '#/components/schemas/TraceStage'
+        actor:
+          type: string
+          title: Actor
+        latitude:
+          type: number
+          maximum: 90.0
+          minimum: -90.0
+          title: Latitude
+        longitude:
+          type: number
+          maximum: 180.0
+          minimum: -180.0
+          title: Longitude
+        note:
+          type: string
+          title: Note
+          default: ''
+      type: object
+      required:
+      - lot_id
+      - stage
+      - actor
+      - latitude
+      - longitude
+      title: TraceHopRequest
+    TraceStage:
+      type: string
+      enum:
+      - farm
+      - aggregation_center
+      - warehouse
+      - processor
+      - export
+      title: TraceStage
+    TransferRequest:
+      properties:
+        from_holder:
+          type: string
+          title: From Holder
+        to_holder:
+          type: string
+          title: To Holder
+      type: object
+      required:
+      - from_holder
+      - to_holder
+      title: TransferRequest
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    Warehouse:
+      properties:
+        warehouse_id:
+          type: string
+          title: Warehouse Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        name:
+          type: string
+          title: Name
+        lga:
+          type: string
+          title: Lga
+          default: ''
+        capacity_kg:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Capacity Kg
+        latitude:
+          type: number
+          title: Latitude
+        longitude:
+          type: number
+          title: Longitude
+        registered_at:
+          type: string
+          title: Registered At
+      type: object
+      required:
+      - warehouse_id
+      - tenant_state_id
+      - name
+      - capacity_kg
+      - latitude
+      - longitude
+      - registered_at
+      title: Warehouse
+    WarehouseReceipt:
+      properties:
+        receipt_id:
+          type: string
+          title: Receipt Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        warehouse_id:
+          type: string
+          title: Warehouse Id
+        lot_id:
+          type: string
+          title: Lot Id
+        holder_id:
+          type: string
+          title: Holder Id
+        quantity_kg:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Quantity Kg
+        grade:
+          $ref: '#/components/schemas/QualityGrade'
+        storage_fees_kobo:
+          type: integer
+          minimum: 0.0
+          title: Storage Fees Kobo
+          description: Integer kobo (NGN minor unit)
+        status:
+          $ref: '#/components/schemas/ReceiptStatus'
+        pledgee_ref:
+          type: string
+          title: Pledgee Ref
+          default: ''
+        issued_at:
+          type: string
+          title: Issued At
+        updated_at:
+          type: string
+          title: Updated At
+      type: object
+      required:
+      - receipt_id
+      - tenant_state_id
+      - warehouse_id
+      - lot_id
+      - holder_id
+      - quantity_kg
+      - grade
+      - storage_fees_kobo
+      - status
+      - issued_at
+      - updated_at
+      title: WarehouseReceipt
+    WarehouseRegistration:
+      properties:
+        name:
+          type: string
+          title: Name
+        lga:
+          type: string
+          title: Lga
+          default: ''
+        capacity_kg:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Capacity Kg
+        latitude:
+          type: number
+          maximum: 90.0
+          minimum: -90.0
+          title: Latitude
+        longitude:
+          type: number
+          maximum: 180.0
+          minimum: -180.0
+          title: Longitude
+      type: object
+      required:
+      - name
+      - capacity_kg
+      - latitude
+      - longitude
+      title: WarehouseRegistration
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: agri
+- name: traceability
+- name: warehouse-receipts
