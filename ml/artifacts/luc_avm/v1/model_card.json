@@ -1,0 +1,30 @@
+{
+  "model_name": "luc_avm",
+  "version": "v1",
+  "metrics": {
+    "val_loss": 0.0003514773852657527,
+    "test_r2": 0.6481692892290696
+  },
+  "feature_schema": {
+    "categoricals": {
+      "state": 16,
+      "land_use": 6,
+      "h3_cell": 10000
+    },
+    "numeric": [
+      "footprint_m2",
+      "floors",
+      "location_premium"
+    ],
+    "target": "log1p(value_ngn)",
+    "target_r2": ">= 0.5 (synthetic test)"
+  },
+  "threshold": 0.0,
+  "trained_at": "2026-09-07T02:03:37.533465+00:00",
+  "dataset_hash": "519c98172aa71653",
+  "code_hash": "c6ab775d7b5db06e",
+  "framework": {
+    "torch": "2.8.0+cu128",
+    "device": "cpu"
+  }
+}

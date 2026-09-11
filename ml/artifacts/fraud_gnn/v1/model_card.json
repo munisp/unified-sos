@@ -1,0 +1,35 @@
+{
+  "model_name": "fraud_gnn",
+  "version": "v1",
+  "metrics": {
+    "val_loss": 0.22334536910057068,
+    "test_auc": 0.9678489042675894,
+    "test_acc": 0.9230769230769231,
+    "epochs_ran": 30
+  },
+  "feature_schema": {
+    "node_features": [
+      "log_total_amount",
+      "txn_count_log",
+      "unique_counterparties_log",
+      "mean_hour_norm",
+      "under_threshold_ratio",
+      "is_payer",
+      "is_agent",
+      "is_beneficiary"
+    ],
+    "edge_schema": [
+      "payer->agent",
+      "agent->beneficiary"
+    ],
+    "in_dim": 8
+  },
+  "threshold": 0.5,
+  "trained_at": "2026-09-07T02:02:52.140632+00:00",
+  "dataset_hash": "935627a2a6160064",
+  "code_hash": "c6ab775d7b5db06e",
+  "framework": {
+    "torch": "2.8.0+cu128",
+    "device": "cpu"
+  }
+}

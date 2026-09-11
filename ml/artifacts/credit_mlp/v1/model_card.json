@@ -1,0 +1,32 @@
+{
+  "model_name": "credit_mlp",
+  "version": "v1",
+  "metrics": {
+    "val_loss": 0.486142635345459,
+    "test_auc": 0.7563561076604555,
+    "test_acc": 0.7755555555555556
+  },
+  "feature_schema": {
+    "categoricals": {
+      "state": 16,
+      "occupation": 8
+    },
+    "numeric": [
+      "monthly_income_proxy_ngn",
+      "seasonality_index",
+      "igr_percentile",
+      "txns_last_90d",
+      "avg_levy_kobo"
+    ],
+    "emb_dim": 8,
+    "target": "creditworthy (binary)"
+  },
+  "threshold": 0.5,
+  "trained_at": "2026-09-07T02:02:57.947068+00:00",
+  "dataset_hash": "01167b748a76a8b0",
+  "code_hash": "c6ab775d7b5db06e",
+  "framework": {
+    "torch": "2.8.0+cu128",
+    "device": "cpu"
+  }
+}

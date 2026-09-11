@@ -1,0 +1,22 @@
+{
+  "model_name": "crowd_lstm",
+  "version": "v1",
+  "metrics": {
+    "val_loss": 0.006383846048265696,
+    "test_mse": 0.005467539187520742,
+    "test_mae": 0.05695177614688873
+  },
+  "feature_schema": {
+    "input": "density window (seq_len, 1)",
+    "target": "next-step density [0,1]",
+    "seq_len_default": 12
+  },
+  "threshold": 0.0,
+  "trained_at": "2026-09-07T02:03:18.012669+00:00",
+  "dataset_hash": "3768e88203df1941",
+  "code_hash": "c6ab775d7b5db06e",
+  "framework": {
+    "torch": "2.8.0+cu128",
+    "device": "cpu"
+  }
+}
