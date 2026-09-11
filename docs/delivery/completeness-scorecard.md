@@ -334,3 +334,9 @@ all 37 whitelabel domains; Cilium+eBPF zero-trust layer (35 validation tests);
 tuning pack for 11 infra components incl. Mojaloop-MySQL decision record;
 MapLibre GL + CesiumJS mapping engine in both frontends (citizen 41 tests,
 dispatch 53). Weighted readiness ≈ 96%.
+
+## 15. Stage 12 update — funds-flow integrity layer + full verification
+
+- `ledger/fundsflow/` — atomicity middleware: saga coordinator (hold → split_commit → payout → event_publish with compensation), TigerBeetle two-phase PENDING→POST/VOID + linked chains (all-or-nothing splits), deterministic 128-bit idempotency IDs, transactional outbox (no event loss on crash), idempotency middleware (replay-safe, 409 on conflict, Redis seam), conservation-of-value invariants (exact kobo sums, 5001 federal pass-through never credited, hash-chained violations), 3-way reconciliation (ledger/outbox/upstream FSPIOP+NIBSS), Temporal workflow definitions.
+- **52 tests incl. 7 crash-injection scenarios** — crash after hold, mid-chain, before publish; duplicate webhooks; replay attacks — conservation of value holds in all.
+- Full-platform verification sweep: 27 service suites + ml + deploy + sosctl + top-level = **1,030+ tests green**; policy packs (37), infra invariants, AsyncAPI registry all PASSED. Baseline ML weights now committed to main.
