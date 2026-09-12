@@ -1,0 +1,36 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.landdocs.duplicate_suspected.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.landdocs.duplicate_suspected' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "document_id": {
+      "type": "string"
+    },
+    "match_kind": {
+      "enum": [
+        "content_hash",
+        "fuzzy_title"
+      ],
+      "type": "string"
+    },
+    "matched_document_id": {
+      "type": "string"
+    },
+    "state_id": {
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "document_id",
+    "matched_document_id",
+    "match_kind",
+    "timestamp"
+  ],
+  "title": "ng.sos.landdocs.duplicate_suspected",
+  "type": "object"
+}

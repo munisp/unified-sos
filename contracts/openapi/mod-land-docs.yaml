@@ -1,0 +1,620 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-land-docs/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS Land Documents & OCR API (mod-land-docs)
+  version: 0.1.0
+  description: 'Land registry document management: deed/survey-plan/C-of-O registration, classification, OCR extraction (PaddleOCR/Docling
+    seam, fail-closed), verification, versioning with supersede, duplicate detection, hash-chained audit. Tenant-scoped.'
+paths:
+  /api/v1/states/{state_id}/land-docs/documents:
+    post:
+      tags:
+      - documents
+      summary: Register Document
+      operationId: register_document_api_v1_states__state_id__land_docs_documents_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDocumentRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterDocumentResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - documents
+      summary: List Documents
+      operationId: list_documents_api_v1_states__state_id__land_docs_documents_get
+      parameters:
+      - name: doc_type
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/DocType'
+          - type: 'null'
+          title: Doc Type
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/DocStatus'
+          - type: 'null'
+          title: Status
+      - name: parcel_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parcel Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LandDocument'
+                title: Response List Documents Api V1 States  State Id  Land Docs Documents Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/land-docs/documents/{document_id}/classify:
+    post:
+      tags:
+      - lifecycle
+      summary: Classify Document
+      operationId: classify_document_api_v1_states__state_id__land_docs_documents__document_id__classify_post
+      parameters:
+      - name: document_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Document Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActorRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LandDocument'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/land-docs/documents/{document_id}/ocr:
+    post:
+      tags:
+      - lifecycle
+      summary: Run Ocr
+      operationId: run_ocr_api_v1_states__state_id__land_docs_documents__document_id__ocr_post
+      parameters:
+      - name: document_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Document Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActorRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LandDocument'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/land-docs/documents/{document_id}/verify:
+    post:
+      tags:
+      - lifecycle
+      summary: Verify Document
+      operationId: verify_document_api_v1_states__state_id__land_docs_documents__document_id__verify_post
+      parameters:
+      - name: document_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Document Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LandDocument'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/land-docs/documents/{document_id}/reject:
+    post:
+      tags:
+      - lifecycle
+      summary: Reject Document
+      operationId: reject_document_api_v1_states__state_id__land_docs_documents__document_id__reject_post
+      parameters:
+      - name: document_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Document Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LandDocument'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/land-docs/documents/{document_id}/versions:
+    post:
+      tags:
+      - versioning
+      summary: Add Version
+      operationId: add_version_api_v1_states__state_id__land_docs_documents__document_id__versions_post
+      parameters:
+      - name: document_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Document Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewVersionRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LandDocument'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/land-docs/documents/{document_id}:
+    get:
+      tags:
+      - documents
+      summary: Get Document
+      operationId: get_document_api_v1_states__state_id__land_docs_documents__document_id__get
+      parameters:
+      - name: document_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Document Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/land-docs/documents/{document_id}/audit:
+    get:
+      tags:
+      - audit
+      summary: Document Audit
+      operationId: document_audit_api_v1_states__state_id__land_docs_documents__document_id__audit_get
+      parameters:
+      - name: document_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Document Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /healthz:
+    get:
+      summary: Healthz
+      operationId: healthz_healthz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Healthz Healthz Get
+      tags:
+      - lands
+components:
+  schemas:
+    ActorRequest:
+      properties:
+        actor:
+          type: string
+          minLength: 1
+          title: Actor
+      type: object
+      required:
+      - actor
+      title: ActorRequest
+    DocStatus:
+      type: string
+      enum:
+      - REGISTERED
+      - CLASSIFIED
+      - OCR_EXTRACTED
+      - VERIFIED
+      - REJECTED
+      - ARCHIVED
+      - SUPERSEDED
+      title: DocStatus
+    DocType:
+      type: string
+      enum:
+      - DEED
+      - SURVEY_PLAN
+      - C_OF_O
+      - CONSENT_LETTER
+      - TAX_CLEARANCE
+      - IDENTITY
+      - OTHER
+      title: DocType
+    DuplicateWarning:
+      properties:
+        document_id:
+          type: string
+          title: Document Id
+        title:
+          type: string
+          title: Title
+        reason:
+          type: string
+          title: Reason
+        score:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Score
+      type: object
+      required:
+      - document_id
+      - title
+      - reason
+      - score
+      title: DuplicateWarning
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    LandDocument:
+      properties:
+        document_id:
+          type: string
+          title: Document Id
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        title:
+          type: string
+          title: Title
+        filename:
+          type: string
+          title: Filename
+        doc_type:
+          $ref: '#/components/schemas/DocType'
+          default: OTHER
+        status:
+          $ref: '#/components/schemas/DocStatus'
+          default: REGISTERED
+        version:
+          type: integer
+          minimum: 1.0
+          title: Version
+          default: 1
+        parcel_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parcel Id
+        content_hash:
+          type: string
+          title: Content Hash
+        storage_ref:
+          type: string
+          title: Storage Ref
+        root_document_id:
+          type: string
+          title: Root Document Id
+        superseded_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Superseded By
+        classifier_scores:
+          additionalProperties:
+            type: integer
+          type: object
+          title: Classifier Scores
+        extracted_fields:
+          additionalProperties:
+            type: string
+          type: object
+          title: Extracted Fields
+        ocr_confidence:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Ocr Confidence
+        needs_manual_review:
+          type: boolean
+          title: Needs Manual Review
+          default: false
+        verified_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Verified By
+        verification_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Verification Reason
+        rejection_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Rejection Reason
+        registered_by:
+          type: string
+          title: Registered By
+        registered_at:
+          type: string
+          title: Registered At
+        updated_at:
+          type: string
+          title: Updated At
+      type: object
+      required:
+      - document_id
+      - tenant_state_id
+      - title
+      - filename
+      - content_hash
+      - storage_ref
+      - root_document_id
+      - registered_by
+      - registered_at
+      - updated_at
+      title: LandDocument
+    NewVersionRequest:
+      properties:
+        filename:
+          type: string
+          minLength: 1
+          title: Filename
+        content_base64:
+          type: string
+          title: Content Base64
+        actor:
+          type: string
+          minLength: 1
+          title: Actor
+      type: object
+      required:
+      - filename
+      - content_base64
+      - actor
+      title: NewVersionRequest
+    RegisterDocumentRequest:
+      properties:
+        title:
+          type: string
+          minLength: 1
+          title: Title
+        filename:
+          type: string
+          minLength: 1
+          title: Filename
+        content_base64:
+          type: string
+          title: Content Base64
+          description: raw document bytes, base64
+        registered_by:
+          type: string
+          minLength: 1
+          title: Registered By
+        doc_type:
+          $ref: '#/components/schemas/DocType'
+          default: OTHER
+        parcel_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parcel Id
+      type: object
+      required:
+      - title
+      - filename
+      - content_base64
+      - registered_by
+      title: RegisterDocumentRequest
+    RegisterDocumentResponse:
+      properties:
+        document:
+          $ref: '#/components/schemas/LandDocument'
+        duplicate_warnings:
+          items:
+            $ref: '#/components/schemas/DuplicateWarning'
+          type: array
+          title: Duplicate Warnings
+      type: object
+      required:
+      - document
+      - duplicate_warnings
+      title: RegisterDocumentResponse
+    RejectRequest:
+      properties:
+        actor:
+          type: string
+          minLength: 1
+          title: Actor
+        reason:
+          type: string
+          minLength: 1
+          title: Reason
+      type: object
+      required:
+      - actor
+      - reason
+      title: RejectRequest
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    VerifyRequest:
+      properties:
+        verifier:
+          type: string
+          minLength: 1
+          title: Verifier
+        reason:
+          type: string
+          minLength: 1
+          title: Reason
+      type: object
+      required:
+      - verifier
+      - reason
+      title: VerifyRequest
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: lands
+- name: documents
+- name: ocr

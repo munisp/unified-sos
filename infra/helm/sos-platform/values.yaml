@@ -366,6 +366,32 @@ modules:
       # without SOS_VISION_MODEL_DIR + NDPA authorization records file.
       SOS_VISION_ENGINE: "fixture"
     resources: {}
+  modLandDocs:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-land-docs
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env:
+      # fixture OCR default; production fails closed without
+      # SOS_LANDDOCS_OCR_URL + SOS_LANDDOCS_BUCKET
+      SOS_LANDDOCS_PROFILE: "fixture"
+    resources: {}
+  modMortgage:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: ghcr.io/munisp/mod-mortgage
+      tag: "0.1.0"
+    service:
+      port: 8000
+    env:
+      # production fails closed without SOS_MORTGAGE_TB_URL + SOS_MORTGAGE_LANDS_URL
+      SOS_MORTGAGE_PROFILE: "fixture"
+      SOS_MORTGAGE_CREDIT_URL: "http://mod-ml-inference:8000/ml/v1/credit/score"
+    resources: {}
   modTransparency:
     enabled: false
     replicaCount: 1

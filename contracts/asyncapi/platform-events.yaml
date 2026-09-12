@@ -549,3 +549,188 @@ channels:
             updated_by: { type: string, description: Actor identity from the admin token subject }
             entry_hash: { type: string, description: Hash-chain link of the branding audit entry }
             timestamp: { type: string, format: date-time }
+  ng.sos.landdocs.document_registered:
+    publish:
+      operationId: landdocsDocumentRegistered
+      description: >-
+        Emitted by mod-land-docs when a land document (deed, survey plan,
+        C-of-O, consent letter, tax clearance, identity) is registered for a
+        parcel. Carries metadata + content hash only — never document bytes.
+      message:
+        payload:
+          type: object
+          required: [state_id, document_id, document_type, content_sha256, timestamp]
+          properties:
+            state_id: { type: string }
+            document_id: { type: string }
+            document_type: { type: string, enum: [DEED, SURVEY_PLAN, C_OF_O, CONSENT_LETTER, TAX_CLEARANCE, IDENTITY, OTHER] }
+            parcel_id: { type: string }
+            content_sha256: { type: string }
+            timestamp: { type: string, format: date-time }
+  ng.sos.landdocs.ocr_completed:
+    publish:
+      operationId: landdocsOcrCompleted
+      description: >-
+        Emitted by mod-land-docs when OCR extraction completes. Low-confidence
+        extractions (<0.7) carry needs_review=true for manual verification.
+      message:
+        payload:
+          type: object
+          required: [state_id, document_id, confidence, needs_review, timestamp]
+          properties:
+            state_id: { type: string }
+            document_id: { type: string }
+            confidence: { type: number }
+            needs_review: { type: boolean }
+            timestamp: { type: string, format: date-time }
+  ng.sos.landdocs.document_verified:
+    publish:
+      operationId: landdocsDocumentVerified
+      description: >-
+        Emitted by mod-land-docs when a verifier actor verifies a document;
+        carries the hash-chain audit link.
+      message:
+        payload:
+          type: object
+          required: [state_id, document_id, verifier, audit_hash, timestamp]
+          properties:
+            state_id: { type: string }
+            document_id: { type: string }
+            verifier: { type: string }
+            audit_hash: { type: string }
+            timestamp: { type: string, format: date-time }
+  ng.sos.landdocs.duplicate_suspected:
+    publish:
+      operationId: landdocsDuplicateSuspected
+      description: >-
+        Emitted by mod-land-docs when exact content-hash or fuzzy-title
+        duplicate detection flags a document against existing registry items.
+      message:
+        payload:
+          type: object
+          required: [state_id, document_id, matched_document_id, match_kind, timestamp]
+          properties:
+            state_id: { type: string }
+            document_id: { type: string }
+            matched_document_id: { type: string }
+            match_kind: { type: string, enum: [content_hash, fuzzy_title] }
+            timestamp: { type: string, format: date-time }
+  ng.sos.mortgage.application_received:
+    publish:
+      operationId: mortgageApplicationReceived
+      description: Emitted by mod-mortgage on a new mortgage application against a parcel/title.
+      message:
+        payload:
+          type: object
+          required: [state_id, mortgage_id, applicant_id, parcel_id, principal_kobo, timestamp]
+          properties:
+            state_id: { type: string }
+            mortgage_id: { type: string }
+            applicant_id: { type: string }
+            parcel_id: { type: string }
+            principal_kobo: { type: integer, format: int64 }
+            timestamp: { type: string, format: date-time }
+  ng.sos.mortgage.credit_scored:
+    publish:
+      operationId: mortgageCreditScored
+      description: Emitted by mod-mortgage after credit review (credit_mlp seam); carries band decision, not raw PII features.
+      message:
+        payload:
+          type: object
+          required: [state_id, mortgage_id, score_band, decision, timestamp]
+          properties:
+            state_id: { type: string }
+            mortgage_id: { type: string }
+            score_band: { type: string, enum: [approve, manual_review, decline] }
+            decision: { type: string, enum: [APPROVED, MANUAL_REVIEW, DECLINED] }
+            timestamp: { type: string, format: date-time }
+  ng.sos.mortgage.lien_registered:
+    publish:
+      operationId: mortgageLienRegistered
+      description: Emitted by mod-mortgage when a lien is registered on a title; consumers (mod-gis-lands) must block conflicting transfers.
+      message:
+        payload:
+          type: object
+          required: [state_id, mortgage_id, parcel_id, title_ref, priority, timestamp]
+          properties:
+            state_id: { type: string }
+            mortgage_id: { type: string }
+            parcel_id: { type: string }
+            title_ref: { type: string }
+            priority: { type: integer, description: 1 = senior, 2 = second charge }
+            timestamp: { type: string, format: date-time }
+  ng.sos.mortgage.disbursed:
+    publish:
+      operationId: mortgageDisbursed
+      description: >-
+        Emitted by mod-mortgage after two-phase disbursement posts
+        (PENDING→POST; VOID on failure). Amount in integer kobo; conservation
+        of value enforced against approved principal.
+      message:
+        payload:
+          type: object
+          required: [state_id, mortgage_id, amount_kobo, transfer_id, timestamp]
+          properties:
+            state_id: { type: string }
+            mortgage_id: { type: string }
+            amount_kobo: { type: integer, format: int64 }
+            transfer_id: { type: string, description: Deterministic 128-bit ledger transfer id }
+            timestamp: { type: string, format: date-time }
+  ng.sos.mortgage.payment_applied:
+    publish:
+      operationId: mortgagePaymentApplied
+      description: Emitted by mod-mortgage when a repayment is applied oldest-first (interest then principal). Idempotent per idempotency_key.
+      message:
+        payload:
+          type: object
+          required: [state_id, mortgage_id, payment_id, amount_kobo, outstanding_kobo, timestamp]
+          properties:
+            state_id: { type: string }
+            mortgage_id: { type: string }
+            payment_id: { type: string }
+            amount_kobo: { type: integer, format: int64 }
+            outstanding_kobo: { type: integer, format: int64 }
+            timestamp: { type: string, format: date-time }
+  ng.sos.mortgage.discharged:
+    publish:
+      operationId: mortgageDischarged
+      description: Emitted by mod-mortgage on full payoff — lien released atomically with the final ledger post.
+      message:
+        payload:
+          type: object
+          required: [state_id, mortgage_id, parcel_id, audit_hash, timestamp]
+          properties:
+            state_id: { type: string }
+            mortgage_id: { type: string }
+            parcel_id: { type: string }
+            audit_hash: { type: string }
+            timestamp: { type: string, format: date-time }
+  ng.sos.mortgage.defaulted:
+    publish:
+      operationId: mortgageDefaulted
+      description: Emitted by mod-mortgage when a mortgage exceeds 90 days past due.
+      message:
+        payload:
+          type: object
+          required: [state_id, mortgage_id, days_past_due, outstanding_kobo, timestamp]
+          properties:
+            state_id: { type: string }
+            mortgage_id: { type: string }
+            days_past_due: { type: integer }
+            outstanding_kobo: { type: integer, format: int64 }
+            timestamp: { type: string, format: date-time }
+  ng.sos.mortgage.foreclosed:
+    publish:
+      operationId: mortgageForeclosed
+      description: Emitted by mod-mortgage on foreclosure; carries reason and audit hash.
+      message:
+        payload:
+          type: object
+          required: [state_id, mortgage_id, parcel_id, reason, audit_hash, timestamp]
+          properties:
+            state_id: { type: string }
+            mortgage_id: { type: string }
+            parcel_id: { type: string }
+            reason: { type: string }
+            audit_hash: { type: string }
+            timestamp: { type: string, format: date-time }

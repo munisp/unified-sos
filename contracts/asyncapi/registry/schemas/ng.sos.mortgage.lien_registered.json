@@ -1,0 +1,38 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.mortgage.lien_registered.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.mortgage.lien_registered' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "mortgage_id": {
+      "type": "string"
+    },
+    "parcel_id": {
+      "type": "string"
+    },
+    "priority": {
+      "2 = second charge": null,
+      "description": "1 = senior",
+      "type": "integer"
+    },
+    "state_id": {
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "title_ref": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "mortgage_id",
+    "parcel_id",
+    "title_ref",
+    "priority",
+    "timestamp"
+  ],
+  "title": "ng.sos.mortgage.lien_registered",
+  "type": "object"
+}

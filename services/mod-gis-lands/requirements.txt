@@ -4,5 +4,6 @@ pydantic>=2.6         # MIT
 shapely>=2.0          # BSD-3-Clause
 pyproj>=3.6           # MIT
 cryptography>=42.0    # Apache-2.0 / BSD-3-Clause (dual)
+prometheus-client>=0.20  # Apache-2.0 (operation counters; optional at runtime)
 httpx>=0.27           # BSD-3-Clause (test client)
 pytest>=8.0           # MIT

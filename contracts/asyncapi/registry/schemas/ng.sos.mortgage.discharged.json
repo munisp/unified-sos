@@ -1,0 +1,32 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.mortgage.discharged.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.mortgage.discharged' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "audit_hash": {
+      "type": "string"
+    },
+    "mortgage_id": {
+      "type": "string"
+    },
+    "parcel_id": {
+      "type": "string"
+    },
+    "state_id": {
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "mortgage_id",
+    "parcel_id",
+    "audit_hash",
+    "timestamp"
+  ],
+  "title": "ng.sos.mortgage.discharged",
+  "type": "object"
+}

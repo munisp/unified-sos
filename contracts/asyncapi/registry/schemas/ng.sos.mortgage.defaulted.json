@@ -1,0 +1,33 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.mortgage.defaulted.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.mortgage.defaulted' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "days_past_due": {
+      "type": "integer"
+    },
+    "mortgage_id": {
+      "type": "string"
+    },
+    "outstanding_kobo": {
+      "format": "int64",
+      "type": "integer"
+    },
+    "state_id": {
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "mortgage_id",
+    "days_past_due",
+    "outstanding_kobo",
+    "timestamp"
+  ],
+  "title": "ng.sos.mortgage.defaulted",
+  "type": "object"
+}

@@ -139,6 +139,30 @@
       "topic": "ng.sos.kyc.liveness_failed"
     },
     {
+      "channel": "ng.sos.landdocs.document_registered",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.landdocs.document_registered.json",
+      "topic": "ng.sos.landdocs.document_registered"
+    },
+    {
+      "channel": "ng.sos.landdocs.document_verified",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.landdocs.document_verified.json",
+      "topic": "ng.sos.landdocs.document_verified"
+    },
+    {
+      "channel": "ng.sos.landdocs.duplicate_suspected",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.landdocs.duplicate_suspected.json",
+      "topic": "ng.sos.landdocs.duplicate_suspected"
+    },
+    {
+      "channel": "ng.sos.landdocs.ocr_completed",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.landdocs.ocr_completed.json",
+      "topic": "ng.sos.landdocs.ocr_completed"
+    },
+    {
       "channel": "ng.sos.mining.consignment_dispatched",
       "contract": "mining-events.yaml",
       "schema": "schemas/ng.sos.mining.consignment_dispatched.json",
@@ -155,6 +179,54 @@
       "contract": "platform-events.yaml",
       "schema": "schemas/ng.sos.ml.drift_detected.json",
       "topic": "ng.sos.ml.drift_detected"
+    },
+    {
+      "channel": "ng.sos.mortgage.application_received",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.mortgage.application_received.json",
+      "topic": "ng.sos.mortgage.application_received"
+    },
+    {
+      "channel": "ng.sos.mortgage.credit_scored",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.mortgage.credit_scored.json",
+      "topic": "ng.sos.mortgage.credit_scored"
+    },
+    {
+      "channel": "ng.sos.mortgage.defaulted",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.mortgage.defaulted.json",
+      "topic": "ng.sos.mortgage.defaulted"
+    },
+    {
+      "channel": "ng.sos.mortgage.disbursed",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.mortgage.disbursed.json",
+      "topic": "ng.sos.mortgage.disbursed"
+    },
+    {
+      "channel": "ng.sos.mortgage.discharged",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.mortgage.discharged.json",
+      "topic": "ng.sos.mortgage.discharged"
+    },
+    {
+      "channel": "ng.sos.mortgage.foreclosed",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.mortgage.foreclosed.json",
+      "topic": "ng.sos.mortgage.foreclosed"
+    },
+    {
+      "channel": "ng.sos.mortgage.lien_registered",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.mortgage.lien_registered.json",
+      "topic": "ng.sos.mortgage.lien_registered"
+    },
+    {
+      "channel": "ng.sos.mortgage.payment_applied",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.mortgage.payment_applied.json",
+      "topic": "ng.sos.mortgage.payment_applied"
     },
     {
       "channel": "ng.sos.payments.settlement_completed",

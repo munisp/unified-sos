@@ -1,0 +1,651 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-mortgage/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS Mortgage & Lien API (mod-mortgage)
+  version: 0.1.0
+  description: 'Mortgage lifecycle for state land registries: application, credit review (credit_mlp seam), lien registration
+    with priority, two-phase disbursement (integer kobo, idempotent), annuity repayment schedule, discharge/default/foreclosure.
+    Fail-closed TigerBeetle + land-registry seams in production.'
+paths:
+  /api/v1/states/{state_id}/mortgages/:
+    post:
+      tags:
+      - mortgage
+      summary: Apply
+      operationId: apply_api_v1_states__state_id__mortgages__post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - mortgage
+      summary: List Mortgages
+      operationId: list_mortgages_api_v1_states__state_id__mortgages__get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      - name: status_filter
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status Filter
+      - name: applicant_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Applicant Id
+      - name: parcel_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parcel Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/mortgages/liens:
+    get:
+      tags:
+      - lien
+      summary: List Liens
+      operationId: list_liens_api_v1_states__state_id__mortgages_liens_get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      - name: parcel_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parcel Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/mortgages/{mortgage_id}:
+    get:
+      tags:
+      - mortgage
+      summary: Get Mortgage
+      operationId: get_mortgage_api_v1_states__state_id__mortgages__mortgage_id__get
+      parameters:
+      - name: mortgage_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Mortgage Id
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/mortgages/{mortgage_id}/schedule:
+    get:
+      tags:
+      - mortgage
+      summary: Get Schedule
+      operationId: get_schedule_api_v1_states__state_id__mortgages__mortgage_id__schedule_get
+      parameters:
+      - name: mortgage_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Mortgage Id
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/mortgages/{mortgage_id}/credit-review:
+    post:
+      tags:
+      - mortgage
+      summary: Credit Review
+      operationId: credit_review_api_v1_states__state_id__mortgages__mortgage_id__credit_review_post
+      parameters:
+      - name: mortgage_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Mortgage Id
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/mortgages/{mortgage_id}/approve:
+    post:
+      tags:
+      - mortgage
+      summary: Approve
+      operationId: approve_api_v1_states__state_id__mortgages__mortgage_id__approve_post
+      parameters:
+      - name: mortgage_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Mortgage Id
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/mortgages/{mortgage_id}/register-lien:
+    post:
+      tags:
+      - lien
+      summary: Register Lien
+      operationId: register_lien_api_v1_states__state_id__mortgages__mortgage_id__register_lien_post
+      parameters:
+      - name: mortgage_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Mortgage Id
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LienIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/mortgages/{mortgage_id}/disburse:
+    post:
+      tags:
+      - mortgage
+      summary: Disburse
+      operationId: disburse_api_v1_states__state_id__mortgages__mortgage_id__disburse_post
+      parameters:
+      - name: mortgage_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Mortgage Id
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/mortgages/{mortgage_id}/payments:
+    post:
+      tags:
+      - mortgage
+      summary: Pay
+      operationId: pay_api_v1_states__state_id__mortgages__mortgage_id__payments_post
+      parameters:
+      - name: mortgage_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Mortgage Id
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/mortgages/{mortgage_id}/foreclose:
+    post:
+      tags:
+      - mortgage
+      summary: Foreclose
+      operationId: foreclose_api_v1_states__state_id__mortgages__mortgage_id__foreclose_post
+      parameters:
+      - name: mortgage_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Mortgage Id
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForecloseIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /healthz:
+    get:
+      summary: Healthz
+      operationId: healthz_healthz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Healthz Healthz Get
+      tags:
+      - lands
+components:
+  schemas:
+    ApplicationIn:
+      properties:
+        applicant_id:
+          type: string
+          title: Applicant Id
+        parcel_id:
+          type: string
+          title: Parcel Id
+        title_ref:
+          type: string
+          title: Title Ref
+          examples:
+          - LAG-2024-000123
+        principal_kobo:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Principal Kobo
+        rate_bps:
+          type: integer
+          minimum: 0.0
+          title: Rate Bps
+          description: annual interest in basis points
+        term_months:
+          type: integer
+          maximum: 360.0
+          minimum: 6.0
+          title: Term Months
+      type: object
+      required:
+      - applicant_id
+      - parcel_id
+      - title_ref
+      - principal_kobo
+      - rate_bps
+      - term_months
+      title: ApplicationIn
+    ApproveIn:
+      properties:
+        officer:
+          type: string
+          title: Officer
+        reason:
+          type: string
+          title: Reason
+      type: object
+      required:
+      - officer
+      - reason
+      title: ApproveIn
+    ForecloseIn:
+      properties:
+        reason:
+          type: string
+          title: Reason
+      type: object
+      required:
+      - reason
+      title: ForecloseIn
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    LienIn:
+      properties:
+        second_charge:
+          type: boolean
+          title: Second Charge
+          default: false
+        senior_lien_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Senior Lien Id
+      type: object
+      title: LienIn
+    PaymentIn:
+      properties:
+        amount_kobo:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Amount Kobo
+        idempotency_key:
+          type: string
+          title: Idempotency Key
+      type: object
+      required:
+      - amount_kobo
+      - idempotency_key
+      title: PaymentIn
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: lands
+- name: mortgage
+- name: liens
+- name: ledger

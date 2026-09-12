@@ -42,6 +42,8 @@ class ParcelStatus(str, enum.Enum):
     ACTIVE = "ACTIVE"
     PENDING = "PENDING"
     REVOKED = "REVOKED"
+    REGISTERED = "REGISTERED"  # derived parcel (subdivision/merger child)
+    SUPERSEDED = "SUPERSEDED"  # replaced by subdivision/merger children; never deleted
 
 
 class ParcelRegistration(BaseModel):
@@ -91,6 +93,10 @@ class ParcelRecord(BaseModel):
     status: ParcelStatus = ParcelStatus.ACTIVE
     boundary_geojson: dict[str, Any]
     titling_workflow_id: str
+    parent_parcel_ids: list[UUID] = Field(
+        default_factory=list,
+        description="Lineage: parent parcel(s) this parcel was subdivided/merged from",
+    )
 
 
 class DeedVerificationRequest(BaseModel):

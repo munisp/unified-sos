@@ -406,6 +406,50 @@ services:
 
   # --- ML inference (CPU) + MLflow tracking --------------------------------
 
+
+  # --- Land documents + OCR (deeds, survey plans, C-of-O) -----------------
+
+  mod-land-docs:
+    build:
+      context: ../services/mod-land-docs
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-land-docs:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+      # fixture OCR default; production: SOS_LANDDOCS_PROFILE=production +
+      # SOS_LANDDOCS_OCR_URL (PaddleOCR/Docling sidecar) + SOS_LANDDOCS_BUCKET
+      SOS_LANDDOCS_PROFILE: ${SOS_LANDDOCS_PROFILE:-fixture}
+      EVENT_BUS: ${EVENT_BUS:-memory}
+    ports:
+      - "8022:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # --- Mortgage & lien management (state land registries) -----------------
+
+  mod-mortgage:
+    build:
+      context: ../services/mod-mortgage
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-mortgage:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+      # fixture credit/ledger defaults; production: SOS_MORTGAGE_PROFILE=production
+      # + SOS_MORTGAGE_TB_URL + SOS_MORTGAGE_LANDS_URL (fail closed otherwise)
+      SOS_MORTGAGE_PROFILE: ${SOS_MORTGAGE_PROFILE:-fixture}
+      SOS_MORTGAGE_CREDIT_URL: ${SOS_MORTGAGE_CREDIT_URL:-http://mod-ml-inference:8000/ml/v1/credit/score}
+      EVENT_BUS: ${EVENT_BUS:-memory}
+    ports:
+      - "8023:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
   mod-ml-inference:
     build:
       context: ..

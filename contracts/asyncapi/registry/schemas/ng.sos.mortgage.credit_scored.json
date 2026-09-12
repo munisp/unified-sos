@@ -1,0 +1,42 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.mortgage.credit_scored.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.mortgage.credit_scored' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "decision": {
+      "enum": [
+        "APPROVED",
+        "MANUAL_REVIEW",
+        "DECLINED"
+      ],
+      "type": "string"
+    },
+    "mortgage_id": {
+      "type": "string"
+    },
+    "score_band": {
+      "enum": [
+        "approve",
+        "manual_review",
+        "decline"
+      ],
+      "type": "string"
+    },
+    "state_id": {
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "mortgage_id",
+    "score_band",
+    "decision",
+    "timestamp"
+  ],
+  "title": "ng.sos.mortgage.credit_scored",
+  "type": "object"
+}

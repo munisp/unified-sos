@@ -21,8 +21,29 @@ from __future__ import annotations
 from typing import Optional
 from uuid import UUID, uuid4
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Response, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response, status
 from pydantic import BaseModel
+
+from .anchoring import AnchorAdapter, anchor_adapter_from_env
+from .disputes import (
+    DisputeActiveError,
+    DisputeError,
+    DisputeGrounds,
+    DisputeGuard,
+    DisputeStore,
+    DuplicateDisputeError,
+    IllegalTransitionError,
+)
+from .eventlog import CadastreEventLog
+from .history import chain_of_title
+from .risk import RiskFactor, TitleRiskAdapter, risk_scorer_from_env
+from .subdivision import (
+    AREA_CONSERVATION_TOLERANCE,
+    AreaConservationError,
+    ChildParcelSpec,
+    SubdivisionError,
+    SubdivisionService,
+)
 
 from .geometry import (
     GeometryError,
@@ -63,6 +84,36 @@ class TitlingDecisionIn(BaseModel):
     note: str = ""
 
 
+class SubdivideIn(BaseModel):
+    """Subdivision request: the child parcels tiling the parent."""
+
+    children: list[ChildParcelSpec]
+    actor: str = "lands-registry"
+
+
+class MergeIn(BaseModel):
+    """Merger request: 2+ adjacent parents folded into one child parcel."""
+
+    parent_parcel_ids: list[UUID]
+    child: ChildParcelSpec
+    actor: str = "lands-registry"
+
+
+class DisputeIn(BaseModel):
+    """Dispute lodgement body."""
+
+    complainant: str
+    grounds: DisputeGrounds
+    description: str = ""
+
+
+class DisputeDecisionIn(BaseModel):
+    """Dispute review/resolve/dismiss body."""
+
+    actor: str
+    resolution_note: str = ""
+
+
 class TitlingStatusOut(BaseModel):
     """Internal workflow status projection, incl. SLA evaluation."""
 
@@ -89,6 +140,24 @@ def _to_contract_parcel(record: ParcelRecord) -> Parcel:
     )
 
 
+# --- Prometheus operation counters (optional dep; no-op fallback) ----------
+try:
+    from prometheus_client import Counter as _Counter
+
+    _OPS_COUNTER = _Counter(
+        "lands_cadastre_operations_total",
+        "Cadastre operations by type and outcome",
+        ["operation", "outcome"],
+    )
+except Exception:  # pragma: no cover - prometheus-client not installed
+    _OPS_COUNTER = None
+
+
+def _count(operation: str, outcome: str = "success") -> None:
+    if _OPS_COUNTER is not None:
+        _OPS_COUNTER.labels(operation=operation, outcome=outcome).inc()
+
+
 # --- Stage 7.C observability wiring (services/_shared/observability.py) ---
 try:
     from _shared.observability import instrument_fastapi as _instrument_fastapi
@@ -108,18 +177,50 @@ except ImportError:
 def create_app(
     repository: ParcelRepository | None = None,
     titling_runner: LocalTitlingRunner | None = None,
+    event_log: CadastreEventLog | None = None,
+    dispute_store: DisputeStore | None = None,
+    risk_scorer: TitleRiskAdapter | None = None,
+    anchor_adapter: AnchorAdapter | None = None,
 ) -> FastAPI:
-    """Application factory — inject repository/runner for tests."""
+    """Application factory — inject seams for tests.
+
+    Production fail-closed boot: when ``SOS_LANDS_PROFILE=production`` and the
+    risk/anchor seams are not injected *and* their env URLs are unset,
+    ``*_from_env`` raises ``AdapterUnavailableError`` here.
+    """
 
     app = FastAPI(title="SOS Cadastral Land Administration API", version="1.0.0")
     repo: ParcelRepository = repository or InMemoryParcelRepository()
     runner = titling_runner or LocalTitlingRunner()
+    events = event_log or CadastreEventLog()
+    disputes = dispute_store or DisputeStore(event_log=events)
+    guard = DisputeGuard(disputes)
+    risk = risk_scorer if risk_scorer is not None else risk_scorer_from_env()
+    anchors = anchor_adapter if anchor_adapter is not None else anchor_adapter_from_env()
+    subdivisions = SubdivisionService(repo, runner, events, guard)
 
     def get_repo() -> ParcelRepository:
         return repo
 
     def get_runner() -> LocalTitlingRunner:
         return runner
+
+    def tenant_from_header(
+        state_id: StateId, x_state_tenant: str | None = Header(default=None)
+    ) -> str:
+        """Tenant guard for the extension endpoints (house idiom).
+
+        The ``X-State-Tenant`` header is required and must match the path
+        ``state_id`` — belt-and-braces over the path-scoped repository calls.
+        """
+        if not x_state_tenant:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "X-State-Tenant header is required")
+        if x_state_tenant.lower() != state_id.value:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "X-State-Tenant header does not match the state_id path parameter",
+            )
+        return state_id.value
 
     # -- registerParcel ------------------------------------------------------
     @app.post(
@@ -171,6 +272,13 @@ def create_app(
         instance = runner.start(record)
         record = record.model_copy(update={"titling_workflow_id": instance.workflow_id})
         repo.update(record)
+        events.record(
+            "PARCEL_REGISTERED",
+            state_id.value,
+            parcel_id=record.parcel_id,
+            detail={"parcel_uin": record.parcel_uin, "owner_stin": record.owner_stin},
+        )
+        _count("register_parcel")
         return _to_contract_parcel(record)
 
     # -- searchParcels -------------------------------------------------------
@@ -296,15 +404,286 @@ def create_app(
     ) -> TitlingStatusOut:
         try:
             instance, record = _resolve(state_id, workflow_id, repo, runner)
+            # DisputeGuard: an open/under-review dispute freezes titling approvals.
+            guard.assert_clear(state_id.value, record.parcel_id)
             runner.advance(
                 workflow_id, record, approved=body.approved, actor=body.actor, note=body.note
             )
             # Reflect terminal workflow state (issued title / rejection) on the
             # parcel registry row — the issuance activity's PostGIS UPDATE.
             repo.update(runner.apply_issuance_to_parcel(record))
-        except WorkflowError as exc:
+        except (WorkflowError, DisputeActiveError) as exc:
             raise HTTPException(status.HTTP_409_CONFLICT, str(exc))
         return titling_status(state_id, workflow_id, repo, runner)
+
+    # =========================================================================
+    # Extension endpoints (subdivision / merger / disputes / history / risk /
+    # anchoring). All are tenant-scoped: path state_id + X-State-Tenant header.
+    # =========================================================================
+
+    def _get_parcel_or_404(state_id: StateId, parcel_id: UUID) -> ParcelRecord:
+        record = repo.get(state_id.value, parcel_id)
+        if record is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "parcel not found")
+        return record
+
+    # -- subdivision ---------------------------------------------------------
+    @app.post(
+        "/api/v1/states/{state_id}/cadastre/parcels/{parcel_id}/subdivide",
+        status_code=status.HTTP_201_CREATED,
+    )
+    def subdivide_parcel(
+        state_id: StateId, parcel_id: UUID, body: SubdivideIn,
+        tenant: str = Depends(tenant_from_header),
+    ) -> dict:
+        _get_parcel_or_404(state_id, parcel_id)
+        try:
+            parent, children = subdivisions.subdivide(
+                tenant, parcel_id, body.children, actor=body.actor
+            )
+        except AreaConservationError as exc:
+            _count("subdivide", "rejected")
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        except (SubdivisionError, DisputeActiveError, DuplicateParcelError) as exc:
+            _count("subdivide", "conflict")
+            raise HTTPException(status.HTTP_409_CONFLICT, str(exc))
+        _count("subdivide")
+        return {
+            "parent": {**_to_contract_parcel(parent).model_dump(mode="json")},
+            "children": [
+                {
+                    **_to_contract_parcel(c).model_dump(mode="json"),
+                    "parent_parcel_ids": [str(p) for p in c.parent_parcel_ids],
+                    "area_sqm": c.area_sqm,
+                }
+                for c in children
+            ],
+            "area_conservation_tolerance": AREA_CONSERVATION_TOLERANCE,
+        }
+
+    # -- merger ----------------------------------------------------------------
+    @app.post(
+        "/api/v1/states/{state_id}/cadastre/parcels/merge",
+        status_code=status.HTTP_201_CREATED,
+    )
+    def merge_parcels(
+        state_id: StateId, body: MergeIn,
+        tenant: str = Depends(tenant_from_header),
+    ) -> dict:
+        for pid in body.parent_parcel_ids:
+            _get_parcel_or_404(state_id, pid)
+        try:
+            parents, child = subdivisions.merge(
+                tenant, body.parent_parcel_ids, body.child, actor=body.actor
+            )
+        except AreaConservationError as exc:
+            _count("merge", "rejected")
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        except (SubdivisionError, DisputeActiveError, DuplicateParcelError) as exc:
+            _count("merge", "conflict")
+            raise HTTPException(status.HTTP_409_CONFLICT, str(exc))
+        _count("merge")
+        return {
+            "parents": [_to_contract_parcel(p).model_dump(mode="json") for p in parents],
+            "child": {
+                **_to_contract_parcel(child).model_dump(mode="json"),
+                "parent_parcel_ids": [str(p) for p in child.parent_parcel_ids],
+                "area_sqm": child.area_sqm,
+            },
+            "area_conservation_tolerance": AREA_CONSERVATION_TOLERANCE,
+        }
+
+    # -- chain-of-title history --------------------------------------------------
+    @app.get("/api/v1/states/{state_id}/cadastre/parcels/{parcel_id}/history")
+    def parcel_history(
+        state_id: StateId, parcel_id: UUID,
+        tenant: str = Depends(tenant_from_header),
+    ) -> dict:
+        entries = chain_of_title(tenant, parcel_id, repo, runner, events)
+        if entries is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "parcel not found")
+        _count("history")
+        return {
+            "parcel_id": str(parcel_id),
+            "tenant_state_id": tenant,
+            "chain_of_title": [e.as_dict() for e in entries],
+        }
+
+    # -- disputes ------------------------------------------------------------------
+    @app.post(
+        "/api/v1/states/{state_id}/cadastre/parcels/{parcel_id}/disputes",
+        status_code=status.HTTP_201_CREATED,
+    )
+    def open_dispute(
+        state_id: StateId, parcel_id: UUID, body: DisputeIn,
+        tenant: str = Depends(tenant_from_header),
+    ) -> dict:
+        _get_parcel_or_404(state_id, parcel_id)
+        try:
+            dispute = disputes.open(
+                tenant, parcel_id,
+                complainant=body.complainant, grounds=body.grounds,
+                description=body.description,
+            )
+        except DuplicateDisputeError as exc:
+            _count("dispute_open", "conflict")
+            raise HTTPException(status.HTTP_409_CONFLICT, str(exc))
+        _count("dispute_open")
+        return dispute.as_dict()
+
+    @app.get("/api/v1/states/{state_id}/cadastre/parcels/{parcel_id}/disputes")
+    def list_disputes(
+        state_id: StateId, parcel_id: UUID,
+        tenant: str = Depends(tenant_from_header),
+    ) -> list[dict]:
+        _get_parcel_or_404(state_id, parcel_id)
+        _count("dispute_list")
+        return [d.as_dict() for d in disputes.list_for_parcel(tenant, parcel_id)]
+
+    @app.post("/api/v1/states/{state_id}/cadastre/disputes/{dispute_id}/review")
+    def review_dispute(
+        state_id: StateId, dispute_id: str, body: DisputeDecisionIn,
+        tenant: str = Depends(tenant_from_header),
+    ) -> dict:
+        try:
+            dispute = disputes.review(tenant, dispute_id, actor=body.actor)
+        except DisputeError as exc:
+            code = status.HTTP_409_CONFLICT if isinstance(exc, IllegalTransitionError) else status.HTTP_404_NOT_FOUND
+            _count("dispute_review", "conflict")
+            raise HTTPException(code, str(exc))
+        _count("dispute_review")
+        return dispute.as_dict()
+
+    @app.post("/api/v1/states/{state_id}/cadastre/disputes/{dispute_id}/resolve")
+    def resolve_dispute(
+        state_id: StateId, dispute_id: str, body: DisputeDecisionIn,
+        tenant: str = Depends(tenant_from_header),
+    ) -> dict:
+        if not body.resolution_note:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "resolution_note is required")
+        try:
+            dispute = disputes.resolve(
+                tenant, dispute_id, resolver=body.actor, resolution_note=body.resolution_note
+            )
+        except DisputeError as exc:
+            code = status.HTTP_409_CONFLICT if isinstance(exc, IllegalTransitionError) else status.HTTP_404_NOT_FOUND
+            _count("dispute_resolve", "conflict")
+            raise HTTPException(code, str(exc))
+        _count("dispute_resolve")
+        return dispute.as_dict()
+
+    @app.post("/api/v1/states/{state_id}/cadastre/disputes/{dispute_id}/dismiss")
+    def dismiss_dispute(
+        state_id: StateId, dispute_id: str, body: DisputeDecisionIn,
+        tenant: str = Depends(tenant_from_header),
+    ) -> dict:
+        try:
+            dispute = disputes.dismiss(
+                tenant, dispute_id, resolver=body.actor, resolution_note=body.resolution_note
+            )
+        except DisputeError as exc:
+            code = status.HTTP_409_CONFLICT if isinstance(exc, IllegalTransitionError) else status.HTTP_404_NOT_FOUND
+            _count("dispute_dismiss", "conflict")
+            raise HTTPException(code, str(exc))
+        _count("dispute_dismiss")
+        return dispute.as_dict()
+
+    # -- title risk scoring ----------------------------------------------------
+    @app.get("/api/v1/states/{state_id}/cadastre/parcels/{parcel_id}/risk")
+    def parcel_risk(
+        state_id: StateId, parcel_id: UUID,
+        tenant: str = Depends(tenant_from_header),
+    ) -> dict:
+        record = _get_parcel_or_404(state_id, parcel_id)
+        factors: list[RiskFactor] = []
+        if disputes.has_open(tenant, parcel_id):
+            factors.append(RiskFactor(
+                kind="OPEN_DISPUTE",
+                detail="parcel has an open/under-review dispute",
+                weight=30,
+            ))
+        lineage_events = [
+            e for e in events.events(tenant, parcel_id)
+            if e.event_type in ("PARCEL_SUBDIVIDED", "PARCEL_MERGED",
+                                "PARCEL_CREATED_FROM_SUBDIVISION")
+        ]
+        if len(lineage_events) >= 2:
+            factors.append(RiskFactor(
+                kind="RAPID_SUCCESSIVE_TRANSFERS",
+                detail=f"{len(lineage_events)} lineage mutations recorded",
+                weight=15,
+            ))
+        if record.parent_parcel_ids and any(
+            repo.get(tenant, p) is None for p in record.parent_parcel_ids
+        ):
+            factors.append(RiskFactor(
+                kind="SUPERSEDED_LINEAGE_GAP",
+                detail="lineage references a parent parcel missing from the registry",
+                weight=20,
+            ))
+        assessment = risk.score(
+            tenant_state_id=tenant, parcel_id=str(parcel_id), factors=factors
+        )
+        _count("risk_score")
+        return assessment.as_dict()
+
+    # -- title-hash anchoring ----------------------------------------------------
+    def _title_payload(record: ParcelRecord) -> dict:
+        return {
+            "tenant_state_id": record.tenant_state_id,
+            "parcel_id": str(record.parcel_id),
+            "parcel_uin": record.parcel_uin,
+            "owner_stin": record.owner_stin,
+            "title_type": record.title_type.value,
+            "c_of_o_number": record.c_of_o_number,
+            "area_sqm": record.area_sqm,
+            "survey_plan_no": record.survey_plan_no,
+            "status": record.status.value,
+        }
+
+    @app.post(
+        "/api/v1/states/{state_id}/cadastre/parcels/{parcel_id}/anchor",
+        status_code=status.HTTP_201_CREATED,
+    )
+    def anchor_title(
+        state_id: StateId, parcel_id: UUID,
+        tenant: str = Depends(tenant_from_header),
+    ) -> dict:
+        record = _get_parcel_or_404(state_id, parcel_id)
+        anchor = anchors.anchor(
+            tenant_state_id=tenant, parcel_id=str(parcel_id), payload=_title_payload(record)
+        )
+        events.record(
+            "TITLE_ANCHORED",
+            tenant,
+            parcel_id=parcel_id,
+            detail={"anchor_id": anchor.anchor_id, "anchor_hash": anchor.anchor_hash},
+        )
+        _count("anchor")
+        return anchor.as_dict()
+
+    @app.get("/api/v1/states/{state_id}/cadastre/anchors/{anchor_id}/verify")
+    def verify_anchor(
+        state_id: StateId, anchor_id: str,
+        tenant: str = Depends(tenant_from_header),
+    ) -> dict:
+        anchor = anchors.get(tenant, anchor_id)
+        if anchor is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "anchor not found")
+        record = repo.get(tenant, UUID(anchor.parcel_id))
+        if record is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "anchored parcel not found")
+        valid = anchors.verify(
+            tenant_state_id=tenant, anchor_id=anchor_id, payload=_title_payload(record)
+        )
+        _count("anchor_verify", "valid" if valid else "tampered")
+        return {
+            "anchor_id": anchor_id,
+            "tenant_state_id": tenant,
+            "valid": valid,
+            "merkle_root": anchor.merkle_root,
+            "detail": "anchor intact" if valid else "payload or anchor-chain mismatch — tamper detected",
+        }
 
     if _instrument_fastapi is not None:
         _instrument_fastapi(app, "mod-gis-lands")

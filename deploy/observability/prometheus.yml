@@ -331,6 +331,34 @@ scrape_configs:
     action: keep
   - target_label: service
     replacement: mod-safecity-vision
+- job_name: mod-land-docs
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-land-docs
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: mod-land-docs
+- job_name: mod-mortgage
+  kubernetes_sd_configs:
+  - role: endpoints
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_service_label_app_kubernetes_io_component
+    regex: mod-mortgage
+    action: keep
+  - source_labels:
+    - __meta_kubernetes_pod_container_port_number
+    regex: '8000'
+    action: keep
+  - target_label: service
+    replacement: mod-mortgage
 - job_name: mod-ppp-investment
   kubernetes_sd_configs:
   - role: endpoints

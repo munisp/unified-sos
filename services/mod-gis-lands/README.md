@@ -23,6 +23,36 @@ End-to-end digital land registry: parcel storage/validation (UTM Minna Datum EPS
 | Temporal adapter | [lands_app/temporal_adapter.py](lands_app/temporal_adapter.py) | Production wiring notes (task queues per state, signals, durable SLA timers) |
 | SLA clocks | [lands_app/sla.py](lands_app/sla.py) | Osun 45 d, Benue 60–90 d, Lagos consent SLA, Taraba TAGIS clearance; breach detection |
 | Signed titles | [lands_app/signing.py](lands_app/signing.py) | Ed25519 (EdDSA) compact JWS; registry + governor-consent signature chain |
+| Hash-chained cadastre event log | [lands_app/eventlog.py](lands_app/eventlog.py) | Append-only audit chain (`_shared.hashchain`); every mutation recorded |
+| Subdivision & merger | [lands_app/subdivision.py](lands_app/subdivision.py) | Area conservation (0.5% tolerance, geodesic), parent `SUPERSEDED` (never deleted), `parent_parcel_ids` lineage, adjacency check for mergers |
+| Dispute management | [lands_app/disputes.py](lands_app/disputes.py) | OPENED → UNDER_REVIEW → RESOLVED/DISMISSED; `DisputeGuard` freezes titling approvals + subdivision/merger on disputed parcels (409) |
+| Chain-of-title history | [lands_app/history.py](lands_app/history.py) | Chronological owner/instrument/from-to/tx-reference entries from registry + workflow transitions + lineage events |
+| Title-risk scoring seam | [lands_app/risk.py](lands_app/risk.py) | `FixtureTitleRiskScorer` (deterministic sha256 base + factors: open dispute +30, rapid transfers +15, lineage gaps +20); `HttpTitleRiskScorer` to mod-ml-inference |
+| Title-hash anchoring seam | [lands_app/anchoring.py](lands_app/anchoring.py) | `FixtureAnchor` append-only merkle chain (`sha256(payload)‖prev`); anchor/verify with tamper detection; `HttpAnchorAdapter` notary seam |
+
+## Extension endpoints
+
+All tenant-scoped by path `state_id` **and** the `X-State-Tenant` header (400 when missing/mismatched; cross-tenant resources invisible → 404). Prometheus counter `lands_cadastre_operations_total{operation,outcome}` on each.
+
+| Endpoint | Operation |
+|---|---|
+| `POST /api/v1/states/{state_id}/cadastre/parcels/{id}/subdivide` | Split parcel into N children (area conservation, lineage, parent SUPERSEDED) |
+| `POST /api/v1/states/{state_id}/cadastre/parcels/merge` | Merge 2+ adjacent parents into one child |
+| `GET  /api/v1/states/{state_id}/cadastre/parcels/{id}/history` | Chain-of-title entries |
+| `POST /api/v1/states/{state_id}/cadastre/parcels/{id}/disputes` · `GET .../disputes` | Lodge / list disputes |
+| `POST /api/v1/states/{state_id}/cadastre/disputes/{dispute_id}/review\|resolve\|dismiss` | Dispute lifecycle transitions |
+| `GET  /api/v1/states/{state_id}/cadastre/parcels/{id}/risk` | Title-risk score + factors |
+| `POST /api/v1/states/{state_id}/cadastre/parcels/{id}/anchor` · `GET .../anchors/{anchor_id}/verify` | Anchor title hash / verify anchor |
+
+Subdivision/merger require status `ACTIVE`/`REGISTERED`, no open dispute, and no RUNNING titling workflow; disputed parcels also block titling approvals (409).
+
+## Configuration
+
+| Env var | Default | Notes |
+|---|---|---|
+| `SOS_LANDS_PROFILE` | `dev` | `production` enables fail-closed boot: missing seam URLs raise `AdapterUnavailableError` at startup |
+| `SOS_LANDS_RISK_URL` | _(fixture scorer in dev)_ | Title-risk HTTP endpoint, e.g. `http://mod-ml-inference:8021/ml/v1/fraud/score`; **required in production** |
+| `SOS_LANDS_ANCHOR_URL` | _(in-memory fixture anchor in dev)_ | Anchor/notary service URL; **required in production** |
 
 ## Run & test
 

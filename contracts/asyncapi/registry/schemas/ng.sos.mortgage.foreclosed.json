@@ -1,0 +1,36 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.mortgage.foreclosed.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.mortgage.foreclosed' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "audit_hash": {
+      "type": "string"
+    },
+    "mortgage_id": {
+      "type": "string"
+    },
+    "parcel_id": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "state_id": {
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "mortgage_id",
+    "parcel_id",
+    "reason",
+    "audit_hash",
+    "timestamp"
+  ],
+  "title": "ng.sos.mortgage.foreclosed",
+  "type": "object"
+}

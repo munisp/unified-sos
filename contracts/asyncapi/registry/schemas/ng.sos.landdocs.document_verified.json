@@ -1,0 +1,32 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.landdocs.document_verified.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.landdocs.document_verified' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "audit_hash": {
+      "type": "string"
+    },
+    "document_id": {
+      "type": "string"
+    },
+    "state_id": {
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "verifier": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "document_id",
+    "verifier",
+    "audit_hash",
+    "timestamp"
+  ],
+  "title": "ng.sos.landdocs.document_verified",
+  "type": "object"
+}

@@ -172,6 +172,33 @@ SERVICES: dict[str, dict] = {
             tags=["public-safety", "cv", "analytics"],
         ),
     },
+    "mod-land-docs": {
+        "package": "landdocs_app.main",
+        "info": dict(
+            title="SOS Land Documents & OCR API (mod-land-docs)",
+            description=(
+                "Land registry document management: deed/survey-plan/C-of-O "
+                "registration, classification, OCR extraction (PaddleOCR/Docling "
+                "seam, fail-closed), verification, versioning with supersede, "
+                "duplicate detection, hash-chained audit. Tenant-scoped."
+            ),
+            tags=["lands", "documents", "ocr"],
+        ),
+    },
+    "mod-mortgage": {
+        "package": "mortgage_app.main",
+        "info": dict(
+            title="SOS Mortgage & Lien API (mod-mortgage)",
+            description=(
+                "Mortgage lifecycle for state land registries: application, "
+                "credit review (credit_mlp seam), lien registration with "
+                "priority, two-phase disbursement (integer kobo, idempotent), "
+                "annuity repayment schedule, discharge/default/foreclosure. "
+                "Fail-closed TigerBeetle + land-registry seams in production."
+            ),
+            tags=["lands", "mortgage", "liens", "ledger"],
+        ),
+    },
     "mod-agri-trace": {
         "package": "app.main",
         "info": dict(
