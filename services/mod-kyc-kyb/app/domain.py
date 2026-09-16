@@ -212,6 +212,7 @@ class KycCase(BaseModel):
     required_documents: List[DocumentType] = Field(default_factory=list)
     liveness_required: bool = True
     decision_reason: Optional[str] = None
+    created_by: str = Field(default="", description="actor that opened the case (SoD check)")
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
 
@@ -299,6 +300,7 @@ class KybCase(BaseModel):
     directors: List[str] = Field(default_factory=list)  # hashed refs
     beneficial_owners: List[BeneficialOwner] = Field(default_factory=list)
     decision_reason: Optional[str] = None
+    created_by: str = Field(default="", description="actor that opened the case (SoD check)")
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
 

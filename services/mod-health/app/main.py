@@ -7,6 +7,7 @@ from typing import Literal
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
+from .audit import AuditLog
 from .domain import (
     BillingAccount,
     Claim,
@@ -67,11 +68,27 @@ except ImportError:
 def create_app(store: HealthStore | None = None) -> FastAPI:
     app = FastAPI(title="SOS mod-health — Hospital Unified E-Billing", version="0.1.0")
     app.state.store = store or HealthStore()
+    app.state.audit = AuditLog()
+
+    @app.get("/api/v1/states/{state_id}/audit/verify")
+    def verify_audit(state_id: str, request: Request) -> dict:
+        """Hash-chain integrity check; entries scoped to the tenant."""
+        audit: AuditLog = request.app.state.audit
+        return {
+            "valid": audit.verify() == [],
+            "entries": len(audit.events(tenant_state_id=state_id)),
+        }
 
     @app.post("/health/v1/billing-accounts", status_code=status.HTTP_201_CREATED,
               response_model=BillingAccount)
-    def open_account(req: OpenAccountRequest, store: HealthStore = Depends(get_store)):
-        return store.open_account(req.tenant_state_id, req.facility_id, req.patient_ref)
+    def open_account(req: OpenAccountRequest, request: Request,
+                     store: HealthStore = Depends(get_store)):
+        account = store.open_account(req.tenant_state_id, req.facility_id, req.patient_ref)
+        request.app.state.audit.record(
+            "health.billing_account_opened", req.tenant_state_id,
+            detail={"account_id": account.account_id,
+                    "facility_id": req.facility_id})
+        return account
 
     @app.post("/health/v1/invoices", status_code=status.HTTP_201_CREATED, response_model=Invoice)
     def issue_invoice(req: IssueInvoiceRequest, store: HealthStore = Depends(get_store)):

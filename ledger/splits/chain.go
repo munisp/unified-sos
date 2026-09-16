@@ -47,6 +47,11 @@ type ChainParams struct {
 	BillID Uint128
 	// Ledger is the TigerBeetle ledger ID (LedgerNGSovereign).
 	Ledger uint32
+	// IdempotencyKey, when non-empty, makes every leg ID deterministic
+	// (ChainLegID(key, i)) so a retried submission maps onto the same
+	// transfer IDs instead of minting fresh ones (crash/retry safety).
+	// When empty, legs get process-unique NewID() IDs.
+	IdempotencyKey string
 }
 
 // accountID resolves a chart account code into a full 128-bit account ID
@@ -82,8 +87,12 @@ func BuildAtomicChain(plan *SplitPlan, params ChainParams) ([]Transfer, error) {
 		if code == 0 {
 			code = defaultTransferCode(leg.Rule.Beneficiary)
 		}
+		legID := NewID()
+		if params.IdempotencyKey != "" {
+			legID = ChainLegID(params.IdempotencyKey, i)
+		}
 		tr := Transfer{
-			ID:              NewID(),
+			ID:              legID,
 			DebitAccountID:  payer,
 			CreditAccountID: beneficiaryAcct,
 			Amount:          leg.Amount,
@@ -119,6 +128,45 @@ func ExecuteAtomicSplit(client LedgerClient, plan *SplitPlan, params ChainParams
 		return nil, &ErrBatchRejected{Results: res}
 	}
 	return transfers, nil
+}
+
+// AppendChainLeg extends an existing linked chain with one more transfer:
+// the current closing leg is marked Linked and tr closes the chain. The
+// extended batch still commits atomically or not at all.
+func AppendChainLeg(chain []Transfer, tr Transfer) ([]Transfer, error) {
+	if len(chain) == 0 {
+		return nil, errors.New("splits: cannot extend an empty chain")
+	}
+	tr.Flags.Linked = false
+	chain[len(chain)-1].Flags.Linked = true
+	return append(chain, tr), nil
+}
+
+// SubmitChainIdempotent submits a deterministic chain and treats a replay
+// as success: if the ledger reports every failed leg as ResultExists, the
+// chain (with these exact IDs) already committed and the retry is a no-op.
+// Any other per-transfer failure is returned as *ErrBatchRejected.
+func SubmitChainIdempotent(client LedgerClient, transfers []Transfer) error {
+	if client == nil {
+		return errors.New("splits: nil LedgerClient")
+	}
+	if len(transfers) == 0 {
+		return errors.New("splits: nothing to submit")
+	}
+	res, err := client.CreateTransfers(transfers)
+	if err != nil {
+		return fmt.Errorf("splits: submit chain: %w", err)
+	}
+	var real []TransferResult
+	for _, r := range res {
+		if r.Result != ResultExists {
+			real = append(real, r)
+		}
+	}
+	if len(real) > 0 {
+		return &ErrBatchRejected{Results: real}
+	}
+	return nil
 }
 
 // SettleGross is a convenience pipeline: compute the split from a policy

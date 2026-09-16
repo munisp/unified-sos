@@ -27,6 +27,8 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/states/{state_id}/revenue/assessments", h.createAssessment)
 	mux.HandleFunc("GET /api/v1/states/{state_id}/revenue/assessments/{assessment_id}", h.getAssessment)
 	mux.HandleFunc("POST /api/v1/states/{state_id}/revenue/payments/webhook", h.paymentWebhook)
+	mux.HandleFunc("POST /api/v1/states/{state_id}/revenue/refunds", h.refund)
+	mux.HandleFunc("POST /api/v1/states/{state_id}/revenue/corrections", h.correction)
 	return mux
 }
 
@@ -96,6 +98,53 @@ func (h *Handler) paymentWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp, err := h.svc.SettleBill(state, &req)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+// refund handles POST /v1/refunds: dual-controlled reversal of a settled bill.
+func (h *Handler) refund(w http.ResponseWriter, r *http.Request) {
+	state, ok := stateParam(w, r)
+	if !ok {
+		return
+	}
+	var req RefundRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, badRequest("MALFORMED_JSON", "request body: %v", err))
+		return
+	}
+	if req.BillReference == "" {
+		writeError(w, badRequest("INVALID_REFUND", "bill_reference is required"))
+		return
+	}
+	resp, err := h.svc.Refund(state, &req)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+// correction handles POST /v1/corrections: dual-controlled compensating
+// chain for a misallocated payment.
+func (h *Handler) correction(w http.ResponseWriter, r *http.Request) {
+	state, ok := stateParam(w, r)
+	if !ok {
+		return
+	}
+	var req CorrectionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, badRequest("MALFORMED_JSON", "request body: %v", err))
+		return
+	}
+	if req.BillReference == "" {
+		writeError(w, badRequest("INVALID_CORRECTION", "bill_reference is required"))
+		return
+	}
+	resp, err := h.svc.CorrectMisallocation(state, &req)
 	if err != nil {
 		writeError(w, err)
 		return

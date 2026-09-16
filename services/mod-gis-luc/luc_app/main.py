@@ -22,6 +22,7 @@ from uuid import UUID
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
+from .audit import AuditLog
 from .ingestion import run_valuation
 from .models import (
     JoinFinding,
@@ -65,9 +66,19 @@ def create_app(repository: BillRepository | None = None) -> FastAPI:
 
     app = FastAPI(title="SOS Land Use Charge Valuation API", version="1.0.0")
     repo: BillRepository = repository or InMemoryBillRepository()
+    app.state.audit = AuditLog()
 
     def get_repo() -> BillRepository:
         return repo
+
+    @app.get("/api/v1/states/{state_id}/audit/verify")
+    def verify_audit(state_id: str) -> dict:
+        """Hash-chain integrity check; entries scoped to the tenant."""
+        audit: AuditLog = app.state.audit
+        return {
+            "valid": audit.verify() == [],
+            "entries": len(audit.events(tenant_state_id=state_id)),
+        }
 
     def _tariff(state_id: str):
         if state_id not in DEPLOYED_STATES:
@@ -99,6 +110,11 @@ def create_app(repository: BillRepository | None = None) -> FastAPI:
         repo.add_run(summary)
         for bill in bills:
             repo.add_bill(bill)
+        app.state.audit.record(
+            "luc.valuation_run",
+            state_id,
+            detail={"run_id": str(summary.valuation_run_id), "bills": len(bills)},
+        )
         return summary
 
     @app.get(

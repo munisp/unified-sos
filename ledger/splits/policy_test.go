@@ -54,6 +54,8 @@ func TestParsePolicyPackValid(t *testing.T) {
 
 func TestParsePolicyPackFractionalPercentage(t *testing.T) {
 	doc := strings.Replace(validPolicy, `"split_percentage": 75.0`, `"split_percentage": 33.33`, 1)
+	// Keep the pack conservative: 33.33+15+8+43.67 = 100.00.
+	doc = strings.Replace(doc, `"split_percentage": 2.0`, `"split_percentage": 43.67`, 1)
 	pack, err := ParsePolicyPack([]byte(doc))
 	if err != nil {
 		t.Fatalf("ParsePolicyPack: %v", err)
@@ -109,6 +111,10 @@ func TestParsePolicyPackRejections(t *testing.T) {
 		  ]}`,
 		"no instant legs": strings.Replace(validPolicy,
 			`"deduction_timing": "INSTANT"`, `"deduction_timing": "END_OF_MONTH"`, -1),
+		"not conservative under 100": strings.Replace(validPolicy,
+			`"split_percentage": 2.0`, `"split_percentage": 1.0`, 1), // 98+1 = 99%
+		"not conservative over 100": strings.Replace(validPolicy,
+			`"split_percentage": 2.0`, `"split_percentage": 5.0`, 1), // 98+5 = 103%
 		"excess precision": strings.Replace(validPolicy,
 			`"split_percentage": 75.0`, `"split_percentage": 33.333`, 1),
 		"malformed json": `{"tenant_state_id": `,

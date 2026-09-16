@@ -161,7 +161,14 @@ paths:
 
         escrow account and (when an FSPIOP adapter is wired) POSTs
 
-        /transfers prepare to the scheme. Idempotent on transfer_id.'
+        /transfers prepare to the scheme. Idempotent on transfer_id.
+
+
+        Ordering: the local record is created FIRST; if the scheme call then
+
+        fails, the local escrow is compensated (aborted) so no orphaned
+
+        scheme-side prepare can exist without a local record.'
       operationId: prepare_escrow_mobility_v1_escrow_post
       requestBody:
         content:
@@ -182,6 +189,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mobility
+      security:
+      - bearerAuth: []
+  /mobility/v1/escrow/sweep:
+    post:
+      summary: Sweep Escrows
+      description: Auto-abort every expired PENDING escrow (idempotent sweep).
+      operationId: sweep_escrows_mobility_v1_escrow_sweep_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/EscrowRecord'
+                type: array
+                title: Response Sweep Escrows Mobility V1 Escrow Sweep Post
       tags:
       - mobility
       security:
@@ -271,6 +297,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mobility
+      security:
+      - bearerAuth: []
+  /mobility/v1/audit:
+    get:
+      summary: Audit Feed
+      description: Hash-chained audit feed (bill events, conflicts, settlements).
+      operationId: audit_feed_mobility_v1_audit_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
       tags:
       - mobility
       security:
@@ -420,6 +461,9 @@ components:
         created_at:
           type: string
           title: Created At
+        expires_at:
+          type: string
+          title: Expires At
         completed_at:
           anyOf:
           - type: string
@@ -433,6 +477,7 @@ components:
       - condition
       - state
       - created_at
+      - expires_at
       title: EscrowRecord
       description: 'Pending-transfer escrow for a settlement leg batch (Mojaloop seam).
 

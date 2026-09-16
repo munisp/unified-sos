@@ -7,6 +7,7 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 
+from .audit import AuditLog
 from .models import (
     DisputeEvent,
     EdgeSyncBatch,
@@ -45,9 +46,19 @@ except ImportError:
 def create_app(service: Optional[MarketService] = None) -> FastAPI:
     app = FastAPI(title="mod-market — Commercial Markets & Digital Stall Titling")
     app.state.service = service or MarketService()
+    app.state.audit = AuditLog()
 
     def svc(request: Request) -> MarketService:
         return request.app.state.service
+
+    @app.get("/api/v1/states/{state_id}/audit/verify")
+    def verify_audit(state_id: str, request: Request):
+        """Hash-chain integrity check; entries scoped to the tenant."""
+        audit: AuditLog = request.app.state.audit
+        return {
+            "valid": audit.verify() == [],
+            "entries": len(audit.events(tenant_state_id=state_id)),
+        }
 
     def _map(exc: Exception):
         if isinstance(exc, NotFoundError):
@@ -59,9 +70,13 @@ def create_app(service: Optional[MarketService] = None) -> FastAPI:
     @app.post("/markets", response_model=Market, status_code=201)
     def register_market(market: Market, request: Request):
         try:
-            return svc(request).register_market(market)
+            created = svc(request).register_market(market)
         except (ConflictError, NotFoundError) as exc:
             raise _map(exc)
+        request.app.state.audit.record(
+            "market.market_registered", created.state_id,
+            detail={"market_id": created.market_id})
+        return created
 
     @app.post("/stalls", response_model=Stall, status_code=201)
     def register_stall(stall: Stall, request: Request):

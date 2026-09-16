@@ -61,10 +61,11 @@ def _register(client, uin: str, geojson: dict, tenant: str = "ogun") -> dict:
 def _settle_workflow(client, parcel: dict, tenant: str = "ogun") -> None:
     """Approve every titling stage so the workflow is no longer RUNNING."""
     wf = parcel["titling_workflow_id"]
-    for _ in range(4):  # SURVEYOR → MINISTRY → AG → GOVERNOR (issuance)
+    # Distinct, role-correct actor per stage (segregation of duties).
+    for actor in ("surveyor:test", "ministry:test", "ag:test", "governor:test"):
         resp = client.post(
             f"/api/v1/states/{tenant}/cadastre/titling/{wf}/decisions",
-            json={"approved": True, "actor": "test-approver"},
+            json={"approved": True, "actor": actor},
         )
         assert resp.status_code == 200, resp.text
 
@@ -558,6 +559,9 @@ class TestFailClosedAdapters:
         monkeypatch.setenv("SOS_LANDS_PROFILE", "production")
         monkeypatch.setenv("SOS_LANDS_RISK_URL", "http://ml:8021/score")
         monkeypatch.setenv("SOS_LANDS_ANCHOR_URL", "http://anchor:8031")
+        monkeypatch.setenv("SOS_LANDS_DOCS_URL", "http://docs:8022/verify")
+        monkeypatch.setenv("SOS_LANDS_TAX_URL", "http://tax:8023/clearance")
+        monkeypatch.setenv("SOS_LANDS_LEDGER_URL", "http://ledger:8024/compensation")
         app = create_app()
         assert app is not None
 

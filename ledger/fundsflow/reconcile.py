@@ -13,8 +13,11 @@ flag on the affected account (fail-safe: stop the bleeding first).
 """
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterable, List, Optional, Protocol
+
+DEFAULT_OUTBOX_GRACE_SECONDS = 300
 
 
 @dataclass
@@ -81,6 +84,8 @@ class Reconciler:
         bus: Any,
         hold_flag: Optional[Callable[[int], None]] = None,
         alert_topic: str = "fundsflow.reconciliation.alert",
+        outbox_grace_seconds: float = DEFAULT_OUTBOX_GRACE_SECONDS,
+        clock: Callable[[], float] = time.time,
     ) -> None:
         self.tb = tb_client
         self.outbox = outbox_store
@@ -88,6 +93,10 @@ class Reconciler:
         self.held_accounts: set = set()
         self._hold_flag = hold_flag
         self.alert_topic = alert_topic
+        # relay may simply not have run yet — only alert on rows older than
+        # the grace window
+        self.outbox_grace_seconds = outbox_grace_seconds
+        self._clock = clock
 
     # -- internals ---------------------------------------------------------------
     def _hold(self, account: int) -> None:
@@ -122,7 +131,8 @@ class Reconciler:
 
         # 2) outbox: events that were committed but never published are a
         #    (recoverable) break until the relay heals them
-        unacked = self.outbox.unacked()
+        cutoff = self._clock() - self.outbox_grace_seconds
+        unacked = [r for r in self.outbox.unacked() if r.created_at <= cutoff]
         if unacked:
             alert = ReconciliationAlert(
                 "LEDGER_VS_OUTBOX",

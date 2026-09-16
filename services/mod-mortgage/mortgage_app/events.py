@@ -20,6 +20,11 @@ EVENT_PAYMENT_APPLIED = "ng.sos.mortgage.payment_applied"
 EVENT_DISCHARGED = "ng.sos.mortgage.discharged"
 EVENT_DEFAULTED = "ng.sos.mortgage.defaulted"
 EVENT_FORECLOSED = "ng.sos.mortgage.foreclosed"
+EVENT_POSSESSION_REGISTERED = "ng.sos.mortgage.possession_registered"
+EVENT_SALE_AUTHORIZED = "ng.sos.mortgage.sale_authorized"
+EVENT_SOLD = "ng.sos.mortgage.sold"
+EVENT_PROCEEDS_DISTRIBUTED = "ng.sos.mortgage.proceeds_distributed"
+EVENT_CLOSED = "ng.sos.mortgage.closed"
 
 
 class MortgageEvent(BaseModel):
@@ -81,3 +86,34 @@ class DefaultedEvent(MortgageEvent):
 
 class ForeclosedEvent(MortgageEvent):
     reason: str
+
+
+class PossessionRegisteredEvent(MortgageEvent):
+    reference: str  # court/consent reference
+
+
+class SaleAuthorizedEvent(MortgageEvent):
+    valuation_kobo: int
+    reserve_price_kobo: int
+    valuer_id: str
+
+
+class SoldEvent(MortgageEvent):
+    purchaser_id: str
+    gross_proceeds_kobo: int
+    sale_costs_kobo: int
+    title_transfer_ref: str
+    transfer_id: str
+
+
+class ProceedsDistributedEvent(MortgageEvent):
+    gross_proceeds_kobo: int
+    costs_kobo: int
+    senior_kobo: int
+    junior_kobo: int
+    surplus_kobo: int
+    deficiency_kobo: int
+
+
+class ClosedEvent(MortgageEvent):
+    lien_ids: str  # comma-separated released lien ids

@@ -175,12 +175,30 @@ def _try_setup_otel(app, service_name: str) -> bool:
 def instrument_fastapi(app, service_name: str, registry: Optional[LocalRegistry] = None) -> None:
     """Attach /metrics, request-ID propagation, and optional OTel to ``app``.
 
+    Also attaches the shared PII redaction logging filter
+    (``_shared.pii_guard.attach_pii_redaction``) so every instrumented
+    service scrubs PII-looking values from its logs by default.
+
     Idempotent per app instance: repeated calls with an explicit ``registry``
     re-use it; otherwise a fresh registry is created once and stored on
     ``app.state.observability_registry``.
     """
     from starlette.requests import Request
     from starlette.responses import PlainTextResponse
+
+    attach = None
+    try:
+        from _shared.pii_guard import attach_pii_redaction as attach
+    except ImportError:
+        try:
+            from .pii_guard import attach_pii_redaction as attach  # type: ignore[no-redef]
+        except ImportError:
+            try:
+                from pii_guard import attach_pii_redaction as attach  # type: ignore[no-redef]
+            except ImportError:
+                attach = None  # minimal container images ship only the app package
+    if attach is not None:
+        attach()
 
     registry = registry or getattr(app.state, "observability_registry", None) or LocalRegistry()
     app.state.observability_registry = registry

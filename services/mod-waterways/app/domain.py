@@ -91,6 +91,40 @@ class ManifestLockedError(ValueError):
     """Sales/manifest mutation after departure — mapped to HTTP 409."""
 
 
+class TicketIdempotencyConflict(ValueError):
+    """Same Idempotency-Key replayed with a different payload — HTTP 409."""
+
+    status_code = 409
+
+
+class SurveyDuplicateError(ValueError):
+    """Duplicate survey ingest (same dedupe key) — HTTP 409."""
+
+    status_code = 409
+
+
+def request_hash(payload: object) -> str:
+    """Canonical SHA-256 request hash (mirrors ledger/fundsflow/idempotency.py)."""
+    import hashlib as _hl
+    import json as _js
+
+    return _hl.sha256(
+        _js.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode()
+    ).hexdigest()
+
+
+def volume_to_mm3(volume_m3: float) -> int:
+    """Exact integer milli-m³ conversion (no float money downstream)."""
+    from decimal import Decimal
+
+    return int(Decimal(str(volume_m3)) * 1000)
+
+
+def royalty_kobo_for(volume_m3: float, rate_kobo_per_m3: int) -> int:
+    """Integer royalty: volume_mm3 × rate // 1000 — never float math."""
+    return volume_to_mm3(volume_m3) * rate_kobo_per_m3 // 1000
+
+
 # --- Fixture registries ------------------------------------------------------
 
 
@@ -303,6 +337,8 @@ class WaterwaysStore:
         self.tickets: dict[str, Ticket] = {}
         self.dredgers: dict[str, Dredger] = {}
         self.surveys: dict[str, Survey] = {}
+        self._survey_keys: dict[str, str] = {}  # dedupe key -> survey_id
+        self._ticket_idem: dict[tuple[str, str], tuple[str, str]] = {}  # (tenant, key) -> (hash, ticket_id)
         self.royalty_assessments: list[dict] = []  # hash-chained audit records
         self._chain_tip: str = GENESIS_PREV_HASH
         self._seed_routes()
@@ -372,8 +408,21 @@ class WaterwaysStore:
         route = self.routes[tenant][route_id]
         return policy.base_fare_kobo + policy.per_km_kobo * route.distance_km
 
-    def purchase_ticket(self, tenant: str, trip_id: str, passenger_name: str) -> Ticket:
+    def purchase_ticket(self, tenant: str, trip_id: str, passenger_name: str,
+                        idempotency_key: str | None = None) -> Ticket:
+        digest = None
+        if idempotency_key:
+            digest = request_hash({"tenant": tenant, "trip_id": trip_id,
+                                   "passenger_name": passenger_name})
         with self._lock:
+            if idempotency_key:
+                existing = self._ticket_idem.get((tenant, idempotency_key))
+                if existing is not None:
+                    if existing[0] != digest:
+                        raise TicketIdempotencyConflict(
+                            f"Idempotency-Key '{idempotency_key}' replayed with a "
+                            f"different payload")
+                    return self.tickets[existing[1]]  # replay original ticket
             trip = self._trip_for_tenant(tenant, trip_id)
             if trip.manifest_locked or trip.status is TripStatus.DEPARTED:
                 raise ManifestLockedError(
@@ -390,6 +439,8 @@ class WaterwaysStore:
                 sold_at=_now(),
             )
             self.tickets[ticket.ticket_id] = ticket
+            if idempotency_key:
+                self._ticket_idem[(tenant, idempotency_key)] = (digest, ticket.ticket_id)
         self._publish(TOPIC_TICKET_SOLD, ticket)
         return ticket
 
@@ -449,13 +500,18 @@ class WaterwaysStore:
     # --- surveys / volumetrics ----------------------------------------------------
     def ingest_survey(self, tenant: str, dredger_id: str, polygon: list[list[float]],
                       volume_m3: float, surveyed_at: str,
-                      verified_volume_m3: float | None = None) -> tuple[Survey, RoyaltyAssessment, bool]:
+                      verified_volume_m3: float | None = None,
+                      dedupe_key: str | None = None) -> tuple[Survey, RoyaltyAssessment, bool]:
         """Ingest a volumetric dredging survey.
 
         Validates the polygon (shape + state geofence), rolls the volume into
         the dredger's monthly cumulative, computes the royalty levy (integer
-        kobo per m³ from state policy), hash-chains the assessment, and flags
-        over-quota. Returns ``(survey, assessment, over_quota)``.
+        kobo per m³ from state policy, integer milli-m³ math — never float),
+        hash-chains the assessment, and flags over-quota. Deduped on
+        ``dedupe_key`` (explicit) or a natural key over
+        dredger+vessel+period+payload — a duplicate raises
+        :class:`SurveyDuplicateError` (HTTP 409), preventing double royalty
+        assessments. Returns ``(survey, assessment, over_quota)``.
         """
         validate_polygon(polygon)
         lat, lon = polygon_centroid(polygon)
@@ -465,7 +521,16 @@ class WaterwaysStore:
             month = datetime.fromisoformat(surveyed_at).strftime("%Y-%m")
         except ValueError as exc:
             raise ValueError(f"surveyed_at is not ISO-8601: {exc}") from exc
+        if not dedupe_key:
+            dedupe_key = request_hash({
+                "tenant": tenant, "dredger_id": dredger_id, "polygon": polygon,
+                "volume_m3": volume_m3, "surveyed_at": surveyed_at,
+            })
         with self._lock:
+            if dedupe_key in self._survey_keys:
+                raise SurveyDuplicateError(
+                    f"duplicate survey (dedupe key '{dedupe_key[:24]}…') for dredger "
+                    f"'{dredger_id}' in {month} — already assessed")
             dredger = self.dredgers.get(dredger_id)
             if dredger is None:
                 raise KeyError(f"dredger '{dredger_id}' not found")
@@ -476,13 +541,14 @@ class WaterwaysStore:
                             surveyed_at=surveyed_at,
                             verified_volume_m3=verified_volume_m3, month=month)
             self.surveys[survey.survey_id] = survey
+            self._survey_keys[dedupe_key] = survey.survey_id
             cumulative = sum(
                 s.volume_m3 for s in self.surveys.values()
                 if s.dredger_id == dredger_id and s.month == month
             )
             over_quota = cumulative > dredger.monthly_quota_m3
             policy = FARE_POLICIES[tenant]
-            royalty_kobo = int(round(volume_m3 * policy.royalty_kobo_per_m3))
+            royalty_kobo = royalty_kobo_for(volume_m3, policy.royalty_kobo_per_m3)
             assessment = RoyaltyAssessment(
                 assessment_id=_id("roy"), tenant_state_id=tenant, dredger_id=dredger_id,
                 survey_id=survey.survey_id, month=month, volume_m3=volume_m3,

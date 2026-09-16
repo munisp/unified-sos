@@ -9,7 +9,7 @@ hash-chained audit log (services/_shared/hashchain, P1 audit immutability).
 from __future__ import annotations
 
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from uuid import uuid4
 
@@ -66,6 +66,7 @@ EVENT_CROWD_ALERT = "ng.sos.safecity.crowd_alert"
 EVENT_ANOMALY = "ng.sos.safecity.anomaly_detected"
 
 DEFAULT_MATCH_THRESHOLD = 0.65
+DEFAULT_MATCH_RETENTION_DAYS = 90.0  # per-state match-record cap [DERIVED]
 DEFAULT_CROWD_DENSITY_THRESHOLD = 4.0  # persons/m² — stampede-risk band
 DEFAULT_LOITER_SECONDS = 300.0
 DEFAULT_UNATTENDED_SECONDS = 120.0
@@ -103,6 +104,15 @@ class FaceEnrolment(BaseModel):
     embedding: list[int]  # 128-d int8-quantized
     authorization_ref: str  # warrant / DPO approval ref under which enrolled
     enrolled_at: str
+    retention_until: str | None = Field(
+        default=None,
+        description=(
+            "ISO-8601 retention bound — the warrant/DPO expiry the enrolment "
+            "lives under; sweep_retention() purges the enrolment and its "
+            "embedding once this passes (biometric data must not outlive "
+            "its lawful basis, NDPA 2023 ss. 25, 30)"
+        ),
+    )
 
 
 class FaceMatchResult(BaseModel):
@@ -188,8 +198,15 @@ class _TenantScope:
 class VisionStore:
     """In-memory, tenant-scoped vision analytics store (reference build)."""
 
-    def __init__(self, engine: FaceEngineAdapter | None = None) -> None:
+    def __init__(
+        self,
+        engine: FaceEngineAdapter | None = None,
+        match_retention_days: float = DEFAULT_MATCH_RETENTION_DAYS,
+    ) -> None:
         self.engine = engine or FixtureFaceEngine()
+        # Per-state cap on how long match records live (injectable for tests
+        # and per-state policy packs).
+        self.match_retention_days = match_retention_days
         self._lock = threading.Lock()
         self._scopes: dict[str, _TenantScope] = {}
 
@@ -241,7 +258,12 @@ class VisionStore:
 
     # -- face recognition (AuthorizationGate-gated at the API layer) ----------
     def enroll_face(
-        self, tenant: str, subject_ref: str, image_ref: str, authorization_ref: str
+        self,
+        tenant: str,
+        subject_ref: str,
+        image_ref: str,
+        authorization_ref: str,
+        retention_until: str | None = None,
     ) -> FaceEnrolment:
         enrolment = FaceEnrolment(
             enrolment_id=_id("enr"),
@@ -250,9 +272,73 @@ class VisionStore:
             embedding=list(self.engine.embed(image_ref)),
             authorization_ref=authorization_ref,
             enrolled_at=_now(),
+            retention_until=retention_until,
         )
         self._scope(tenant).enrolments[enrolment.enrolment_id] = enrolment
         return enrolment
+
+    # -- retention (biometric data must not outlive its lawful basis) ---------
+    @staticmethod
+    def _parse_ts(value: str) -> datetime:
+        ts = datetime.fromisoformat(value)
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        return ts
+
+    def sweep_retention(self, now: datetime | None = None) -> dict[str, int]:
+        """Purge expired enrolments (+ embeddings) and capped match records.
+
+        For every tenant: enrolments whose ``retention_until`` (bound to the
+        warrant/DPO expiry at enrol time) has passed are deleted — embedding
+        included — and a ``RETENTION_PURGE`` event is appended to the
+        tenant's hash-chained face audit log. Match records older than the
+        configured per-state cap (default 90 days) are purged too.
+
+        Returns per-tenant purge counts; an injected ``now`` keeps sweeps
+        deterministic in tests.
+        """
+        now = now or datetime.now(timezone.utc)
+        cutoff = now - timedelta(days=self.match_retention_days)
+        counts: dict[str, int] = {}
+        for tenant, scope in self._scopes.items():
+            expired = [
+                eid
+                for eid, enr in scope.enrolments.items()
+                if enr.retention_until is not None
+                and self._parse_ts(enr.retention_until) <= now
+            ]
+            for eid in expired:
+                enr = scope.enrolments.pop(eid)
+                enr.embedding.clear()  # defence in depth: drop the biometric
+                self._audit_retention_purge(scope, enr, now)
+            before = len(scope.matches)
+            scope.matches[:] = [
+                m for m in scope.matches if self._parse_ts(m.matched_at) > cutoff
+            ]
+            purged_matches = before - len(scope.matches)
+            if expired or purged_matches:
+                counts[tenant] = {"enrolments": len(expired), "matches": purged_matches}
+        return counts
+
+    def _audit_retention_purge(
+        self, scope: _TenantScope, enrolment: FaceEnrolment, now: datetime
+    ) -> None:
+        """Append a RETENTION_PURGE event to the hash-chained audit log."""
+        with self._lock:
+            prev = scope.face_audit[-1]["event_hash"] if scope.face_audit else GENESIS_PREV_HASH
+            record = {
+                "event_id": _id("aud"),
+                "event_type": "RETENTION_PURGE",
+                "enrolment_id": enrolment.enrolment_id,
+                "tenant_state_id": enrolment.tenant_state_id,
+                "subject_ref": enrolment.subject_ref,
+                "authorization_ref": enrolment.authorization_ref,
+                "retention_until": enrolment.retention_until,
+                "purged_at": now.isoformat(timespec="seconds"),
+                "prev_hash": prev,
+            }
+            record["event_hash"] = event_payload_hash(record, prev)
+            scope.face_audit.append(record)
 
     def match_face(
         self,

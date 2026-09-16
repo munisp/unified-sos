@@ -8,7 +8,7 @@
     {
       "beneficiary": "STATE_CONSOLIDATED_REVENUE_FUND",
       "tigerbeetle_account_code": 3001,
-      "split_percentage": 72.0,
+      "split_percentage": 70.0,
       "deduction_timing": "INSTANT"
     },
     {

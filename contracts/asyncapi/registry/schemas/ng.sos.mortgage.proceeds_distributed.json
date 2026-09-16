@@ -1,0 +1,49 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.mortgage.proceeds_distributed.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.mortgage.proceeds_distributed' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "costs_kobo": {
+      "format": "int64",
+      "type": "integer"
+    },
+    "deficiency_kobo": {
+      "format": "int64",
+      "type": "integer"
+    },
+    "junior_kobo": {
+      "format": "int64",
+      "type": "integer"
+    },
+    "mortgage_id": {
+      "type": "string"
+    },
+    "senior_kobo": {
+      "format": "int64",
+      "type": "integer"
+    },
+    "state_id": {
+      "type": "string"
+    },
+    "surplus_kobo": {
+      "format": "int64",
+      "type": "integer"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "mortgage_id",
+    "costs_kobo",
+    "senior_kobo",
+    "junior_kobo",
+    "surplus_kobo",
+    "deficiency_kobo",
+    "timestamp"
+  ],
+  "title": "ng.sos.mortgage.proceeds_distributed",
+  "type": "object"
+}

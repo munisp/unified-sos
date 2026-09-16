@@ -168,8 +168,21 @@ paths:
       tags:
       - ticketing
       summary: Purchase Ticket
+      description: 'Sell a ticket. Idempotent when the client sends ``Idempotency-Key``:
+
+        same key + same payload replays the original ticket (no double issue);
+
+        same key + different payload → 409.'
       operationId: purchase_ticket_waterways_v1_tickets_post
       parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
       - name: x-state-tenant
         in: header
         required: false
@@ -714,6 +727,13 @@ components:
           title: Depth M
           description: bathymetric depth for verification
           default: 3.0
+        dedupe_key:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Dedupe Key
+          description: explicit survey dedupe key; defaults to a natural key over dredger+vessel+period+payload (duplicate
+            → 409)
       type: object
       required:
       - dredger_id

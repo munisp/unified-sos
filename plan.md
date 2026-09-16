@@ -40,3 +40,11 @@ Per-service pytest, validate_packs (37 packs), validate_infra, registry --check,
   2. services/mod-mortgage: lien/mortgage lifecycle, credit_mlp seam, disbursement via ledger/fundsflow, repayment, discharge, transfer-block hook.
   3. mod-gis-lands extension: subdivision/merger, ownership history, disputes, title-risk (fraud_gnn seam), hash anchoring seam.
 - Orchestrator wiring: contracts (OpenAPI/AsyncAPI regen), validate_packs, docker-compose, helm values, prometheus, docs/scorecard; commit; push with fresh PAT.
+
+## Stage 14 — Deep adversarial audit + exhaustive scenario gap closure
+- Stage A: 4 parallel audit agents (code-grounded, not aspirational):
+  A1 money movement edge cases (refunds/reversals, failed mid-split crash, reconciliation windows, cash/offline collections, negative balances, rounding, duplicate webhooks)
+  A2 lands/legal edge cases (inheritance, court orders, governor revocation, co-ownership, leases, overriding interests, gazette integration, mortgagee-in-possession)
+  A3 identity/citizen/security (deceased persons, minors, guardianship, account recovery, agent/assisted channels, NDPA erasure vs WORM, key rotation/compromise, offline USSD replay)
+  A4 ops/cross-cutting (DR/backup-restore drills, out-of-order/duplicate events, clock skew, schema migrations, tenant offboarding/export, audit-chain gaps across modules, event versioning)
+- Stage B: triage → fix waves by coder agents; full gates; commit; push.

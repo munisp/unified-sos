@@ -9,6 +9,37 @@ info:
     stream metadata routing, patrol geofencing, publicly auditable trust-fund ledger. State-police modules gated by constitutional
     amendment (24-of-36 assemblies); community vigilante CAD operational immediately. Deploys: all 6.'
 paths:
+  /api/v1/states/{state_id}/audit/verify:
+    get:
+      tags:
+      - audit
+      summary: Verify Audit
+      description: Hash-chain integrity check; entries scoped to the tenant.
+      operationId: verify_audit_api_v1_states__state_id__audit_verify_get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Verify Audit Api V1 States  State Id  Audit Verify Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
   /cad/v1/incidents:
     get:
       tags:

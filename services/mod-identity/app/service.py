@@ -8,20 +8,23 @@ record to an API-consumer path; verification returns booleans only.
 from __future__ import annotations
 
 import itertools
-from datetime import datetime
-from typing import Optional
+from datetime import date, datetime
+from typing import Callable, Optional
 
 from .models import (
     ApiConsumer,
     AuditEntry,
     ConsentGrant,
     Credential,
+    GuardianLink,
     Resident,
+    ResidentStatus,
     SettlementLine,
     SettlementRecord,
     UsageRecord,
     VerificationProduct,
     VerificationResult,
+    utcnow,
 )
 from .repo import IdentityRepository
 
@@ -38,6 +41,35 @@ class TenantIsolationError(Exception):
     """Cross-tenant access attempt."""
 
 
+class InvalidTransitionError(Exception):
+    """Illegal resident lifecycle transition."""
+
+
+class RegistrarRoleError(Exception):
+    """Resident status changes require a registrar-role actor."""
+
+
+class GuardianshipError(Exception):
+    """Minor resident lacks an active guardian link for consent."""
+
+
+# Resident lifecycle transitions; DECEASED is terminal.
+RESIDENT_STATUS_TRANSITIONS = {
+    ResidentStatus.ACTIVE: {ResidentStatus.SUSPENDED, ResidentStatus.DECEASED},
+    ResidentStatus.SUSPENDED: {ResidentStatus.ACTIVE, ResidentStatus.DECEASED},
+    ResidentStatus.DECEASED: set(),
+}
+
+MAJORITY_AGE = 18
+
+
+def _age_years(dob: date, on: date) -> int:
+    years = on.year - dob.year
+    if (on.month, on.day) < (dob.month, dob.day):
+        years -= 1
+    return years
+
+
 # Per-call list prices (integer kobo) — negotiating starting points [DERIVED],
 # superseded by config/states/<state>/ policy packs in production.
 PRODUCT_FEES_KOBO = {
@@ -51,11 +83,14 @@ STATE_SHARE_BPS = 7_000
 
 
 class IdentityService:
-    def __init__(self, repo: IdentityRepository, federation_client=None) -> None:
+    def __init__(self, repo: IdentityRepository, federation_client=None,
+                 clock: Optional[Callable[[], datetime]] = None) -> None:
         from .federation import FixtureFederationClient
 
         self.repo = repo
         self.federation_client = federation_client or FixtureFederationClient()
+        # Injected clock keeps age/majority checks deterministic in tests.
+        self._clock = clock or utcnow
         self._ids = itertools.count(1)
 
     def _next_id(self, prefix: str) -> str:
@@ -90,6 +125,74 @@ class IdentityService:
         self._audit("RESIDENT_REGISTERED", resident.state_id, "registry", resident.resident_id)
         return saved
 
+    def set_resident_status(
+        self,
+        resident_id: str,
+        state_id: str,
+        to_status: ResidentStatus,
+        actor_id: str,
+        actor_role: str,
+        document_ref: Optional[str] = None,
+    ) -> Resident:
+        """Lifecycle transition (deceased/suspended/reactivated).
+
+        Fail-closed rules: registrar role required; DECEASED requires a
+        death-certificate document reference; illegal transitions (e.g. out
+        of terminal DECEASED) are rejected. Every change is hash-chain
+        audited; ``active`` stays ⟺ ``status == ACTIVE``.
+        """
+        resident = self.repo.get_resident(resident_id)
+        if resident is None:
+            raise NotFoundError(f"resident {resident_id!r} not found")
+        self._require_tenant(resident.state_id, state_id, "resident")
+        if actor_role != "registrar":
+            self._audit("RESIDENT_STATUS_DENIED", state_id, actor_id, resident_id,
+                        f"role={actor_role}")
+            raise RegistrarRoleError("resident status changes require a registrar-role actor")
+        if to_status is ResidentStatus.DECEASED and not (document_ref or "").strip():
+            raise ValueError("DECEASED requires a death-certificate document reference")
+        allowed = RESIDENT_STATUS_TRANSITIONS[resident.status]
+        if to_status not in allowed:
+            raise InvalidTransitionError(
+                f"cannot move resident {resident.status.value} -> {to_status.value}"
+            )
+        resident.status = to_status
+        resident.active = to_status is ResidentStatus.ACTIVE
+        saved = self.repo.save_resident(resident)
+        detail = f"{to_status.value}"
+        if document_ref:
+            detail += f":doc={document_ref}"
+        self._audit("RESIDENT_STATUS_CHANGED", state_id, actor_id, resident_id, detail)
+        return saved
+
+    # -- guardianship (minors) ------------------------------------------------
+    def add_guardian_link(self, link: GuardianLink) -> GuardianLink:
+        resident = self.repo.get_resident(link.resident_id)
+        if resident is None:
+            raise NotFoundError(f"resident {link.resident_id!r} not found")
+        self._require_tenant(resident.state_id, link.state_id, "resident")
+        guardian = self.repo.get_resident(link.guardian_resident_id)
+        if guardian is None:
+            raise NotFoundError(f"guardian resident {link.guardian_resident_id!r} not found")
+        self._require_tenant(guardian.state_id, link.state_id, "guardian resident")
+        saved = self.repo.save_guardian_link(link)
+        self._audit("GUARDIAN_LINK_ADDED", link.state_id, "registry", link.resident_id,
+                    f"guardian={link.guardian_resident_id}")
+        return saved
+
+    def _is_minor(self, resident: Resident, now: datetime) -> bool:
+        if resident.date_of_birth is None:
+            return False  # unknown DOB → adult semantics (existing behaviour)
+        return _age_years(resident.date_of_birth, now.date()) < MAJORITY_AGE
+
+    def _active_guardian_link(self, state_id: str, resident_id: str, now: datetime) -> Optional[GuardianLink]:
+        for link in self.repo.find_guardian_links(state_id, resident_id):
+            if link.is_active(now):
+                guardian = self.repo.get_resident(link.guardian_resident_id)
+                if guardian is not None and guardian.status is ResidentStatus.ACTIVE:
+                    return link
+        return None
+
     def issue_credential(self, credential: Credential) -> Credential:
         resident = self.repo.get_resident(credential.resident_id)
         if resident is None:
@@ -115,6 +218,16 @@ class IdentityService:
             raise NotFoundError(f"consumer {grant.consumer_id!r} not registered in tenant {grant.state_id!r}")
         if grant.expires_at <= grant.created_at:
             raise ValueError("consent grant must expire after creation")
+        # Minors cannot consent directly: an active guardian link is required
+        # (auto-expires at the resident's 18th birthday via _is_minor's clock).
+        now = self._clock()
+        if self._is_minor(resident, now):
+            if self._active_guardian_link(grant.state_id, grant.resident_id, now) is None:
+                self._audit("CONSENT_DENIED_NO_GUARDIAN", grant.state_id,
+                            grant.consumer_id, grant.resident_id, grant.purpose.value)
+                raise GuardianshipError(
+                    f"resident {grant.resident_id!r} is a minor; an active guardian link is required"
+                )
         saved = self.repo.save_consent(grant)
         self._audit("CONSENT_GRANTED", grant.state_id, grant.consumer_id, grant.resident_id, grant.purpose.value)
         return saved
@@ -167,10 +280,12 @@ class IdentityService:
                 f"no active consent for ({resident_id}, {consumer_id}, {product.value})"
             )
 
+        # Non-ACTIVE residents (DECEASED / SUSPENDED) never attest True.
         if product is VerificationProduct.ADDRESS_VERIFICATION:
             attested = claim.strip().lower() == resident.address.strip().lower()
         else:  # RESIDENCY_ATTESTATION / KYC_ADJUNCT: attest registered + active
             attested = resident.active
+        attested = attested and resident.status is ResidentStatus.ACTIVE
 
         # KYC_ADJUNCT additionally federates the NIN claim (per-state Keycloak
         # realm in live mode); latency is metered into the audit detail.

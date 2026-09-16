@@ -17,7 +17,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from _shared.eventbus import InMemoryEventBus
-from mortgage_app.adapters import FixtureLedgerAdapter
+from mortgage_app.adapters import FixtureLandRegistry, FixtureLedgerAdapter
 from mortgage_app.domain import MortgageStore
 from mortgage_app.main import create_app
 
@@ -77,7 +77,18 @@ def apply_payload(**over):
     return body
 
 
+def seed_parcel(client: TestClient, **over) -> None:
+    """Seed the fixture land registry with the parcel/title/owner that the
+    application payload claims (fail-closed title verification seam)."""
+    body = apply_payload(**over)
+    lands = client.app.state.store.lands
+    if isinstance(lands, FixtureLandRegistry):
+        lands.register(body["parcel_id"], body["title_ref"], body["applicant_id"],
+                       has_blocking_encumbrance=body.pop("_encumbrance", False))
+
+
 def run_to_approved(client: TestClient, **over) -> str:
+    seed_parcel(client, **over)
     r = client.post(BASE + "/", json=apply_payload(**over), headers=HEADERS)
     assert r.status_code == 201, r.text
     mid = r.json()["mortgage"]["mortgage_id"]

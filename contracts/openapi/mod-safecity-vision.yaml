@@ -624,6 +624,14 @@ components:
         enrolled_at:
           type: string
           title: Enrolled At
+        retention_until:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Retention Until
+          description: ISO-8601 retention bound — the warrant/DPO expiry the enrolment lives under; sweep_retention() purges
+            the enrolment and its embedding once this passes (biometric data must not outlive its lawful basis, NDPA 2023
+            ss. 25, 30)
       type: object
       required:
       - enrolment_id

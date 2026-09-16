@@ -28,7 +28,7 @@ from .domain import (
     EVENT_CROWD_ALERT,
     EVENT_FACE_MATCH,
 )
-from .gate import AuthorizationGate, GatedError
+from .gate import AuthorizationGate, AuthorizationRecord, GatedError
 
 # --- shared event bus (services/_shared/eventbus) -----------------------------
 try:
@@ -82,8 +82,8 @@ def tenant_from_header(x_state_tenant: str | None = Header(default=None)) -> str
     return x_state_tenant.lower()
 
 
-def _require_authorized(gate: AuthorizationGate, tenant: str) -> str:
-    """Return the valid authorization ref or raise HTTP 423 with legal basis."""
+def _authorized_record(gate: AuthorizationGate, tenant: str) -> AuthorizationRecord:
+    """Return the valid authorization record or raise HTTP 423."""
     try:
         gate.check(tenant)
     except GatedError as exc:
@@ -95,8 +95,12 @@ def _require_authorized(gate: AuthorizationGate, tenant: str) -> str:
                 "gate": "SOS_VISION_AUTHORIZATIONS_FILE",
             },
         )
-    record = next(r for r in gate.records if r.valid(tenant))
-    return record.ref
+    return next(r for r in gate.records if r.valid(tenant))
+
+
+def _require_authorized(gate: AuthorizationGate, tenant: str) -> str:
+    """Return the valid authorization ref or raise HTTP 423 with legal basis."""
+    return _authorized_record(gate, tenant).ref
 
 
 class CameraRegistration(BaseModel):
@@ -202,8 +206,13 @@ def create_app(
                     tenant: str = Depends(tenant_from_header),
                     store: VisionStore = Depends(get_store),
                     gate: AuthorizationGate = Depends(get_gate)):
-        auth_ref = _require_authorized(gate, tenant)
-        return store.enroll_face(tenant, req.subject_ref, req.image_ref, auth_ref)
+        record = _authorized_record(gate, tenant)
+        # Enrolment retention is bound to the warrant/DPO expiry — biometric
+        # data must not outlive its lawful basis (see sweep_retention).
+        return store.enroll_face(
+            tenant, req.subject_ref, req.image_ref, record.ref,
+            retention_until=record.expires_at,
+        )
 
     @app.post("/vision/v1/faces/match", response_model=FaceMatchResult,
               tags=["biometric_gated"])

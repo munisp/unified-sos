@@ -10,12 +10,64 @@ Settlement splits execute as linked atomic transfer chains in production.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import threading
+import time
 from datetime import datetime, timezone
 from enum import Enum
+from typing import Callable
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
+
+# --- _shared.hashchain import guard (idiom mirrors mod-waterways) ------------
+try:
+    from _shared.hashchain import GENESIS_PREV_HASH, event_payload_hash, verify_event_chain
+except ImportError:
+    import sys as _sys
+    from pathlib import Path as _Path
+
+    _services_root = _Path(__file__).resolve().parents[2]
+    if str(_services_root) not in _sys.path:
+        _sys.path.insert(0, str(_services_root))
+    try:
+        from _shared.hashchain import (
+            GENESIS_PREV_HASH,
+            event_payload_hash,
+            verify_event_chain,
+        )
+    except ImportError:  # minimal container: ship a local fallback copy
+        GENESIS_PREV_HASH = "0" * 64
+
+        def _canonical(obj):
+            return json.dumps(obj, sort_keys=True, separators=(",", ":"), default=str)
+
+        def event_payload_hash(payload, prev_hash):
+            body = {k: v for k, v in payload.items() if k not in ("prev_hash", "event_hash")}
+            body["prev_hash"] = prev_hash
+            return hashlib.sha256(_canonical(body).encode("utf-8")).hexdigest()
+
+        def verify_event_chain(events):
+            errors, last_hash = [], None
+            for index, event in enumerate(events):
+                label = event.get("event_id", f"index-{index}")
+                prev = event.get("prev_hash")
+                expected = GENESIS_PREV_HASH if last_hash is None else last_hash
+                if prev != expected:
+                    errors.append(f"event {label}: broken chain link")
+                recorded = event.get("event_hash")
+                if recorded != event_payload_hash(event, prev if prev is not None else ""):
+                    errors.append(f"event {label}: hash mismatch — record tampered")
+                last_hash = recorded
+            return errors
+
+
+def request_hash(payload: object) -> str:
+    """Canonical SHA-256 request hash (mirrors ledger/fundsflow/idempotency.py)."""
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode()
+    ).hexdigest()
 
 TRANSFER_CODE_TRANSIT = 140
 ACCOUNT_FARE_CLEARING = 1001
@@ -84,6 +136,30 @@ class EscrowState(str, Enum):
     VOID = "void"
 
 
+class BillEventConflict(RuntimeError):
+    """Same bill_reference redelivered with a different payload (HTTP 409)."""
+
+    status_code = 409
+
+
+class SettlementRejectedError(ValueError):
+    """Settlement batch failed validation (e.g. zero legs) — HTTP 409."""
+
+
+class EscrowExpiredError(ValueError):
+    """Pending escrow past its expiry — auto-aborted, HTTP 409."""
+
+
+#: Default pending-escrow TTL (Mojaloop-style transfer expiration window).
+DEFAULT_ESCROW_TTL_SECONDS = 15 * 60
+
+#: Total basis points for integer split math (mirrors ledger/splits/split.go).
+TOTAL_BASIS_POINTS = 10_000
+
+#: Reference state CRF share in basis points (10%).
+CRF_SHARE_BPS = 1_000
+
+
 class EscrowRecord(BaseModel):
     """Pending-transfer escrow for a settlement leg batch (Mojaloop seam).
 
@@ -99,6 +175,7 @@ class EscrowRecord(BaseModel):
     state: EscrowState
     fulfilment: str | None = None
     created_at: str
+    expires_at: str  # PENDING escrows past this instant are auto-aborted
     completed_at: str | None = None
 
 
@@ -113,15 +190,47 @@ class SettlementBatch(BaseModel):
 
 
 class MobilityStore:
-    """Thread-safe in-memory store. Production: Redis + TigerBeetle + Mojaloop."""
+    """Thread-safe in-memory store. Production: Redis + TigerBeetle + Mojaloop.
 
-    def __init__(self) -> None:
+    ``clock`` is injectable (epoch seconds) for deterministic escrow-expiry
+    tests. ``ledger`` is the settlement-leg execution adapter
+    (hold → linked post chain); defaults to the deterministic fixture.
+    """
+
+    def __init__(self, ledger=None, clock: Callable[[], float] = time.time,
+                 escrow_ttl_seconds: int = DEFAULT_ESCROW_TTL_SECONDS) -> None:
+        if ledger is None:
+            from .adapters.ledger import select_ledger_adapter
+
+            ledger = select_ledger_adapter()
+        self.ledger = ledger
+        self._clock = clock
+        self.escrow_ttl_seconds = escrow_ttl_seconds
         self._lock = threading.Lock()
         self.fare_tables: dict[str, FareTable] = {}
         self.clearing: dict[str, ClearingRecord] = {}
         self.batches: dict[str, SettlementBatch] = {}
         self.escrows: dict[str, EscrowRecord] = {}  # keyed by transfer_id
         self.bill_events: dict[str, dict] = {}  # keyed by bill_reference
+        self.audit_chain: list[dict] = []  # hash-chained audit records
+        self._chain_tip: str = GENESIS_PREV_HASH
+
+    # --- hash-chained audit ----------------------------------------------------
+    def _audit(self, event_type: str, payload: dict) -> dict:
+        """Append a hash-chained audit record (P1 immutability)."""
+        record = dict(payload)
+        record["event_id"] = _id("aud")
+        record["event_type"] = event_type
+        record["recorded_at"] = _now()
+        record["prev_hash"] = self._chain_tip
+        record["event_hash"] = event_payload_hash(record, self._chain_tip)
+        self._chain_tip = record["event_hash"]
+        self.audit_chain.append(record)
+        return record
+
+    def verify_audit_chain(self) -> list[str]:
+        with self._lock:
+            return verify_event_chain(list(self.audit_chain))
 
     # --- fare table config ----------------------------------------------------
     def set_fare_table(self, table: FareTable) -> FareTable:
@@ -153,9 +262,20 @@ class MobilityStore:
         return rec
 
     # --- operator settlement -----------------------------------------------------
+    @staticmethod
+    def _muldiv_floor(amount: int, bps: int) -> int:
+        """floor(amount * bps / 10_000) in pure integer arithmetic."""
+        return amount * bps // TOTAL_BASIS_POINTS
+
     def settle_operator(self, tenant_state_id: str, operator_id: str) -> SettlementBatch:
         """Close all unsettled clearing records for an operator into a batch with
-        TigerBeetle split legs (union commission, CRF share, operator retention)."""
+        TigerBeetle split legs (union commission, CRF share, operator retention).
+
+        Integer basis-point mul-div with last-leg remainder (mirrors
+        ledger/splits/split.go): legs always sum exactly to gross, never
+        float. Batches containing a zero leg are rejected BEFORE any record
+        is marked settled. Legs execute as a linked hold → post chain on the
+        settlement ledger adapter (fail-closed seam)."""
         with self._lock:
             table = self.fare_tables.get(tenant_state_id)
             if table is None:
@@ -167,36 +287,59 @@ class MobilityStore:
             if not pending:
                 raise ValueError(f"no unsettled clearing records for operator '{operator_id}'")
             gross = sum(r.fare_kobo for r in pending)
-            union = round(gross * table.union_commission_pct / 100)
-            crf = round(gross * 0.10)  # 10% state CRF share (reference rate)
-            operator = gross - union - crf
+            union_bps = int(round(table.union_commission_pct * 100))
+            union = self._muldiv_floor(gross, union_bps)
+            crf = self._muldiv_floor(gross, CRF_SHARE_BPS)
+            operator = gross - union - crf  # last leg absorbs the remainder
+            legs = [
+                SettlementLeg(beneficiary="TRANSPORT_UNION_COMMISSION",
+                              tigerbeetle_account_code=ACCOUNT_UNION_COMMISSION,
+                              amount_kobo=union),
+                SettlementLeg(beneficiary="STATE_CONSOLIDATED_REVENUE_FUND",
+                              tigerbeetle_account_code=ACCOUNT_STATE_CRF,
+                              amount_kobo=crf),
+                SettlementLeg(beneficiary="OPERATOR_RETENTION",
+                              tigerbeetle_account_code=2010,
+                              amount_kobo=operator),
+            ]
+            zero = [l.beneficiary for l in legs if l.amount_kobo <= 0]
+            if zero:
+                raise SettlementRejectedError(
+                    f"settlement batch for operator '{operator_id}' has zero-value "
+                    f"legs ({', '.join(zero)}); refusing to mark records settled")
             batch = SettlementBatch(
                 batch_id=_id("stl"), tenant_state_id=tenant_state_id,
                 operator_id=operator_id, record_count=len(pending), gross_kobo=gross,
-                legs=[
-                    SettlementLeg(beneficiary="TRANSPORT_UNION_COMMISSION",
-                                  tigerbeetle_account_code=ACCOUNT_UNION_COMMISSION,
-                                  amount_kobo=union),
-                    SettlementLeg(beneficiary="STATE_CONSOLIDATED_REVENUE_FUND",
-                                  tigerbeetle_account_code=ACCOUNT_STATE_CRF,
-                                  amount_kobo=crf),
-                    SettlementLeg(beneficiary="OPERATOR_RETENTION",
-                                  tigerbeetle_account_code=2010,
-                                  amount_kobo=operator),
-                ],
-                created_at=_now(),
+                legs=legs, created_at=_now(),
             )
+            # Execute legs as a linked hold → post chain BEFORE closing the
+            # batch; a ledger failure leaves every record unsettled.
+            postings = self.ledger.execute_linked_chain(batch.batch_id, legs)
             self.batches[batch.batch_id] = batch
             for r in pending:
                 r.settled_batch_id = batch.batch_id
+            self._audit("settlement_executed", {
+                "batch_id": batch.batch_id,
+                "tenant_state_id": tenant_state_id,
+                "operator_id": operator_id,
+                "gross_kobo": gross,
+                "legs": [l.model_dump() for l in legs],
+                "ledger_postings": postings,
+            })
             return batch
 
     # --- pending-transfer escrow (Mojaloop FSPIOP seam) -----------------------
+    def _iso(self, epoch: float) -> str:
+        return datetime.fromtimestamp(epoch, timezone.utc).isoformat(timespec="seconds")
+
     def begin_escrow(self, transfer_id: str, batch_id: str, amount_kobo: int,
                      condition: str) -> EscrowRecord:
         """Reserve funds on the escrow account (FSPIOP prepare → PENDING).
 
         Idempotent on transfer_id: a replay returns the original record.
+        Each new escrow carries an ``expires_at`` (default 15 min from the
+        injected clock); expired PENDING escrows are auto-aborted by
+        :meth:`sweep_expired_escrows` and rejected on fulfil.
         """
         with self._lock:
             existing = self.escrows.get(transfer_id)
@@ -207,14 +350,31 @@ class MobilityStore:
                 return existing
             if batch_id not in self.batches:
                 raise KeyError(f"settlement batch '{batch_id}' not found")
+            now = self._clock()
             rec = EscrowRecord(transfer_id=transfer_id, batch_id=batch_id,
                                amount_kobo=amount_kobo, condition=condition,
-                               state=EscrowState.PENDING, created_at=_now())
+                               state=EscrowState.PENDING, created_at=self._iso(now),
+                               expires_at=self._iso(now + self.escrow_ttl_seconds))
             self.escrows[transfer_id] = rec
             return rec
 
+    def _abort_locked(self, rec: EscrowRecord, reason: str) -> EscrowRecord:
+        rec.state = EscrowState.VOID
+        rec.completed_at = self._iso(self._clock())
+        self._audit("escrow_aborted", {
+            "transfer_id": rec.transfer_id, "batch_id": rec.batch_id,
+            "amount_kobo": rec.amount_kobo, "reason": reason,
+        })
+        return rec
+
+    def _expired(self, rec: EscrowRecord) -> bool:
+        expires = datetime.fromisoformat(rec.expires_at).timestamp()
+        return expires <= self._clock()
+
     def fulfil_escrow(self, transfer_id: str, fulfilment: str) -> EscrowRecord:
-        """Post a pending escrow on FSPIOP COMMITTED fulfilment (idempotent)."""
+        """Post a pending escrow on FSPIOP COMMITTED fulfilment (idempotent).
+
+        An expired PENDING escrow is auto-aborted and rejected (409)."""
         with self._lock:
             rec = self.escrows.get(transfer_id)
             if rec is None:
@@ -223,9 +383,13 @@ class MobilityStore:
                 return rec  # idempotent replay
             if rec.state != EscrowState.PENDING:
                 raise ValueError(f"escrow '{transfer_id}' is {rec.state.value}")
+            if self._expired(rec):
+                self._abort_locked(rec, "expired before fulfilment")
+                raise EscrowExpiredError(
+                    f"escrow '{transfer_id}' expired at {rec.expires_at}; aborted")
             rec.state = EscrowState.POSTED
             rec.fulfilment = fulfilment
-            rec.completed_at = _now()
+            rec.completed_at = self._iso(self._clock())
             return rec
 
     def abort_escrow(self, transfer_id: str) -> EscrowRecord:
@@ -238,17 +402,54 @@ class MobilityStore:
                 return rec  # idempotent replay
             if rec.state != EscrowState.PENDING:
                 raise ValueError(f"escrow '{transfer_id}' is {rec.state.value}")
-            rec.state = EscrowState.VOID
-            rec.completed_at = _now()
-            return rec
+            return self._abort_locked(rec, "aborted")
+
+    def sweep_expired_escrows(self) -> list[EscrowRecord]:
+        """Auto-abort every expired PENDING escrow (FSPIOP expiry sweep).
+
+        Returns the records voided by this sweep; idempotent — already VOID
+        escrows are not re-audited."""
+        with self._lock:
+            voided = []
+            for rec in self.escrows.values():
+                if rec.state == EscrowState.PENDING and self._expired(rec):
+                    voided.append(self._abort_locked(rec, "expired (sweep)"))
+            return voided
 
     def record_bill_event(self, bill_reference: str, event: dict) -> dict:
-        """Idempotently record a NIBSS e-Bills payment notification."""
+        """Idempotently record a NIBSS e-Bills payment notification.
+
+        Stores the canonical ``request_hash`` of the notification payload
+        (excluding receipt metadata) with the event. A redelivery with the
+        same reference AND same payload replays the original; the same
+        reference with a DIFFERENT payload raises :class:`BillEventConflict`
+        (HTTP 409) and is audit-logged on the hash chain."""
+        payload = {k: v for k, v in event.items() if k != "received_at"}
+        digest = request_hash(payload)
         with self._lock:
             existing = self.bill_events.get(bill_reference)
             if existing is not None:
-                return existing
-            self.bill_events[bill_reference] = event
+                if existing["request_hash"] != digest:
+                    conflict = {
+                        "bill_reference": bill_reference,
+                        "existing_request_hash": existing["request_hash"],
+                        "rejected_request_hash": digest,
+                        "existing_amount_kobo": existing["event"].get("amount_kobo"),
+                        "rejected_amount_kobo": event.get("amount_kobo"),
+                    }
+                    self._audit("bill_event_conflict", conflict)
+                    raise BillEventConflict(
+                        f"bill_reference '{bill_reference}' redelivered with a "
+                        f"different payload (amount "
+                        f"{conflict['existing_amount_kobo']} → "
+                        f"{conflict['rejected_amount_kobo']} kobo)")
+                return existing["event"]
+            stored = {"request_hash": digest, "event": event}
+            self.bill_events[bill_reference] = stored
+            self._audit("bill_event_recorded", {
+                "bill_reference": bill_reference, "request_hash": digest,
+                "amount_kobo": event.get("amount_kobo"),
+            })
             return event
 
 

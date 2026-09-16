@@ -1,0 +1,52 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.lands.title_transferred.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.lands.title_transferred' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "audit_hash": {
+      "type": "string"
+    },
+    "from_owner": {
+      "type": "string"
+    },
+    "instrument": {
+      "enum": [
+        "SALE",
+        "GIFT",
+        "ASSENT",
+        "COURT_ORDER",
+        "FORECLOSURE_SALE",
+        "PARTITION"
+      ],
+      "type": "string"
+    },
+    "new_title_ref": {
+      "type": "string"
+    },
+    "parcel_id": {
+      "type": "string"
+    },
+    "state_id": {
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "to_owner": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "parcel_id",
+    "instrument",
+    "from_owner",
+    "to_owner",
+    "new_title_ref",
+    "audit_hash",
+    "timestamp"
+  ],
+  "title": "ng.sos.lands.title_transferred",
+  "type": "object"
+}

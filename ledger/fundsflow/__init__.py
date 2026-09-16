@@ -12,17 +12,31 @@ Stdlib-only; optional seams (postgres/redis/temporalio/kafka) are
 import-guarded and fail closed in the production profile.
 """
 
-from .idempotency import IdempotencyConflict, IdempotencyMiddleware
+from .idempotency import (
+    IdempotencyConflict,
+    IdempotencyInProgress,
+    IdempotencyMiddleware,
+    MONEY_TTL_SECONDS,
+    NON_MONEY_TTL_SECONDS,
+)
 from .invariants import InvariantViolation
 from .saga import SagaCoordinator, SagaState
-from .tigerbeetle_flows import InMemoryTBClient, deterministic_transfer_id
+from .tigerbeetle_flows import (
+    InMemoryTBClient,
+    deterministic_transfer_id,
+    reverse_chain,
+)
 
 __all__ = [
     "IdempotencyConflict",
+    "IdempotencyInProgress",
     "IdempotencyMiddleware",
+    "MONEY_TTL_SECONDS",
+    "NON_MONEY_TTL_SECONDS",
     "InvariantViolation",
     "SagaCoordinator",
     "SagaState",
     "InMemoryTBClient",
     "deterministic_transfer_id",
+    "reverse_chain",
 ]

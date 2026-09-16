@@ -22,9 +22,12 @@ All money amounts are integer kobo — never floats.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
-from typing import Dict, Optional, Protocol
+from typing import Any, Dict, List, Optional, Protocol
+
+from pydantic import BaseModel
 
 
 class AdapterUnavailableError(RuntimeError):
@@ -294,38 +297,108 @@ def ledger_from_env(environ: Optional[Dict[str, str]] = None) -> MortgageLedgerA
 
 
 # ---------------------------------------------------------------------------
-# Land registry (mod-gis-lands seam) — parcel/title confirmation before liens
+# Land registry (mod-gis-lands seam) — fail-closed title verification
 # ---------------------------------------------------------------------------
 
-#: Fixture title reference format, e.g. ``LAG-2024-000123`` (C-of-O style).
+#: Title reference format, e.g. ``LAG-2024-000123`` (C-of-O style).
 TITLE_REF_RE = re.compile(r"^[A-Z]{2,5}-\d{4}-\d{6}$")
 
 
-class LandRegistryAdapter(Protocol):
-    """Adapter seam: confirm a parcel/title exists before lien registration."""
+class TitleSnapshot(BaseModel):
+    """Point-in-time title truth from the land registry.
 
-    def parcel_exists(self, state_id: str, parcel_id: str, title_ref: str) -> bool: ...
+    ``verified=False`` means the registry could not attest one or more
+    fields (missing title_ref / owner / encumbrance info, e.g. an older
+    mod-gis-lands that predates lifecycle-aware verification): strict
+    (production) adapters fail closed on UNVERIFIED snapshots; the fixture
+    is lenient so local dev/tests can run without a full registry.
+    """
+
+    status: str = "unverified"  # current | unverified | not_found | revoked | suspended
+    current_title_ref: Optional[str] = None
+    owner_id: Optional[str] = None
+    has_blocking_encumbrance: Optional[bool] = None
+    verified: bool = False
+
+    def title_hash(self) -> str:
+        body = {
+            "status": self.status,
+            "current_title_ref": self.current_title_ref,
+            "owner_id": self.owner_id,
+            "has_blocking_encumbrance": self.has_blocking_encumbrance,
+        }
+        return hashlib.sha256(
+            json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+
+
+class LandRegistryAdapter(Protocol):
+    """Adapter seam: fail-closed title verification before lien registration.
+
+    ``strict`` adapters (production/HTTP) treat UNVERIFIED snapshots as a
+    hard failure; the fixture (``strict=False``) allows them.
+    """
+
+    strict: bool = True
+
+    def title_snapshot(self, state_id: str, parcel_id: str) -> TitleSnapshot: ...
 
 
 class FixtureLandRegistry:
     """Deterministic fixture registry (default; local dev and tests).
 
-    A parcel "exists" iff the title reference matches the C-of-O format
-    ``^[A-Z]{2,5}-\\d{4}-\\d{6}$`` — deterministic, no network.
+    Parcels are seeded explicitly via :meth:`register` (strict snapshot with
+    full title/owner/encumbrance attestation). Unseeded parcels yield a
+    deterministic UNVERIFIED snapshot — allowed here (``strict=False``) but
+    rejected by strict production adapters. A seeded parcel whose title ref
+    is malformed reports ``not_found`` (fail-closed format check).
     """
 
-    def parcel_exists(self, state_id: str, parcel_id: str, title_ref: str) -> bool:
-        return bool(TITLE_REF_RE.match(title_ref))
+    strict = False
+
+    def __init__(self) -> None:
+        self._parcels: Dict[str, Dict[str, Any]] = {}
+
+    def register(
+        self, parcel_id: str, title_ref: str, owner_id: str,
+        has_blocking_encumbrance: bool = False, status: str = "current",
+    ) -> None:
+        """Fixture helper: seed a parcel's title record (dev/test)."""
+        self._parcels[parcel_id] = {
+            "title_ref": title_ref,
+            "owner_id": owner_id,
+            "has_blocking_encumbrance": has_blocking_encumbrance,
+            "status": status,
+        }
+
+    def title_snapshot(self, state_id: str, parcel_id: str) -> TitleSnapshot:
+        rec = self._parcels.get(parcel_id)
+        if rec is None:
+            # deterministic UNVERIFIED snapshot — lenient in fixture only
+            return TitleSnapshot(status="unverified", verified=False)
+        if not TITLE_REF_RE.match(rec["title_ref"]):
+            return TitleSnapshot(status="not_found", verified=True)
+        return TitleSnapshot(
+            status=rec["status"],
+            current_title_ref=rec["title_ref"],
+            owner_id=rec["owner_id"],
+            has_blocking_encumbrance=rec["has_blocking_encumbrance"],
+            verified=True,
+        )
 
 
 class HttpLandRegistry:
     """Production registry over mod-gis-lands — fail-closed seam.
 
     Requires ``SOS_MORTGAGE_LANDS_URL``; constructing without configuration
-    raises :class:`AdapterUnavailableError`.
+    raises :class:`AdapterUnavailableError`. Strict: any verification field
+    the registry cannot attest (older mod-gis-lands without lifecycle-aware
+    verification/encumbrance fields) yields an UNVERIFIED snapshot, and the
+    domain layer fails closed rather than registering a lien on it.
     """
 
     DEFAULT_URL = "http://mod-gis-lands:8003"
+    strict = True
 
     def __init__(
         self,
@@ -347,7 +420,7 @@ class HttpLandRegistry:
                 "httpx is required for HttpLandRegistry (pip install httpx)"
             ) from exc
 
-    def parcel_exists(self, state_id: str, parcel_id: str, title_ref: str) -> bool:  # pragma: no cover
+    def title_snapshot(self, state_id: str, parcel_id: str) -> TitleSnapshot:  # pragma: no cover - network seam
         import httpx
 
         resp = httpx.get(
@@ -355,7 +428,31 @@ class HttpLandRegistry:
             headers={"X-State-Tenant": state_id},
             timeout=10.0,
         )
-        return resp.status_code == 200
+        if resp.status_code == 404:
+            return TitleSnapshot(status="not_found", verified=True)
+        resp.raise_for_status()
+        body = resp.json() if resp.content else {}
+        if not isinstance(body, dict):
+            return TitleSnapshot(status="unverified", verified=False)
+        # Defensive parse: a teammate is concurrently adding lifecycle-aware
+        # verification + encumbrance fields to mod-gis-lands — treat any
+        # absent field as UNVERIFIED (fail closed in production).
+        title_ref = body.get("title_ref") or body.get("c_of_o_number")
+        owner_id = body.get("owner_id") or body.get("owner")
+        encumbrance = body.get("has_blocking_encumbrance")
+        if encumbrance is None and isinstance(body.get("encumbrances"), list):
+            encumbrance = any(
+                isinstance(e, dict) and e.get("blocking", True) for e in body["encumbrances"]
+            ) or bool(body["encumbrances"])
+        status = body.get("status") or body.get("lifecycle_status")
+        verified = bool(title_ref) and bool(owner_id) and encumbrance is not None
+        return TitleSnapshot(
+            status=str(status) if status else ("current" if verified else "unverified"),
+            current_title_ref=str(title_ref) if title_ref else None,
+            owner_id=str(owner_id) if owner_id else None,
+            has_blocking_encumbrance=bool(encumbrance) if encumbrance is not None else None,
+            verified=verified,
+        )
 
 
 def land_registry_from_env(environ: Optional[Dict[str, str]] = None) -> LandRegistryAdapter:
@@ -366,6 +463,116 @@ def land_registry_from_env(environ: Optional[Dict[str, str]] = None) -> LandRegi
         return FixtureLandRegistry()
     if kind == "http":
         return HttpLandRegistry(environ=env)
+    raise AdapterUnavailableError(f"unknown SOS_MORTGAGE_LANDS {kind!r}")
+
+
+# ---------------------------------------------------------------------------
+# Land title transfer (foreclosure sale) — fail-closed seam
+# ---------------------------------------------------------------------------
+
+
+class LandTitleTransferAdapter(Protocol):
+    """Adapter seam: transfer a parcel's title to the purchaser at SOLD.
+
+    Fail-closed: if the transfer cannot be recorded by the land registry,
+    the sale is NOT recorded (the domain layer aborts the transition).
+    """
+
+    def transfer_title(
+        self, state_id: str, parcel_id: str, from_owner_id: str,
+        to_owner_id: str, reference: str,
+    ) -> str: ...
+
+
+class FixtureTitleTransfer:
+    """Deterministic fixture title-transfer registry (default; dev/tests).
+
+    Records every transfer; ``fail_next`` is a crash-injection hook for
+    tests (the sale must then NOT be recorded).
+    """
+
+    def __init__(self) -> None:
+        self.transfers: List[Dict[str, str]] = []
+        self.fail_next: bool = False
+
+    def transfer_title(
+        self, state_id: str, parcel_id: str, from_owner_id: str,
+        to_owner_id: str, reference: str,
+    ) -> str:
+        if self.fail_next:
+            self.fail_next = False
+            raise AdapterUnavailableError("injected title transfer failure")
+        digest = hashlib.sha256(
+            f"title-transfer:{state_id}:{parcel_id}:{to_owner_id}:{reference}".encode()
+        ).hexdigest()[:16]
+        record = {
+            "transfer_ref": f"tt-{digest}",
+            "state_id": state_id,
+            "parcel_id": parcel_id,
+            "from_owner_id": from_owner_id,
+            "to_owner_id": to_owner_id,
+            "reference": reference,
+        }
+        self.transfers.append(record)
+        return record["transfer_ref"]
+
+
+class HttpTitleTransfer:
+    """Production title transfer over mod-gis-lands — fail-closed seam.
+
+    Requires ``SOS_MORTGAGE_LANDS_URL``; constructing without configuration
+    raises :class:`AdapterUnavailableError`.
+    """
+
+    def __init__(
+        self,
+        url: Optional[str] = None,
+        environ: Optional[Dict[str, str]] = None,
+    ) -> None:
+        env = environ if environ is not None else dict(os.environ)
+        self.url = (url or env.get("SOS_MORTGAGE_LANDS_URL") or "").rstrip("/")
+        if not self.url:
+            raise AdapterUnavailableError(
+                "SOS_MORTGAGE_LANDS_URL is required for HttpTitleTransfer "
+                "(fail-closed: refusing to sell without a title-transfer path)"
+            )
+        try:
+            import httpx  # optional dependency  # noqa: F401
+        except ImportError as exc:
+            raise AdapterUnavailableError(
+                "httpx is required for HttpTitleTransfer (pip install httpx)"
+            ) from exc
+
+    def transfer_title(
+        self, state_id: str, parcel_id: str, from_owner_id: str,
+        to_owner_id: str, reference: str,
+    ) -> str:  # pragma: no cover - network seam
+        import httpx
+
+        resp = httpx.post(
+            f"{self.url}/api/v1/states/{state_id}/cadastre/parcels/{parcel_id}/title-transfers",
+            headers={"X-State-Tenant": state_id},
+            json={
+                "from_owner_id": from_owner_id,
+                "to_owner_id": to_owner_id,
+                "reference": reference,
+            },
+            timeout=10.0,
+        )
+        resp.raise_for_status()
+        body = resp.json() if resp.content else {}
+        ref = body.get("transfer_ref") if isinstance(body, dict) else None
+        return str(ref or reference)
+
+
+def title_transfer_from_env(environ: Optional[Dict[str, str]] = None) -> LandTitleTransferAdapter:
+    """Build a title-transfer adapter from ``SOS_MORTGAGE_LANDS`` (default fixture)."""
+    env = environ if environ is not None else dict(os.environ)
+    kind = env.get("SOS_MORTGAGE_LANDS", "fixture")
+    if kind == "fixture":
+        return FixtureTitleTransfer()
+    if kind == "http":
+        return HttpTitleTransfer(environ=env)
     raise AdapterUnavailableError(f"unknown SOS_MORTGAGE_LANDS {kind!r}")
 
 
@@ -382,7 +589,8 @@ def require_production_config(environ: Optional[Dict[str, str]] = None) -> None:
         return
     missing = [
         name
-        for name in ("SOS_MORTGAGE_TB_URL", "SOS_MORTGAGE_LANDS_URL")
+        for name in ("SOS_MORTGAGE_TB_URL", "SOS_MORTGAGE_LANDS_URL",
+                     "SOS_MORTGAGE_OUTBOX_DSN")
         if not env.get(name)
     ]
     if missing:

@@ -83,3 +83,6 @@ plugin_attr:
 #     key: http_x_sos_tenant_state
 # Exemptions: edge POS offline-sync bursts are shaped, not hard-rejected
 # (see fluvio.md); /healthz and /apisix/prometheus/metrics are unlimited.
+# Generated per-tenant routes: deploy/tuning/generate_apisix_routes.py renders
+# deploy/tuning/apisix-routes.generated.yaml (one limit-count + limit-req route
+# per state tenant, keyed on X-Sos-Tenant-State). Drift-checked with --check.

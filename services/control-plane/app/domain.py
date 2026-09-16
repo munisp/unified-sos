@@ -303,6 +303,20 @@ class MetadataStore:
         if self._archive is not None:
             self._archive.append(event)
 
+    def record_admin_access(self, endpoint: str, asserted_actor: str,
+                            outcome: str, token_sha256: str) -> None:
+        """Audit every admin-gated call (success AND failure), hash-chained.
+
+        Only the SHA-256 of the presented token is recorded — never the
+        token itself.
+        """
+        with self._lock:
+            self._append_locked(
+                "ng.sos.admin.access", None, asserted_actor or "anonymous",
+                {"endpoint": endpoint, "asserted_actor": asserted_actor,
+                 "outcome": outcome, "token_sha256": token_sha256},
+            )
+
     def audit_events(self) -> list[AuditEvent]:
         """Read-only view of the append-only audit log (no mutation API exists)."""
         return list(self._audit)

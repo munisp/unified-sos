@@ -335,6 +335,11 @@ def create_app(registry: Optional[ModelRegistry] = None,
                 lines.append(f'ml_feedback_auc{{model="{name}"}} {roll["auc"]}')
         return PlainTextResponse(base + "\n".join(lines) + "\n")
 
+    # Closed-loop drift remediation (app/remediation.py): subscribes to
+    # ng.sos.ml.drift_detected; opt-in so the fixture profile stays inert.
+    from .remediation import build_worker as _build_remediation_worker
+    app.state.remediation = _build_remediation_worker(bus=app.state.bus)
+
     if _instrument_fastapi is not None:
         _instrument_fastapi(app, "mod-ml-inference", registry=registry_obj)
     return app

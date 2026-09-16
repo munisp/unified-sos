@@ -503,6 +503,207 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
       security:
       - bearerAuth: []
+  /api/v1/states/{state_id}/mortgages/{mortgage_id}/possession:
+    post:
+      tags:
+      - foreclosure
+      summary: Register Possession
+      operationId: register_possession_api_v1_states__state_id__mortgages__mortgage_id__possession_post
+      parameters:
+      - name: mortgage_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Mortgage Id
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PossessionIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/mortgages/{mortgage_id}/authorize-sale:
+    post:
+      tags:
+      - foreclosure
+      summary: Authorize Sale
+      operationId: authorize_sale_api_v1_states__state_id__mortgages__mortgage_id__authorize_sale_post
+      parameters:
+      - name: mortgage_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Mortgage Id
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthorizeSaleIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/mortgages/{mortgage_id}/sell:
+    post:
+      tags:
+      - foreclosure
+      summary: Sell
+      operationId: sell_api_v1_states__state_id__mortgages__mortgage_id__sell_post
+      parameters:
+      - name: mortgage_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Mortgage Id
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SellIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/mortgages/{mortgage_id}/distribute-proceeds:
+    post:
+      tags:
+      - foreclosure
+      summary: Distribute Proceeds
+      operationId: distribute_proceeds_api_v1_states__state_id__mortgages__mortgage_id__distribute_proceeds_post
+      parameters:
+      - name: mortgage_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Mortgage Id
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /internal/outbox/relay:
+    post:
+      tags:
+      - internal
+      summary: Outbox Relay
+      description: 'Explicit relay pass (tests/ops): publish every un-acked outbox
+
+        row and ack on success. At-least-once delivery; consumers dedupe on
+
+        ``idempotency_key``/``event_id``.'
+      operationId: outbox_relay_internal_outbox_relay_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+      security:
+      - bearerAuth: []
   /healthz:
     get:
       summary: Healthz
@@ -570,6 +771,25 @@ components:
       - officer
       - reason
       title: ApproveIn
+    AuthorizeSaleIn:
+      properties:
+        valuation_kobo:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Valuation Kobo
+        reserve_price_kobo:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Reserve Price Kobo
+        valuer_id:
+          type: string
+          title: Valuer Id
+      type: object
+      required:
+      - valuation_kobo
+      - reserve_price_kobo
+      - valuer_id
+      title: AuthorizeSaleIn
     ForecloseIn:
       properties:
         reason:
@@ -610,11 +830,44 @@ components:
         idempotency_key:
           type: string
           title: Idempotency Key
+        allow_credit:
+          type: boolean
+          title: Allow Credit
+          default: false
       type: object
       required:
       - amount_kobo
       - idempotency_key
       title: PaymentIn
+    PossessionIn:
+      properties:
+        reference:
+          type: string
+          title: Reference
+          description: court/consent reference
+      type: object
+      required:
+      - reference
+      title: PossessionIn
+    SellIn:
+      properties:
+        purchaser_id:
+          type: string
+          title: Purchaser Id
+        gross_proceeds_kobo:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Gross Proceeds Kobo
+        sale_costs_kobo:
+          type: integer
+          minimum: 0.0
+          title: Sale Costs Kobo
+          default: 0
+      type: object
+      required:
+      - purchaser_id
+      - gross_proceeds_kobo
+      title: SellIn
     ValidationError:
       properties:
         loc:

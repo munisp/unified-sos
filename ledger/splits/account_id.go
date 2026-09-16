@@ -34,6 +34,7 @@ const (
 // Well-known account class codes (ledger/chart-of-accounts.md).
 const (
 	ClassPayerClearing             uint16 = 1001
+	ClassTaxpayerCredit            uint16 = 1002 // taxpayer credit-balance account (overpayments)
 	ClassMDARetention              uint16 = 2010
 	ClassLocalGovernmentSharePool  uint16 = 2020
 	ClassConcessionaireEscrow      uint16 = 2099

@@ -114,6 +114,12 @@ class PayrollAuditCreate(BaseModel):
     state_id: str
 
 
+class WalletRebindRequest(BaseModel):
+    state_id: str
+    new_msisdn: str = Field(description="raw new MSISDN — hashed immediately, never stored")
+    kyc_case_ref: str = Field(description="mod-kyc-kyb case reference; must be VERIFIED")
+
+
 # --- Stage 7.C observability wiring (services/_shared/observability.py) ---
 try:
     from _shared.observability import instrument_fastapi as _instrument_fastapi
@@ -156,6 +162,20 @@ def create_app(repo: Optional[CitizenPortalRepository] = None) -> FastAPI:
         try:
             return WalletRead.from_wallet(svc.get_wallet(wallet_id, state_id))
         except (NotFoundError, TenantIsolationError) as exc:
+            raise guard(exc)
+
+    @app.post("/citizen/v1/wallets/{wallet_id}/rebind", response_model=WalletRead)
+    def rebind_wallet(wallet_id: str, body: WalletRebindRequest, svc: CitizenPortalService = Depends(service)):
+        """Account recovery: rebind a wallet to a new MSISDN (KYC-gated)."""
+        from .kyc_seam import PortalKycUnavailableError
+
+        try:
+            return WalletRead.from_wallet(
+                svc.rebind_wallet(body.state_id, wallet_id, body.new_msisdn, body.kyc_case_ref)
+            )
+        except PortalKycUnavailableError as exc:
+            raise HTTPException(503, str(exc))
+        except (NotFoundError, TenantIsolationError, InvalidTransitionError, WalletSuspendedError) as exc:
             raise guard(exc)
 
     @app.post("/citizen/v1/sso/sessions", response_model=SsoSession, status_code=201)
@@ -264,19 +284,37 @@ def create_app(repo: Optional[CitizenPortalRepository] = None) -> FastAPI:
         adapter,
         state_id: str,
     ) -> PlainTextResponse:
+        from .channels.ussd import ReplayError
+
         _check_telco_secret(request)
         payload = await _webhook_payload(request)
         session_id = payload.get("sessionId") or payload.get("session_id") or ""
         phone = payload.get("phoneNumber") or payload.get("phone_number") or ""
         text = payload.get("text", "")
+        # Replay protection: every callback carries a per-session monotonic
+        # sequence number plus the gateway-issued session token; the session
+        # is bound to the token, not the caller-supplied session_id alone.
+        seq_raw = payload.get("seq") or payload.get("sequence") or ""
+        session_token = payload.get("sessionToken") or payload.get("session_token") or ""
         if not session_id or not phone:
             raise HTTPException(400, "sessionId and phoneNumber are required")
-        response = adapter.handle_session(
-            state_id=state_id,
-            session_id=session_id,
-            msisdn_hash=hash_msisdn(phone),
-            input_text=text.split("*")[-1],  # AT sends the full USSD input chain
-        )
+        if not session_token:
+            raise HTTPException(400, "sessionToken is required")
+        try:
+            sequence = int(seq_raw)
+        except (TypeError, ValueError):
+            raise HTTPException(400, "seq (per-session monotonic sequence) is required")
+        try:
+            response = adapter.handle_session(
+                state_id=state_id,
+                session_id=session_id,
+                msisdn_hash=hash_msisdn(phone),
+                input_text=text.split("*")[-1],  # AT sends the full USSD input chain
+                sequence=sequence,
+                session_token=session_token,
+            )
+        except ReplayError as exc:
+            raise HTTPException(409, str(exc))
         prefix = "END " if response.end_session else "CON "
         return PlainTextResponse(prefix + response.text)
 

@@ -6,6 +6,7 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel
 
+from .audit import AuditLog
 from .domain import (
     CarbonCredit,
     CarbonProject,
@@ -52,9 +53,19 @@ def create_app(service: Optional[EnvironmentService] = None) -> FastAPI:
         title="mod-environment — Environmental Protection, Carbon Registry & Industrial Emissions"
     )
     app.state.service = service or EnvironmentService()
+    app.state.audit = AuditLog()
 
     def svc(request: Request) -> EnvironmentService:
         return request.app.state.service
+
+    @app.get("/api/v1/states/{state_id}/audit/verify")
+    def verify_audit(state_id: str, request: Request):
+        """Hash-chain integrity check; entries scoped to the tenant."""
+        audit: AuditLog = request.app.state.audit
+        return {
+            "valid": audit.verify() == [],
+            "entries": len(audit.events(tenant_state_id=state_id)),
+        }
 
     def handle(exc: Exception):
         if isinstance(exc, NotFoundError):
@@ -90,9 +101,13 @@ def create_app(service: Optional[EnvironmentService] = None) -> FastAPI:
     @app.post("/environment/v1/permits", response_model=Permit, status_code=201)
     def create_permit(permit: Permit, request: Request):
         try:
-            return svc(request).create_permit(permit)
+            created = svc(request).create_permit(permit)
         except Exception as exc:  # noqa: BLE001
             handle(exc)
+        request.app.state.audit.record(
+            "environment.permit_created", created.tenant_state_id,
+            detail={"permit_id": created.permit_id})
+        return created
 
     @app.post("/environment/v1/permits/{permit_id}/activate", response_model=Permit)
     def activate_permit(

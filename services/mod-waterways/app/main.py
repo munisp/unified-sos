@@ -26,7 +26,9 @@ from .domain import (
     RoyaltyAssessment,
     SoldOutError,
     Survey,
+    SurveyDuplicateError,
     Ticket,
+    TicketIdempotencyConflict,
     Trip,
     WaterwaysStore,
 )
@@ -92,6 +94,10 @@ class SurveyIngestRequest(BaseModel):
     volume_m3: float = Field(..., gt=0)
     surveyed_at: str = Field(..., description="ISO-8601 survey timestamp")
     depth_m: float = Field(3.0, gt=0, description="bathymetric depth for verification")
+    dedupe_key: str | None = Field(
+        default=None,
+        description="explicit survey dedupe key; defaults to a natural key over "
+                    "dredger+vessel+period+payload (duplicate → 409)")
 
 
 # --- dependencies -----------------------------------------------------------------
@@ -180,14 +186,20 @@ def create_app(store: WaterwaysStore | None = None,
     @app.post("/waterways/v1/tickets", status_code=status.HTTP_201_CREATED,
               response_model=Ticket, tags=["ticketing"])
     def purchase_ticket(req: TicketPurchaseRequest, tenant: str = Depends(require_tenant),
+                        idempotency_key: str | None = Header(
+                            default=None, alias="Idempotency-Key"),
                         store: WaterwaysStore = Depends(get_store)):
+        """Sell a ticket. Idempotent when the client sends ``Idempotency-Key``:
+        same key + same payload replays the original ticket (no double issue);
+        same key + different payload → 409."""
         try:
-            return store.purchase_ticket(tenant, req.trip_id, req.passenger_name)
+            return store.purchase_ticket(tenant, req.trip_id, req.passenger_name,
+                                         idempotency_key=idempotency_key)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=exc.args[0])
         except CrossTenantError as exc:
             raise HTTPException(status_code=403, detail=str(exc))
-        except (SoldOutError, ManifestLockedError) as exc:
+        except (TicketIdempotencyConflict, SoldOutError, ManifestLockedError) as exc:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
     @app.get("/waterways/v1/tickets", response_model=list[Ticket], tags=["ticketing"])
@@ -264,11 +276,14 @@ def create_app(store: WaterwaysStore | None = None,
             survey, assessment, over_quota = store.ingest_survey(
                 tenant, req.dredger_id, req.polygon, req.volume_m3,
                 req.surveyed_at, verified_volume_m3=verification.verified_volume_m3,
+                dedupe_key=req.dedupe_key,
             )
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=exc.args[0])
         except CrossTenantError as exc:
             raise HTTPException(status_code=403, detail=str(exc))
+        except SurveyDuplicateError as exc:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc))
         return {

@@ -119,6 +119,17 @@ def check_policy_pack(state: str, validator: Draft202012Validator) -> None:
     else:
         ok(f"{state}: INSTANT legs sum = {instant_sum}%")
 
+    # Guardrail 2b (conservation): INSTANT + END_OF_MONTH legs must allocate
+    # exactly 100.00% (integer basis points) so no kobo is created, lost, or
+    # left unallocated by the gazetted formula.
+    eom_sum = sum(r["split_percentage"] for r in rules if r["deduction_timing"] == "END_OF_MONTH")
+    total_bps = round(instant_sum * 100) + round(eom_sum * 100)
+    if total_bps != 10000:
+        fail(f"{state}: conservation violated — INSTANT ({instant_sum}%) + END_OF_MONTH ({eom_sum}%) "
+             f"= {total_bps / 100:.2f}%, must equal exactly 100.00%")
+    else:
+        ok(f"{state}: conservation OK (INSTANT {instant_sum}% + END_OF_MONTH {eom_sum}% = 100%)")
+
     # Guardrail 3: account codes in range + federal pass-through never credited
     for leg in rules:
         code = leg["tigerbeetle_account_code"]

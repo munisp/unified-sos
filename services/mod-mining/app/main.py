@@ -5,6 +5,7 @@ from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 
+from .audit import AuditLog
 from .bus import EventBus, InMemoryEventBus
 from .levy import SplitRule
 from .models import (
@@ -40,13 +41,28 @@ def create_app(
     app = FastAPI(title="mod-mining — Solid Minerals Custody & Levies")
     app.state.repo = repo or InMemoryMiningRepository()
     app.state.bus = bus or InMemoryEventBus()
+    app.state.audit = AuditLog()
 
     def service(request: Request) -> MiningService:
         return MiningService(request.app.state.repo, request.app.state.bus)
 
+    @app.get("/api/v1/states/{state_id}/audit/verify")
+    def verify_audit(state_id: str, request: Request):
+        """Hash-chain integrity check; entries scoped to the tenant."""
+        audit: AuditLog = request.app.state.audit
+        return {
+            "valid": audit.verify() == [],
+            "entries": len(audit.events(tenant_state_id=state_id)),
+        }
+
     @app.post("/sites", response_model=MineralSite, status_code=201)
-    def register_site(site: MineralSite, svc: MiningService = Depends(service)):
-        return svc.register_site(site)
+    def register_site(site: MineralSite, svc: MiningService = Depends(service),
+                      request: Request = None):
+        created = svc.register_site(site)
+        request.app.state.audit.record(
+            "mining.site_registered", created.state_id,
+            detail={"site_id": created.site_id, "minerals": len(created.minerals)})
+        return created
 
     @app.get("/sites/{site_id}", response_model=MineralSite)
     def get_site(site_id: str, request: Request):
@@ -57,14 +73,19 @@ def create_app(
 
     @app.post("/consignments", response_model=Consignment, status_code=201)
     def create_consignment(
-        consignment: Consignment, svc: MiningService = Depends(service)
+        consignment: Consignment, svc: MiningService = Depends(service),
+        request: Request = None,
     ):
         try:
-            return svc.create_consignment(consignment)
+            created = svc.create_consignment(consignment)
         except NotFoundError as exc:
             raise HTTPException(404, str(exc))
         except ValueError as exc:
             raise HTTPException(422, str(exc))
+        request.app.state.audit.record(
+            "mining.consignment_created", created.state_id,
+            detail={"consignment_id": created.consignment_id})
+        return created
 
     @app.get("/consignments", response_model=list[Consignment])
     def list_consignments(request: Request, state_id: Optional[str] = None):

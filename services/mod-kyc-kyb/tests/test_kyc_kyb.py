@@ -664,3 +664,67 @@ def test_sanctions_hit_kyc_prohibited(service):
     decided = service.submit_kyc_case(TENANT, case.case_id)
     assert decided.risk_band == RiskBand.PROHIBITED
     assert decided.status == VerificationStatus.REJECTED
+
+
+# ------------------------------ segregation of duties ------------------------------
+
+from app.repository import ConflictError  # noqa: E402
+
+
+def _case_in_review(client, actor="case-owner-1", uploader="agent-1"):
+    resp = client.post("/kyc/v1/cases", json={
+        "state_id": TENANT, "subject_ref": "sod-subject",
+        "subject_type": "CITIZEN_WALLET", "actor": actor,
+    })
+    assert resp.status_code == 201, resp.text
+    cid = resp.json()["case_id"]
+    resp = client.post(f"/kyc/v1/cases/{cid}/documents", json={
+        "state_id": TENANT, "document_type": "NIN_SLIP",
+        "object_uri": "s3://bucket/sod", "sha256": hash_of("sod"),
+        "uploaded_by": uploader,
+    })
+    assert resp.status_code == 201, resp.text
+    client.post(f"/kyc/v1/cases/{cid}/submit", json={"state_id": TENANT})
+    return cid
+
+
+def test_review_denied_for_case_creator(client):
+    cid = _case_in_review(client)
+    resp = client.post(f"/kyc/v1/cases/{cid}/review", json={
+        "state_id": TENANT, "decision": "APPROVE",
+        "reviewer": "case-owner-1", "reason": "self-approval attempt",
+    })
+    assert resp.status_code == 409
+    # Case unchanged and the rejection is audited.
+    assert client.get(f"/kyc/v1/cases/{cid}", params={"state_id": TENANT}).json()["status"] == "IN_REVIEW"
+    audit = client.get("/kyc-kyb/v1/audit", params={"state_id": TENANT}).json()
+    assert any(e["action"] == "KYC_REVIEW_DENIED_SOD" for e in audit)
+
+
+def test_review_denied_for_evidence_uploader(client):
+    cid = _case_in_review(client)
+    resp = client.post(f"/kyc/v1/cases/{cid}/review", json={
+        "state_id": TENANT, "decision": "APPROVE",
+        "reviewer": "agent-1", "reason": "uploader self-review attempt",
+    })
+    assert resp.status_code == 409
+    audit = client.get("/kyc-kyb/v1/audit", params={"state_id": TENANT}).json()
+    assert any(e["action"] == "KYC_REVIEW_DENIED_SOD" for e in audit)
+
+
+def test_review_allowed_for_independent_reviewer(client):
+    cid = _case_in_review(client)
+    resp = client.post(f"/kyc/v1/cases/{cid}/review", json={
+        "state_id": TENANT, "decision": "APPROVE",
+        "reviewer": "analyst-independent", "reason": "independent review",
+    })
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "APPROVED"
+
+
+def test_sod_applies_service_level(service):
+    case = service.create_kyc_case(TENANT, "sod-2", SubjectType.CITIZEN_WALLET, actor="maker-1")
+    case.status = VerificationStatus.IN_REVIEW
+    service.repo.save_kyc_case(case)
+    with pytest.raises(ConflictError):
+        service.review_case(TENANT, case.case_id, ReviewDecision.APPROVE, "maker-1", "self")

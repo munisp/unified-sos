@@ -12,6 +12,7 @@ from __future__ import annotations
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
+from .audit import AuditLog
 from .domain import (
     CadStore,
     CrossTenantError,
@@ -165,6 +166,16 @@ def create_app(store: CadStore | None = None,
     # SOS_CAD_PROFILE=production hard-fails here at boot without config.
     app.state.webrtc = webrtc or build_webrtc_gateway()
     app.state.wazuh = wazuh or build_wazuh_adapter()
+    app.state.audit = AuditLog()
+
+    @app.get("/api/v1/states/{state_id}/audit/verify", tags=["audit"])
+    def verify_audit(state_id: str, request: Request) -> dict:
+        """Hash-chain integrity check; entries scoped to the tenant."""
+        audit: AuditLog = request.app.state.audit
+        return {
+            "valid": audit.verify() == [],
+            "entries": len(audit.events(tenant_state_id=state_id)),
+        }
 
     # --- ratification-INDEPENDENT -------------------------------------------
     @app.post("/cad/v1/incidents", status_code=status.HTTP_201_CREATED,
@@ -183,6 +194,12 @@ def create_app(store: CadStore | None = None,
             "agency": incident.agency,
             "category": incident.category,
         })
+        app.state.audit.record(
+            "cad.incident_intake",
+            incident.tenant_state_id,
+            detail={"incident_id": incident.incident_id,
+                    "agency": incident.agency, "category": incident.category},
+        )
         return incident
 
     @app.get("/cad/v1/incidents", response_model=list[Incident], tags=["cad"])
@@ -222,6 +239,12 @@ def create_app(store: CadStore | None = None,
             "unit_id": event.unit_id,
             "tenant_state_id": incident.tenant_state_id,
         })
+        app.state.audit.record(
+            "cad.dispatch",
+            incident.tenant_state_id,
+            detail={"event_id": event.event_id, "incident_id": event.incident_id,
+                    "unit_id": event.unit_id},
+        )
         return event
 
     @app.get("/cad/v1/dispatch-log", response_model=list[DispatchEvent], tags=["cad"])

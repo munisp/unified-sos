@@ -24,6 +24,7 @@ func (h *Handler) Routes() *http.ServeMux {
 	mux.HandleFunc("POST /v1/states/{state}/geospatial/jobs", h.createJob)
 	mux.HandleFunc("GET /v1/states/{state}/geospatial/jobs/{job_id}", h.getJob)
 	mux.HandleFunc("POST /v1/states/{state}/geospatial/projects/geolibre", h.buildGeoLibreProject)
+	mux.HandleFunc("GET /api/v1/states/{state_id}/audit/verify", h.verifyAudit)
 	return mux
 }
 

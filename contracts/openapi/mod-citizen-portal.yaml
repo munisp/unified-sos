@@ -72,6 +72,41 @@ paths:
       - citizen-portal
       security:
       - bearerAuth: []
+  /citizen/v1/wallets/{wallet_id}/rebind:
+    post:
+      summary: Rebind Wallet
+      description: 'Account recovery: rebind a wallet to a new MSISDN (KYC-gated).'
+      operationId: rebind_wallet_citizen_v1_wallets__wallet_id__rebind_post
+      parameters:
+      - name: wallet_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Wallet Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WalletRebindRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletRead'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - citizen-portal
+      security:
+      - bearerAuth: []
   /citizen/v1/sso/sessions:
     post:
       summary: Create Sso Session
@@ -1133,6 +1168,25 @@ components:
       - status
       title: WalletRead
       description: 'Read model: masked NIN only — structurally cannot leak the raw NIN.'
+    WalletRebindRequest:
+      properties:
+        state_id:
+          type: string
+          title: State Id
+        new_msisdn:
+          type: string
+          title: New Msisdn
+          description: raw new MSISDN — hashed immediately, never stored
+        kyc_case_ref:
+          type: string
+          title: Kyc Case Ref
+          description: mod-kyc-kyb case reference; must be VERIFIED
+      type: object
+      required:
+      - state_id
+      - new_msisdn
+      - kyc_case_ref
+      title: WalletRebindRequest
   securitySchemes:
     bearerAuth:
       type: http

@@ -6,6 +6,8 @@ Lifecycle::
                                     ↘ MANUAL_REVIEW → APPROVED (officer)
     APPROVED → LIEN_REGISTERED → DISBURSED → ACTIVE → DISCHARGED
                                              ↘ DEFAULTED → FORECLOSED
+    FORECLOSED → POSSESSION_REGISTERED → SALE_AUTHORIZED → SOLD
+             → PROCEEDS_DISTRIBUTED → CLOSED
 
 Invariants enforced here:
 
@@ -42,11 +44,15 @@ from .adapters import (
     FixtureCreditScorer,
     FixtureLedgerAdapter,
     FixtureLandRegistry,
+    FixtureTitleTransfer,
     LandRegistryAdapter,
+    LandTitleTransferAdapter,
     MortgageLedgerAdapter,
     deterministic_account_id,
     deterministic_transfer_id,
 )
+from . import events as ev
+from .outbox import InMemoryOutbox
 
 # --- hash-chained audit: reuse services/_shared/hashchain, local fallback ----
 try:
@@ -138,6 +144,11 @@ class MortgageStatus(str, Enum):
     DISCHARGED = "DISCHARGED"
     DEFAULTED = "DEFAULTED"
     FORECLOSED = "FORECLOSED"
+    POSSESSION_REGISTERED = "POSSESSION_REGISTERED"
+    SALE_AUTHORIZED = "SALE_AUTHORIZED"
+    SOLD = "SOLD"
+    PROCEEDS_DISTRIBUTED = "PROCEEDS_DISTRIBUTED"
+    CLOSED = "CLOSED"
 
 
 class LienStatus(str, Enum):
@@ -155,6 +166,7 @@ class Lien(BaseModel):
     second_charge: bool = False
     senior_lien_id: Optional[str] = None
     status: LienStatus = LienStatus.REGISTERED
+    title_hash: Optional[str] = None  # hash of the verified title snapshot
     registered_at: str
     released_at: Optional[str] = None
 
@@ -185,6 +197,7 @@ class Payment(BaseModel):
     amount_kobo: int
     interest_kobo: int
     principal_kobo: int  # scheduled principal + overpayment principal
+    overpayment_kobo: int = 0  # excess routed to the borrower credit account
     transfer_id: str
     applied_at: str
 
@@ -212,6 +225,25 @@ class Mortgage(BaseModel):
     defaulted_at: Optional[str] = None
     foreclosed_at: Optional[str] = None
     foreclosure_reason: Optional[str] = None
+    credit_balance_kobo: int = 0  # borrower credit from accepted overpayments
+    credit_refund_transfer_id: Optional[str] = None
+    # foreclosure pipeline (FORECLOSED → ... → CLOSED)
+    possession_reference: Optional[str] = None
+    possession_registered_at: Optional[str] = None
+    valuation_kobo: Optional[int] = None
+    reserve_price_kobo: Optional[int] = None
+    valuer_id: Optional[str] = None
+    sale_authorized_at: Optional[str] = None
+    purchaser_id: Optional[str] = None
+    gross_proceeds_kobo: Optional[int] = None
+    sale_costs_kobo: Optional[int] = None
+    title_transfer_ref: Optional[str] = None
+    sale_transfer_id: Optional[str] = None
+    sold_at: Optional[str] = None
+    distribution: Optional[dict] = None  # waterfall legs, integer kobo
+    deficiency_kobo: int = 0
+    proceeds_distributed_at: Optional[str] = None
+    closed_at: Optional[str] = None
     created_at: str
 
     @property
@@ -292,11 +324,15 @@ class MortgageStore:
         scorer: Optional[CreditScoringAdapter] = None,
         ledger: Optional[MortgageLedgerAdapter] = None,
         lands: Optional[LandRegistryAdapter] = None,
+        title_transfer: Optional[LandTitleTransferAdapter] = None,
+        outbox: Optional[InMemoryOutbox] = None,
         clock: Callable[[], datetime] = _utcnow,
     ) -> None:
         self.scorer = scorer or FixtureCreditScorer()
         self.ledger = ledger or FixtureLedgerAdapter()
         self.lands = lands or FixtureLandRegistry()
+        self.title_transfer = title_transfer or FixtureTitleTransfer()
+        self.outbox = outbox or InMemoryOutbox()
         self.clock = clock
         self._lock = threading.Lock()
         self._tenants: Dict[str, TenantState] = {}
@@ -322,6 +358,12 @@ class MortgageStore:
         record["event_hash"] = event_payload_hash(record, prev)
         chain.append(record)
         return record
+
+    def _emit(self, topic: str, idempotency_key: str, **payload) -> None:
+        """Append an outbox row atomically with the domain transition
+        (caller holds the lock). The API layer NEVER publishes directly —
+        :class:`mortgage_app.outbox.OutboxRelay` delivers and acks."""
+        self.outbox.append(topic, payload, idempotency_key)
 
     def audit_feed(self, tenant_state_id: str, mortgage_id: str) -> List[dict]:
         state = self.tenant(tenant_state_id)
@@ -369,6 +411,10 @@ class MortgageStore:
             self._audit(state, m.mortgage_id, "application_received",
                         applicant_id=applicant_id, parcel_id=parcel_id,
                         principal_kobo=principal_kobo)
+            self._emit(ev.EVENT_APPLICATION_RECEIVED, f"{m.mortgage_id}|application_received",
+                       tenant_state_id=state.tenant_state_id, mortgage_id=m.mortgage_id,
+                       occurred_at=m.created_at, applicant_id=applicant_id,
+                       parcel_id=parcel_id, principal_kobo=principal_kobo)
             return m
 
     def list_mortgages(
@@ -409,6 +455,19 @@ class MortgageStore:
                 outcome = "declined"
             self._audit(state, m.mortgage_id, "credit_scored",
                         score=score, outcome=outcome, to=m.status.value)
+            now = _iso(self._now())
+            self._emit(ev.EVENT_CREDIT_SCORED, f"{m.mortgage_id}|credit_scored",
+                       tenant_state_id=state.tenant_state_id, mortgage_id=m.mortgage_id,
+                       occurred_at=now, applicant_id=m.applicant_id,
+                       score=score, outcome=outcome)
+            if m.status is MortgageStatus.APPROVED:
+                self._emit(ev.EVENT_APPROVED, f"{m.mortgage_id}|approved",
+                           tenant_state_id=state.tenant_state_id, mortgage_id=m.mortgage_id,
+                           occurred_at=now, officer="", reason="")
+            elif m.status is MortgageStatus.DECLINED:
+                self._emit(ev.EVENT_DECLINED, f"{m.mortgage_id}|declined",
+                           tenant_state_id=state.tenant_state_id, mortgage_id=m.mortgage_id,
+                           occurred_at=now, score=score)
             return m
 
     def approve_manual(
@@ -427,6 +486,9 @@ class MortgageStore:
             m.approval_reason = reason
             self._audit(state, m.mortgage_id, "approved",
                         officer=officer, reason=reason, manual=True)
+            self._emit(ev.EVENT_APPROVED, f"{m.mortgage_id}|approved",
+                       tenant_state_id=state.tenant_state_id, mortgage_id=m.mortgage_id,
+                       occurred_at=_iso(self._now()), officer=officer, reason=reason)
             return m
 
     # -- lien registration ---------------------------------------------------------
@@ -440,9 +502,45 @@ class MortgageStore:
             if m.status is not MortgageStatus.APPROVED:
                 raise InvalidTransitionError(
                     f"lien registration requires APPROVED, got {m.status.value}")
-            if not self.lands.parcel_exists(state.tenant_state_id, m.parcel_id, m.title_ref):
+            snap = self.lands.title_snapshot(state.tenant_state_id, m.parcel_id)
+            if snap is None or snap.status == "not_found":
                 raise NotFoundError(
                     f"parcel {m.parcel_id} / title {m.title_ref} not found in land registry")
+            # Fail-closed title verification (P1): exact title_ref match,
+            # applicant == registered owner, status current, no blocking
+            # encumbrance. UNVERIFIED (field absent) is a hard failure for
+            # strict (production) adapters; the fixture is lenient.
+            strict = bool(getattr(self.lands, "strict", True))
+            unverified: List[str] = []
+            if snap.status == "unverified":
+                unverified.append("status")
+            elif snap.status != "current":
+                raise ConflictError(
+                    f"title for parcel {m.parcel_id} is not current "
+                    f"(status={snap.status})")
+            if snap.current_title_ref is None:
+                unverified.append("title_ref")
+            elif snap.current_title_ref != m.title_ref:
+                raise ConflictError(
+                    f"title_ref mismatch: registry holds {snap.current_title_ref!r}, "
+                    f"application claims {m.title_ref!r}")
+            if snap.owner_id is None:
+                unverified.append("owner")
+            elif snap.owner_id != m.applicant_id:
+                raise ConflictError(
+                    f"applicant {m.applicant_id!r} is not the registered title owner "
+                    f"({snap.owner_id!r})")
+            if snap.has_blocking_encumbrance is None:
+                unverified.append("encumbrance")
+            elif snap.has_blocking_encumbrance:
+                raise ConflictError(
+                    f"parcel {m.parcel_id} has a blocking encumbrance on title")
+            if unverified and strict:
+                raise ConflictError(
+                    "title UNVERIFIED — registry could not attest "
+                    + ", ".join(unverified)
+                    + " (fail-closed: refusing to register the lien)")
+            title_hash = snap.title_hash()
             active = [
                 l for l in state.liens.values()
                 if l.parcel_id == m.parcel_id and l.status is LienStatus.REGISTERED
@@ -472,6 +570,7 @@ class MortgageStore:
                 priority=priority,
                 second_charge=second_charge,
                 senior_lien_id=senior_lien_id if second_charge else None,
+                title_hash=title_hash,
                 registered_at=_iso(self._now()),
             )
             state.liens[lien.lien_id] = lien
@@ -479,7 +578,13 @@ class MortgageStore:
             m.status = MortgageStatus.LIEN_REGISTERED
             self._audit(state, m.mortgage_id, "lien_registered",
                         lien_id=lien.lien_id, parcel_id=lien.parcel_id,
-                        priority=priority, to=m.status.value)
+                        priority=priority, title_hash=title_hash,
+                        to=m.status.value)
+            self._emit(ev.EVENT_LIEN_REGISTERED, f"{m.mortgage_id}|lien_registered|{lien.lien_id}",
+                       tenant_state_id=state.tenant_state_id, mortgage_id=m.mortgage_id,
+                       occurred_at=lien.registered_at, lien_id=lien.lien_id,
+                       parcel_id=lien.parcel_id, title_ref=lien.title_ref,
+                       priority=priority)
             return lien
 
     def list_liens(self, tenant_state_id: str, parcel_id: Optional[str] = None) -> List[Lien]:
@@ -532,12 +637,16 @@ class MortgageStore:
             self._audit(state, m.mortgage_id, "disbursed",
                         amount_kobo=m.principal_kobo, transfer_id=str(transfer_id),
                         idempotency_key=key, to=m.status.value)
+            self._emit(ev.EVENT_DISBURSED, f"{m.mortgage_id}|disbursed",
+                       tenant_state_id=state.tenant_state_id, mortgage_id=m.mortgage_id,
+                       occurred_at=m.disbursed_at, amount_kobo=m.principal_kobo,
+                       transfer_id=str(transfer_id))
             return m
 
     # -- repayment ---------------------------------------------------------------------
     def apply_payment(
         self, tenant_state_id: str, mortgage_id: str,
-        amount_kobo: int, idempotency_key: str,
+        amount_kobo: int, idempotency_key: str, allow_credit: bool = False,
     ) -> Payment:
         if amount_kobo <= 0:
             raise ValueError("amount_kobo must be positive")
@@ -555,6 +664,16 @@ class MortgageStore:
             if m.status not in (MortgageStatus.DISBURSED, MortgageStatus.ACTIVE):
                 raise InvalidTransitionError(
                     f"payments require DISBURSED/ACTIVE, got {m.status.value}")
+
+            # Overpayment guard: never silently discard excess. Reject
+            # amount > total outstanding unless the caller explicitly accepts
+            # a borrower credit (allow_credit=true).
+            total_outstanding = sum(i.outstanding_kobo for i in m.schedule)
+            if amount_kobo > total_outstanding and not allow_credit:
+                raise ValueError(
+                    f"amount_kobo {amount_kobo} exceeds total outstanding "
+                    f"{total_outstanding}; pass allow_credit=true to route the "
+                    f"excess to the borrower credit account")
 
             # ledger first (two-phase): borrower → treasury; no post → no books
             transfer_id = deterministic_transfer_id(idempotency_key, "payment")
@@ -590,6 +709,11 @@ class MortgageStore:
                 principal_paid += prepay
                 remaining -= prepay
             m.outstanding_principal_kobo -= principal_paid
+            # any true excess is routed to the borrower credit account
+            # (allow_credit path only) — never silently discarded
+            overpayment = remaining
+            if overpayment > 0:
+                m.credit_balance_kobo += overpayment
 
             payment = Payment(
                 payment_id=_id("pay"),
@@ -597,6 +721,7 @@ class MortgageStore:
                 amount_kobo=amount_kobo,
                 interest_kobo=interest_paid,
                 principal_kobo=principal_paid,
+                overpayment_kobo=overpayment,
                 transfer_id=str(transfer_id),
                 applied_at=_iso(self._now()),
             )
@@ -606,16 +731,50 @@ class MortgageStore:
             self._audit(state, m.mortgage_id, "payment_applied",
                         payment_id=payment.payment_id, amount_kobo=amount_kobo,
                         interest_kobo=interest_paid, principal_kobo=principal_paid,
+                        overpayment_kobo=overpayment,
+                        credit_balance_kobo=m.credit_balance_kobo,
                         outstanding_principal_kobo=m.outstanding_principal_kobo)
+            self._emit(ev.EVENT_PAYMENT_APPLIED, f"{m.mortgage_id}|payment_applied|{payment.payment_id}",
+                       tenant_state_id=state.tenant_state_id, mortgage_id=m.mortgage_id,
+                       occurred_at=payment.applied_at, payment_id=payment.payment_id,
+                       amount_kobo=amount_kobo, interest_kobo=interest_paid,
+                       principal_kobo=principal_paid, overpayment_kobo=overpayment,
+                       outstanding_principal_kobo=m.outstanding_principal_kobo)
 
             if m.outstanding_principal_kobo == 0 and all(i.settled for i in m.schedule):
                 self._discharge_locked(state, m)
             return payment
 
+    def borrower_credit_account(self, applicant_id: str) -> int:
+        return deterministic_account_id("credit", applicant_id)
+
     def _discharge_locked(self, state: TenantState, m: Mortgage) -> None:
         """Discharge the mortgage and release the lien atomically (caller
         holds the lock; the ledger post for the final payment has already
-        succeeded — a failed post never reaches this point)."""
+        succeeded — a failed post never reaches this point).
+
+        Any borrower credit balance (accepted overpayments) is refunded with
+        a dedicated treasury → borrower-credit ledger leg BEFORE discharge;
+        if the refund leg fails the discharge does not happen."""
+        refund_id = ""
+        if m.credit_balance_kobo > 0 and m.credit_refund_transfer_id is None:
+            key = f"{m.mortgage_id}|discharge-credit-refund"
+            refund_tid = deterministic_transfer_id(key, "credit_refund")
+            treasury = self.treasury_account(state.tenant_state_id)
+            credit_acct = self.borrower_credit_account(m.applicant_id)
+            self.ledger.hold(refund_tid, treasury, credit_acct,
+                             m.credit_balance_kobo, key)
+            try:
+                self.ledger.post(refund_tid)
+            except Exception:
+                self.ledger.void(refund_tid)
+                raise
+            m.credit_refund_transfer_id = str(refund_tid)
+            refund_id = str(refund_tid)
+            self._audit(state, m.mortgage_id, "credit_refunded",
+                        amount_kobo=m.credit_balance_kobo,
+                        transfer_id=refund_id)
+            m.credit_balance_kobo = 0
         m.status = MortgageStatus.DISCHARGED
         m.discharged_at = _iso(self._now())
         lien = state.liens.get(m.lien_id or "")
@@ -626,6 +785,10 @@ class MortgageStore:
             lien_id = lien.lien_id
         self._audit(state, m.mortgage_id, "discharged", lien_id=lien_id,
                     to=m.status.value)
+        self._emit(ev.EVENT_DISCHARGED, f"{m.mortgage_id}|discharged",
+                   tenant_state_id=state.tenant_state_id, mortgage_id=m.mortgage_id,
+                   occurred_at=m.discharged_at, lien_id=lien_id,
+                   credit_refund_transfer_id=refund_id)
 
     # -- default & foreclosure -----------------------------------------------------------
     def _evaluate_default(self, state: TenantState, m: Mortgage) -> Mortgage:
@@ -636,6 +799,10 @@ class MortgageStore:
                 m.defaulted_at = _iso(self._now())
                 self._audit(state, m.mortgage_id, "defaulted",
                             days_past_due=dpd, to=m.status.value)
+                self._emit(ev.EVENT_DEFAULTED, f"{m.mortgage_id}|defaulted",
+                           tenant_state_id=state.tenant_state_id,
+                           mortgage_id=m.mortgage_id,
+                           occurred_at=m.defaulted_at, days_past_due=dpd)
         return m
 
     def evaluate_default(self, tenant_state_id: str, mortgage_id: str) -> Mortgage:
@@ -658,4 +825,295 @@ class MortgageStore:
             m.foreclosure_reason = reason
             self._audit(state, m.mortgage_id, "foreclosed", reason=reason,
                         to=m.status.value)
+            self._emit(ev.EVENT_FORECLOSED, f"{m.mortgage_id}|foreclosed",
+                       tenant_state_id=state.tenant_state_id, mortgage_id=m.mortgage_id,
+                       occurred_at=m.foreclosed_at, reason=reason)
+            return m
+
+    # -- foreclosure pipeline: FORECLOSED → POSSESSION_REGISTERED →
+    #    SALE_AUTHORIZED → SOLD → PROCEEDS_DISTRIBUTED → CLOSED ----------------
+    def sale_escrow_account(self, mortgage_id: str) -> int:
+        return deterministic_account_id("sale_escrow", mortgage_id)
+
+    def purchaser_account(self, purchaser_id: str) -> int:
+        return deterministic_account_id("purchaser", purchaser_id)
+
+    def sale_costs_account(self, mortgage_id: str) -> int:
+        return deterministic_account_id("sale_costs", mortgage_id)
+
+    def register_possession(
+        self, tenant_state_id: str, mortgage_id: str, reference: str
+    ) -> Mortgage:
+        """FORECLOSED → POSSESSION_REGISTERED (court/consent reference required)."""
+        if not reference:
+            raise ValueError("possession registration requires a court/consent reference")
+        state = self.tenant(tenant_state_id)
+        with self._lock:
+            m = self._get(state, mortgage_id)
+            if m.status is not MortgageStatus.FORECLOSED:
+                raise InvalidTransitionError(
+                    f"possession registration requires FORECLOSED, got {m.status.value}")
+            m.status = MortgageStatus.POSSESSION_REGISTERED
+            m.possession_reference = reference
+            m.possession_registered_at = _iso(self._now())
+            self._audit(state, m.mortgage_id, "possession_registered",
+                        reference=reference, to=m.status.value)
+            self._emit(ev.EVENT_POSSESSION_REGISTERED,
+                       f"{m.mortgage_id}|possession_registered",
+                       tenant_state_id=state.tenant_state_id, mortgage_id=m.mortgage_id,
+                       occurred_at=m.possession_registered_at, reference=reference)
+            return m
+
+    def authorize_sale(
+        self, tenant_state_id: str, mortgage_id: str,
+        valuation_kobo: int, reserve_price_kobo: int, valuer_id: str,
+    ) -> Mortgage:
+        """POSSESSION_REGISTERED → SALE_AUTHORIZED (independent valuation)."""
+        if valuation_kobo <= 0 or reserve_price_kobo <= 0:
+            raise ValueError("valuation_kobo and reserve_price_kobo must be positive")
+        if reserve_price_kobo > valuation_kobo:
+            raise ValueError("reserve_price_kobo must not exceed valuation_kobo")
+        if not valuer_id:
+            raise ValueError("sale authorization requires an independent valuer_id")
+        state = self.tenant(tenant_state_id)
+        with self._lock:
+            m = self._get(state, mortgage_id)
+            if m.status is not MortgageStatus.POSSESSION_REGISTERED:
+                raise InvalidTransitionError(
+                    f"sale authorization requires POSSESSION_REGISTERED, got {m.status.value}")
+            m.status = MortgageStatus.SALE_AUTHORIZED
+            m.valuation_kobo = valuation_kobo
+            m.reserve_price_kobo = reserve_price_kobo
+            m.valuer_id = valuer_id
+            m.sale_authorized_at = _iso(self._now())
+            self._audit(state, m.mortgage_id, "sale_authorized",
+                        valuation_kobo=valuation_kobo,
+                        reserve_price_kobo=reserve_price_kobo,
+                        valuer_id=valuer_id, to=m.status.value)
+            self._emit(ev.EVENT_SALE_AUTHORIZED, f"{m.mortgage_id}|sale_authorized",
+                       tenant_state_id=state.tenant_state_id, mortgage_id=m.mortgage_id,
+                       occurred_at=m.sale_authorized_at, valuation_kobo=valuation_kobo,
+                       reserve_price_kobo=reserve_price_kobo, valuer_id=valuer_id)
+            return m
+
+    def sell(
+        self, tenant_state_id: str, mortgage_id: str,
+        purchaser_id: str, gross_proceeds_kobo: int, sale_costs_kobo: int = 0,
+    ) -> Mortgage:
+        """SALE_AUTHORIZED → SOLD.
+
+        * gross proceeds must meet the reserve price;
+        * proceeds move purchaser → sale escrow via two-phase ledger
+          (PENDING hold → POST, VOID on failure);
+        * the title is transferred to the purchaser through the fail-closed
+          :class:`LandTitleTransferAdapter` seam — if the title transfer
+          fails, the sale is NOT recorded (saga: proceeds transfer voided).
+        """
+        if not purchaser_id:
+            raise ValueError("sale requires a purchaser_id")
+        if gross_proceeds_kobo <= 0:
+            raise ValueError("gross_proceeds_kobo must be positive")
+        if sale_costs_kobo < 0:
+            raise ValueError("sale_costs_kobo must not be negative")
+        state = self.tenant(tenant_state_id)
+        with self._lock:
+            m = self._get(state, mortgage_id)
+            if m.status is not MortgageStatus.SALE_AUTHORIZED:
+                raise InvalidTransitionError(
+                    f"sale requires SALE_AUTHORIZED, got {m.status.value}")
+            if gross_proceeds_kobo < (m.reserve_price_kobo or 0):
+                raise ValueError(
+                    f"gross_proceeds_kobo {gross_proceeds_kobo} below reserve "
+                    f"price {m.reserve_price_kobo}")
+            key = f"{m.mortgage_id}|foreclosure-sale"
+            transfer_id = deterministic_transfer_id(key, "sale_proceeds")
+            escrow = self.sale_escrow_account(m.mortgage_id)
+            purchaser = self.purchaser_account(purchaser_id)
+            self.ledger.hold(transfer_id, purchaser, escrow, gross_proceeds_kobo, key)
+            try:
+                self.ledger.post(transfer_id)
+                # title transfer is part of the sale saga: no title, no sale
+                transfer_ref = self.title_transfer.transfer_title(
+                    state.tenant_state_id, m.parcel_id, m.applicant_id,
+                    purchaser_id, reference=m.possession_reference or m.mortgage_id)
+            except Exception:
+                try:
+                    self.ledger.void(transfer_id)
+                except Exception:
+                    pass  # posted legs are compensated via reversal flow
+                raise
+            m.status = MortgageStatus.SOLD
+            m.purchaser_id = purchaser_id
+            m.gross_proceeds_kobo = gross_proceeds_kobo
+            m.sale_costs_kobo = sale_costs_kobo
+            m.title_transfer_ref = transfer_ref
+            m.sale_transfer_id = str(transfer_id)
+            m.sold_at = _iso(self._now())
+            self._audit(state, m.mortgage_id, "sold",
+                        purchaser_id=purchaser_id,
+                        gross_proceeds_kobo=gross_proceeds_kobo,
+                        sale_costs_kobo=sale_costs_kobo,
+                        title_transfer_ref=transfer_ref,
+                        transfer_id=str(transfer_id), to=m.status.value)
+            self._emit(ev.EVENT_SOLD, f"{m.mortgage_id}|sold",
+                       tenant_state_id=state.tenant_state_id, mortgage_id=m.mortgage_id,
+                       occurred_at=m.sold_at, purchaser_id=purchaser_id,
+                       gross_proceeds_kobo=gross_proceeds_kobo,
+                       sale_costs_kobo=sale_costs_kobo,
+                       title_transfer_ref=transfer_ref,
+                       transfer_id=str(transfer_id))
+            return m
+
+    def _outstanding_total(self, m: Mortgage) -> int:
+        return sum(i.outstanding_kobo for i in m.schedule)
+
+    def distribute_proceeds(self, tenant_state_id: str, mortgage_id: str) -> Mortgage:
+        """SOLD → PROCEEDS_DISTRIBUTED → CLOSED (atomic waterfall).
+
+        Deterministic integer-kobo waterfall from the sale escrow:
+        (1) sale costs, (2) senior lien outstanding, (3) junior lien
+        outstanding, (4) borrower surplus. If proceeds are insufficient the
+        shortfall is recorded as ``deficiency_kobo`` on the borrower. Every
+        leg is a deterministic-id two-phase transfer; a failure voids the
+        whole saga (no partial distribution)."""
+        state = self.tenant(tenant_state_id)
+        with self._lock:
+            m = self._get(state, mortgage_id)
+            if m.status is not MortgageStatus.SOLD:
+                raise InvalidTransitionError(
+                    f"proceeds distribution requires SOLD, got {m.status.value}")
+            gross = m.gross_proceeds_kobo or 0
+            key = f"{m.mortgage_id}|foreclosure-distribution"
+            escrow = self.sale_escrow_account(m.mortgage_id)
+            treasury = self.treasury_account(state.tenant_state_id)
+            borrower = self.applicant_account(m.applicant_id)
+
+            # lien waterfall: this mortgage is senior unless its lien is a
+            # second charge; find the junior lien's mortgage on the parcel.
+            my_lien = state.liens.get(m.lien_id or "")
+            senior_due = self._outstanding_total(m)
+            junior_due = 0
+            junior_m: Optional[Mortgage] = None
+            if my_lien is not None and my_lien.priority == 1:
+                for other in state.liens.values():
+                    if other.parcel_id == m.parcel_id and other.priority == 2 \
+                            and other.status is LienStatus.REGISTERED \
+                            and other.mortgage_id != m.mortgage_id:
+                        junior_m = state.mortgages.get(other.mortgage_id)
+                        if junior_m is not None:
+                            junior_due = self._outstanding_total(junior_m)
+                        break
+
+            costs_due = m.sale_costs_kobo or 0
+            legs: List[tuple] = []  # (leg, amount, credit_account)
+            remaining = gross
+            costs_paid = min(costs_due, remaining)
+            legs.append(("costs", costs_paid, self.sale_costs_account(m.mortgage_id)))
+            remaining -= costs_paid
+            senior_paid = min(senior_due, remaining)
+            legs.append(("senior", senior_paid, treasury))
+            remaining -= senior_paid
+            junior_paid = min(junior_due, remaining)
+            if junior_paid:
+                legs.append(("junior", junior_paid, treasury))
+                remaining -= junior_paid
+            surplus = remaining
+            if surplus:
+                legs.append(("surplus", surplus, borrower))
+            deficiency = max(0, costs_due + senior_due + junior_due - gross)
+
+            # two-phase saga: hold all legs, then post all; on failure void
+            # every leg (best effort — posted legs are compensated by the
+            # ledger's reversal flow in production)
+            leg_ids: List[int] = []
+            try:
+                for leg, amount, credit_acct in legs:
+                    if amount <= 0:
+                        continue
+                    tid = deterministic_transfer_id(key, leg)
+                    leg_ids.append(tid)
+                    self.ledger.hold(tid, escrow, credit_acct, amount, key)
+                for tid in leg_ids:
+                    self.ledger.post(tid)
+            except Exception:
+                for tid in reversed(leg_ids):
+                    try:
+                        self.ledger.void(tid)
+                    except Exception:
+                        pass
+                raise
+
+            # apply senior proceeds to the schedule (oldest-first)
+            alloc = senior_paid
+            for inst in m.schedule:
+                if alloc == 0:
+                    break
+                interest_due = inst.interest_kobo - inst.paid_interest_kobo
+                take = min(alloc, interest_due)
+                inst.paid_interest_kobo += take
+                alloc -= take
+                principal_due = inst.principal_kobo - inst.paid_principal_kobo
+                take = min(alloc, principal_due)
+                inst.paid_principal_kobo += take
+                alloc -= take
+            m.outstanding_principal_kobo -= min(
+                senior_paid, m.outstanding_principal_kobo)
+            if junior_m is not None and junior_paid:
+                alloc = junior_paid
+                for inst in junior_m.schedule:
+                    if alloc == 0:
+                        break
+                    interest_due = inst.interest_kobo - inst.paid_interest_kobo
+                    take = min(alloc, interest_due)
+                    inst.paid_interest_kobo += take
+                    alloc -= take
+                    principal_due = inst.principal_kobo - inst.paid_principal_kobo
+                    take = min(alloc, principal_due)
+                    inst.paid_principal_kobo += take
+                    alloc -= take
+                junior_m.outstanding_principal_kobo -= min(
+                    junior_paid, junior_m.outstanding_principal_kobo)
+
+            m.distribution = {
+                "gross_proceeds_kobo": gross,
+                "costs_kobo": costs_paid,
+                "senior_kobo": senior_paid,
+                "junior_kobo": junior_paid,
+                "surplus_kobo": surplus,
+                "deficiency_kobo": deficiency,
+                "transfer_ids": {
+                    leg: str(deterministic_transfer_id(key, leg))
+                    for leg, amount, _ in legs if amount > 0
+                },
+            }
+            m.deficiency_kobo = deficiency
+            m.proceeds_distributed_at = _iso(self._now())
+            m.status = MortgageStatus.PROCEEDS_DISTRIBUTED
+            self._audit(state, m.mortgage_id, "proceeds_distributed",
+                        **{k: m.distribution[k] for k in
+                           ("gross_proceeds_kobo", "costs_kobo", "senior_kobo",
+                            "junior_kobo", "surplus_kobo", "deficiency_kobo")},
+                        to=m.status.value)
+            self._emit(ev.EVENT_PROCEEDS_DISTRIBUTED,
+                       f"{m.mortgage_id}|proceeds_distributed",
+                       tenant_state_id=state.tenant_state_id, mortgage_id=m.mortgage_id,
+                       occurred_at=m.proceeds_distributed_at,
+                       gross_proceeds_kobo=gross, costs_kobo=costs_paid,
+                       senior_kobo=senior_paid, junior_kobo=junior_paid,
+                       surplus_kobo=surplus, deficiency_kobo=deficiency)
+
+            # CLOSED: release every lien on the parcel, atomically
+            released: List[str] = []
+            for lien in state.liens.values():
+                if lien.parcel_id == m.parcel_id and lien.status is LienStatus.REGISTERED:
+                    lien.status = LienStatus.RELEASED
+                    lien.released_at = m.proceeds_distributed_at
+                    released.append(lien.lien_id)
+            m.status = MortgageStatus.CLOSED
+            m.closed_at = m.proceeds_distributed_at
+            self._audit(state, m.mortgage_id, "closed",
+                        lien_ids=",".join(released), to=m.status.value)
+            self._emit(ev.EVENT_CLOSED, f"{m.mortgage_id}|closed",
+                       tenant_state_id=state.tenant_state_id, mortgage_id=m.mortgage_id,
+                       occurred_at=m.closed_at, lien_ids=",".join(released))
             return m

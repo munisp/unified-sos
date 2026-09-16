@@ -1,0 +1,28 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.fundsflow.outbox_deadletter.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.fundsflow.outbox_deadletter' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "attempts": {
+      "type": "integer"
+    },
+    "event_id": {
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "topic": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "event_id",
+    "topic",
+    "attempts",
+    "timestamp"
+  ],
+  "title": "ng.sos.fundsflow.outbox_deadletter",
+  "type": "object"
+}

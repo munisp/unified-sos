@@ -168,14 +168,17 @@ func ParsePolicyPack(data []byte) (*PolicyPack, error) {
 		Guardrails:       raw.Guardrails,
 	}
 
-	var instantBPS uint64
+	var instantBPS, monthEndBPS uint64
 	for i, r := range raw.Rules {
 		rule, err := parseRule(r)
 		if err != nil {
 			return nil, fmt.Errorf("splits: rule %d: %w", i, err)
 		}
-		if rule.Timing == TimingInstant {
+		switch rule.Timing {
+		case TimingInstant:
 			instantBPS += uint64(rule.PercentageBPS)
+		case TimingEndOfMonth:
+			monthEndBPS += uint64(rule.PercentageBPS)
 		}
 		pack.Rules = append(pack.Rules, rule)
 	}
@@ -184,6 +187,16 @@ func ParsePolicyPack(data []byte) (*PolicyPack, error) {
 	}
 	if instantBPS > TotalBasisPoints {
 		return nil, fmt.Errorf("splits: INSTANT legs sum to %.2f%% > 100%%", float64(instantBPS)/BasisPointsPerPercent)
+	}
+	// Conservation guardrail: the gazetted formula must allocate exactly
+	// 100.00% of every payment across INSTANT and END_OF_MONTH legs, so no
+	// kobo is created, destroyed, or left unallocated by construction.
+	if total := instantBPS + monthEndBPS; total != TotalBasisPoints {
+		return nil, fmt.Errorf("splits: policy %s is not conservative: INSTANT %.2f%% + END_OF_MONTH %.2f%% = %.2f%%, must equal exactly 100.00%%",
+			raw.PolicyID,
+			float64(instantBPS)/BasisPointsPerPercent,
+			float64(monthEndBPS)/BasisPointsPerPercent,
+			float64(total)/BasisPointsPerPercent)
 	}
 	return pack, nil
 }

@@ -54,9 +54,16 @@ class IvrChannelAdapter(UssdChannelAdapter):
         session_id: str,
         msisdn_hash: str,
         input_text: str,
+        sequence: Optional[int] = None,
+        session_token: Optional[str] = None,
     ) -> ChannelResponse:
         return super().handle_session(
-            state_id, session_id, msisdn_hash, self._normalize_dtmf(input_text)
+            state_id,
+            session_id,
+            msisdn_hash,
+            self._normalize_dtmf(input_text),
+            sequence=sequence,
+            session_token=session_token,
         )
 
     def tts_prompt(self, key: str, **kwargs: str) -> str:

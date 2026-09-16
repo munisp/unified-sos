@@ -5,6 +5,7 @@ from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException, Request
 
+from .audit import AuditLog
 from .models import (
     ANPREvent,
     CorridorConfig,
@@ -36,13 +37,27 @@ except ImportError:
 def create_app(service: Optional[WIMService] = None) -> FastAPI:
     app = FastAPI(title="mod-transport-wim — Weigh-in-Motion & Corridor Haulage")
     app.state.service = service or WIMService()
+    app.state.audit = AuditLog()
 
     def svc(request: Request) -> WIMService:
         return request.app.state.service
 
+    @app.get("/api/v1/states/{state_id}/audit/verify")
+    def verify_audit(state_id: str, request: Request):
+        """Hash-chain integrity check; entries scoped to the tenant."""
+        audit: AuditLog = request.app.state.audit
+        return {
+            "valid": audit.verify() == [],
+            "entries": len(audit.events(tenant_state_id=state_id)),
+        }
+
     @app.post("/corridors", response_model=CorridorConfig, status_code=201)
     def configure_corridor(config: CorridorConfig, request: Request):
-        return svc(request).configure_corridor(config)
+        created = svc(request).configure_corridor(config)
+        request.app.state.audit.record(
+            "wim.corridor_configured", created.state_id,
+            detail={"corridor_id": created.corridor_id})
+        return created
 
     @app.get("/corridors/{corridor_id}", response_model=CorridorConfig)
     def get_corridor(corridor_id: str, request: Request):
@@ -79,7 +94,11 @@ def create_app(service: Optional[WIMService] = None) -> FastAPI:
 
     @app.post("/manifests", response_model=EManifest, status_code=201)
     def register_manifest(manifest: EManifest, request: Request):
-        return svc(request).register_manifest(manifest)
+        created = svc(request).register_manifest(manifest)
+        request.app.state.audit.record(
+            "wim.manifest_registered", created.state_id,
+            detail={"manifest_id": created.manifest_id})
+        return created
 
     @app.get("/manifests/{manifest_id}/verify", response_model=ManifestVerification)
     def verify_manifest(manifest_id: str, request: Request):

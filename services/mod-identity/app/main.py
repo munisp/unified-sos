@@ -10,15 +10,17 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .models import (
     ApiConsumer,
     AuditEntry,
     ConsentGrant,
     Credential,
+    GuardianLink,
     Resident,
     ResidentRead,
+    ResidentStatus,
     SettlementRecord,
     VerificationProduct,
     VerificationResult,
@@ -26,8 +28,11 @@ from .models import (
 from .repo import IdentityRepository, InMemoryIdentityRepository
 from .service import (
     ConsentError,
+    GuardianshipError,
     IdentityService,
+    InvalidTransitionError,
     NotFoundError,
+    RegistrarRoleError,
     TenantIsolationError,
 )
 
@@ -38,6 +43,16 @@ class VerifyRequest(BaseModel):
     resident_id: str
     product: VerificationProduct
     claim: str = ""
+
+
+class ResidentStatusChange(BaseModel):
+    state_id: str
+    to_status: ResidentStatus
+    actor_id: str
+    actor_role: str = Field(description="must be 'registrar'")
+    document_ref: Optional[str] = Field(
+        default=None, description="death-certificate reference; required for DECEASED"
+    )
 
 
 # --- Stage 7.C observability wiring (services/_shared/observability.py) ---
@@ -82,6 +97,36 @@ def create_app(repo: Optional[IdentityRepository] = None) -> FastAPI:
             raise HTTPException(403, "cross-tenant access denied")
         return resident
 
+    @app.post("/residents/{resident_id}/status", response_model=ResidentRead)
+    def set_resident_status(resident_id: str, body: ResidentStatusChange,
+                            svc: IdentityService = Depends(service)):
+        """Registrar-only lifecycle change (DECEASED needs a death-certificate
+        document reference); hash-chain audited."""
+        try:
+            return svc.set_resident_status(
+                resident_id, body.state_id, body.to_status,
+                body.actor_id, body.actor_role, body.document_ref,
+            )
+        except NotFoundError as exc:
+            raise HTTPException(404, str(exc))
+        except TenantIsolationError as exc:
+            raise HTTPException(403, str(exc))
+        except RegistrarRoleError as exc:
+            raise HTTPException(403, str(exc))
+        except InvalidTransitionError as exc:
+            raise HTTPException(409, str(exc))
+        except ValueError as exc:
+            raise HTTPException(422, str(exc))
+
+    @app.post("/guardian-links", response_model=GuardianLink, status_code=201)
+    def add_guardian_link(link: GuardianLink, svc: IdentityService = Depends(service)):
+        try:
+            return svc.add_guardian_link(link)
+        except NotFoundError as exc:
+            raise HTTPException(404, str(exc))
+        except TenantIsolationError as exc:
+            raise HTTPException(403, str(exc))
+
     @app.post("/credentials", response_model=Credential, status_code=201)
     def issue_credential(credential: Credential, svc: IdentityService = Depends(service)):
         try:
@@ -103,6 +148,8 @@ def create_app(repo: Optional[IdentityRepository] = None) -> FastAPI:
             raise HTTPException(404, str(exc))
         except TenantIsolationError as exc:
             raise HTTPException(403, str(exc))
+        except GuardianshipError as exc:
+            raise HTTPException(409, str(exc))
         except ValueError as exc:
             raise HTTPException(422, str(exc))
 

@@ -207,3 +207,33 @@ def test_domain_verify_follows_override(client: TestClient) -> None:
     assert resp.json()["tenant_state_id"] == "lagos"
     assert client.post("/cp/v1/domains/verify",
                        json={"custom_domain": "sos.lagosstate.gov.ng"}).status_code == 404
+
+
+# --- on-demand TLS ask gate (deploy/caddy/Caddyfile) ---------------------------
+def test_domain_allowed_ask_gate(client: TestClient) -> None:
+    resp = client.get("/cp/v1/domains/allowed",
+                      params={"domain": "sos.lagosstate.gov.ng"})
+    assert resp.status_code == 200
+    assert resp.json() == {"domain": "sos.lagosstate.gov.ng", "allowed": True}
+    # case-insensitive
+    assert client.get("/cp/v1/domains/allowed",
+                      params={"domain": "SOS.FCT.GOV.NG"}).status_code == 200
+
+
+def test_domain_allowed_rejects_unknown(client: TestClient) -> None:
+    assert client.get("/cp/v1/domains/allowed",
+                      params={"domain": "evil.example.com"}).status_code == 404
+    # missing/empty domain also 404 (no cert issuance for empty Host)
+    assert client.get("/cp/v1/domains/allowed",
+                      params={"domain": "  "}).status_code == 404
+
+
+def test_domain_allowed_follows_override(client: TestClient) -> None:
+    doc = valid_branding()
+    doc["custom_domain"] = "revenue.lagosstate.gov.ng"
+    assert client.put("/cp/v1/tenants/lagos/branding", json=doc,
+                      headers={"X-Admin-Token": ADMIN}).status_code == 200
+    assert client.get("/cp/v1/domains/allowed",
+                      params={"domain": "revenue.lagosstate.gov.ng"}).status_code == 200
+    assert client.get("/cp/v1/domains/allowed",
+                      params={"domain": "sos.lagosstate.gov.ng"}).status_code == 404

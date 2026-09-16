@@ -37,10 +37,12 @@ class ParcelRepository(Protocol):
         ...
 
     def active_geometries(self, tenant_state_id: str) -> list[tuple[str, BaseGeometry]]:
-        """(parcel_uin, geometry) of all ACTIVE parcels for overlap checking.
+        """(parcel_uin, geometry) of all live parcels for overlap checking.
 
-        Mirrors the trigger's ``WHERE p.tenant_state_id = NEW.tenant_state_id
-        AND p.status = 'ACTIVE'`` predicate.
+        The overlap predicate includes ``ACTIVE`` and ``REGISTERED`` parcels
+        (subdivision/merger children are REGISTERED and must not escape the
+        check); ``SUPERSEDED``, ``REVOKED``, and ``ARCHIVED`` rows are excluded.
+        Mirrors the trigger's tenant predicate plus the live-status filter.
         """
         ...
 
@@ -60,6 +62,12 @@ class ParcelRepository(Protocol):
 
 class DuplicateParcelError(Exception):
     """parcel_uin UNIQUE constraint violation (cadastre.parcels.parcel_uin)."""
+
+
+#: Parcel statuses whose geometry participates in overlap checks: live titles
+#: (ACTIVE) and derived subdivision/merger children (REGISTERED). SUPERSEDED,
+#: REVOKED, and ARCHIVED parcels never block new registrations.
+OVERLAP_CHECKED_STATUSES = (ParcelStatus.ACTIVE, ParcelStatus.REGISTERED)
 
 
 class InMemoryParcelRepository:
@@ -99,7 +107,7 @@ class InMemoryParcelRepository:
         return [
             (r.parcel_uin, self._geom(r))
             for r in self._tenant(tenant_state_id).values()
-            if r.status == ParcelStatus.ACTIVE
+            if r.status in OVERLAP_CHECKED_STATUSES
         ]
 
     def search(

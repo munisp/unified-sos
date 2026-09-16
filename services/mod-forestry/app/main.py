@@ -6,6 +6,7 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 
+from .audit import AuditLog
 from .models import (
     DeforestationAlert,
     ProvenanceEvent,
@@ -42,16 +43,30 @@ except ImportError:
 def create_app(service: Optional[ForestryService] = None) -> FastAPI:
     app = FastAPI(title="mod-forestry — Timber Provenance & Deforestation Alerts")
     app.state.service = service or ForestryService()
+    app.state.audit = AuditLog()
 
     def svc(request: Request) -> ForestryService:
         return request.app.state.service
 
+    @app.get("/api/v1/states/{state_id}/audit/verify")
+    def verify_audit(state_id: str, request: Request):
+        """Hash-chain integrity check; entries scoped to the tenant."""
+        audit: AuditLog = request.app.state.audit
+        return {
+            "valid": audit.verify() == [],
+            "entries": len(audit.events(tenant_state_id=state_id)),
+        }
+
     @app.post("/tags", response_model=TimberTag, status_code=201)
     def register_tag(tag: TimberTag, request: Request):
         try:
-            return svc(request).register_tag(tag)
+            created = svc(request).register_tag(tag)
         except ValueError as exc:
             raise HTTPException(409, str(exc))
+        request.app.state.audit.record(
+            "forestry.tag_registered", created.state_id,
+            detail={"tag_id": created.tag_id})
+        return created
 
     @app.get("/tags", response_model=List[TimberTag])
     def list_tags(request: Request, state_id: Optional[str] = None):

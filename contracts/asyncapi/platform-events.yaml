@@ -734,3 +734,164 @@ channels:
             reason: { type: string }
             audit_hash: { type: string }
             timestamp: { type: string, format: date-time }
+  ng.sos.fundsflow.saga_failed:
+    publish:
+      operationId: fundsflowSagaFailed
+      description: >-
+        Emitted by the funds-flow saga coordinator when compensation fails and a
+        saga enters FAILED — money may be partially moved; page treasury ops.
+      message:
+        payload:
+          type: object
+          required: [saga_id, failed_step, error, timestamp]
+          properties:
+            saga_id: { type: string }
+            failed_step: { type: string }
+            error: { type: string }
+            timestamp: { type: string, format: date-time }
+  ng.sos.fundsflow.outbox_deadletter:
+    publish:
+      operationId: fundsflowOutboxDeadletter
+      description: Emitted when an outbox event exceeds max publish attempts and is dead-lettered.
+      message:
+        payload:
+          type: object
+          required: [event_id, topic, attempts, timestamp]
+          properties:
+            event_id: { type: string }
+            topic: { type: string }
+            attempts: { type: integer }
+            timestamp: { type: string, format: date-time }
+  ng.sos.ml.model_rolled_back:
+    publish:
+      operationId: mlModelRolledBack
+      description: >-
+        Emitted by the drift-remediation worker when consecutive significant
+        drift triggers an automatic champion rollback.
+      message:
+        payload:
+          type: object
+          required: [state_id, model_name, from_version, to_version, timestamp]
+          properties:
+            state_id: { type: string }
+            model_name: { type: string, enum: [fraud_gnn, credit_mlp, luc_avm, crowd_lstm] }
+            from_version: { type: string }
+            to_version: { type: string }
+            timestamp: { type: string, format: date-time }
+  ng.sos.mortgage.possession_registered:
+    publish:
+      operationId: mortgagePossessionRegistered
+      description: Emitted when mortgagee-in-possession is registered after foreclosure (court/consent reference recorded).
+      message:
+        payload:
+          type: object
+          required: [state_id, mortgage_id, parcel_id, reference, timestamp]
+          properties:
+            state_id: { type: string }
+            mortgage_id: { type: string }
+            parcel_id: { type: string }
+            reference: { type: string }
+            timestamp: { type: string, format: date-time }
+  ng.sos.mortgage.sale_authorized:
+    publish:
+      operationId: mortgageSaleAuthorized
+      description: Emitted when a foreclosure sale is authorized with independent valuation and reserve price.
+      message:
+        payload:
+          type: object
+          required: [state_id, mortgage_id, valuation_kobo, reserve_price_kobo, timestamp]
+          properties:
+            state_id: { type: string }
+            mortgage_id: { type: string }
+            valuation_kobo: { type: integer, format: int64 }
+            reserve_price_kobo: { type: integer, format: int64 }
+            timestamp: { type: string, format: date-time }
+  ng.sos.mortgage.sold:
+    publish:
+      operationId: mortgageSold
+      description: Emitted when a foreclosed property is sold and the title transfer to the purchaser completes.
+      message:
+        payload:
+          type: object
+          required: [state_id, mortgage_id, purchaser_id, gross_proceeds_kobo, timestamp]
+          properties:
+            state_id: { type: string }
+            mortgage_id: { type: string }
+            purchaser_id: { type: string }
+            gross_proceeds_kobo: { type: integer, format: int64 }
+            timestamp: { type: string, format: date-time }
+  ng.sos.mortgage.proceeds_distributed:
+    publish:
+      operationId: mortgageProceedsDistributed
+      description: >-
+        Emitted after the foreclosure waterfall posts: sale costs, senior lien,
+        junior lien, borrower surplus (or deficiency recorded). Integer kobo,
+        conservation enforced.
+      message:
+        payload:
+          type: object
+          required: [state_id, mortgage_id, costs_kobo, senior_kobo, junior_kobo, surplus_kobo, deficiency_kobo, timestamp]
+          properties:
+            state_id: { type: string }
+            mortgage_id: { type: string }
+            costs_kobo: { type: integer, format: int64 }
+            senior_kobo: { type: integer, format: int64 }
+            junior_kobo: { type: integer, format: int64 }
+            surplus_kobo: { type: integer, format: int64 }
+            deficiency_kobo: { type: integer, format: int64 }
+            timestamp: { type: string, format: date-time }
+  ng.sos.lands.title_transferred:
+    publish:
+      operationId: landsTitleTransferred
+      description: >-
+        Emitted by mod-gis-lands when a TransferWorkflow completes (sale, gift,
+        assent, court order, foreclosure sale, partition): signed transfer JWS
+        chained to previous title hash, new title minted, old title REPLACED.
+      message:
+        payload:
+          type: object
+          required: [state_id, parcel_id, instrument, from_owner, to_owner, new_title_ref, audit_hash, timestamp]
+          properties:
+            state_id: { type: string }
+            parcel_id: { type: string }
+            instrument: { type: string, enum: [SALE, GIFT, ASSENT, COURT_ORDER, FORECLOSURE_SALE, PARTITION] }
+            from_owner: { type: string }
+            to_owner: { type: string }
+            new_title_ref: { type: string }
+            audit_hash: { type: string }
+            timestamp: { type: string, format: date-time }
+  ng.sos.lands.title_revoked:
+    publish:
+      operationId: landsTitleRevoked
+      description: >-
+        Emitted by mod-gis-lands when a governor revocation (Land Use Act s.28)
+        becomes effective after the signed instrument. Carries the public-purpose
+        code and gazette reference.
+      message:
+        payload:
+          type: object
+          required: [state_id, parcel_id, public_purpose, gazette_reference, audit_hash, timestamp]
+          properties:
+            state_id: { type: string }
+            parcel_id: { type: string }
+            public_purpose: { type: string }
+            gazette_reference: { type: string }
+            audit_hash: { type: string }
+            timestamp: { type: string, format: date-time }
+  ng.sos.lands.compensation_paid:
+    publish:
+      operationId: landsCompensationPaid
+      description: >-
+        Emitted by mod-gis-lands when revocation compensation is paid through the
+        two-phase ledger (deterministic ids; void on failure; integer kobo).
+      message:
+        payload:
+          type: object
+          required: [state_id, revocation_id, claimant_id, amount_kobo, transfer_id, timestamp]
+          properties:
+            state_id: { type: string }
+            revocation_id: { type: string }
+            claimant_id: { type: string }
+            amount_kobo: { type: integer, format: int64 }
+            transfer_id: { type: string }
+            timestamp: { type: string, format: date-time }

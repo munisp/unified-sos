@@ -39,28 +39,56 @@ _NIN_BVN_IN_TEXT = re.compile(r"\b\d{11}\b")
 _PHONE_IN_TEXT = re.compile(r"\b(?:\+?234|0)\d{10}\b")
 
 
-def sanitize_error_message(message: str, max_len: int = 300) -> str:
-    """Scrub PII-looking values from an operator error message.
+# --- canonical implementation lives in services/_shared/pii_guard.py --------
+# Re-exported here for backwards compatibility with existing control-plane
+# imports; a local copy remains as fallback for minimal container images.
+def _load_shared_sanitize():
+    try:
+        from _shared.pii_guard import sanitize_error_message as fn
 
-    Applied to any third-party error text before it is persisted (audit
-    events, tenant workflow) so the control plane's zero-PII boundary also
-    covers operator/log output.
-    """
-    text = _NIN_BVN_IN_TEXT.sub("[REDACTED-11D]", message)
-    text = _PHONE_IN_TEXT.sub("[REDACTED-PHONE]", text)
-    lowered = text.lower()
-    for pattern in PII_FIELD_PATTERNS:
-        idx = lowered.find(pattern)
-        while idx != -1:
-            # Redact `pattern=value`-style fragments (`email=ada@…`, `nin: 123`).
-            m = re.match(
-                re.escape(pattern) + r"\s*[:=]\s*\S+", text[idx:], re.IGNORECASE
-            )
-            if m:
-                text = text[:idx] + pattern + "=[REDACTED]" + text[idx + m.end():]
-                lowered = text.lower()
-            idx = lowered.find(pattern, idx + len(pattern))
-    return text[:max_len]
+        return fn
+    except ImportError:
+        import sys as _sys
+        from pathlib import Path as _Path
+
+        _services_root = _Path(__file__).resolve().parents[2]
+        if str(_services_root) not in _sys.path:
+            _sys.path.insert(0, str(_services_root))
+        try:
+            from _shared.pii_guard import sanitize_error_message as fn
+
+            return fn
+        except ImportError:
+            return None
+
+
+_shared_sanitize = _load_shared_sanitize()
+
+if _shared_sanitize is not None:
+    sanitize_error_message = _shared_sanitize
+else:  # minimal container images ship only the app package
+    def sanitize_error_message(message: str, max_len: int = 300) -> str:  # type: ignore[no-redef]
+        """Scrub PII-looking values from an operator error message.
+
+        Applied to any third-party error text before it is persisted (audit
+        events, tenant workflow) so the control plane's zero-PII boundary
+        also covers operator/log output.
+        """
+        text = _NIN_BVN_IN_TEXT.sub("[REDACTED-11D]", message)
+        text = _PHONE_IN_TEXT.sub("[REDACTED-PHONE]", text)
+        lowered = text.lower()
+        for pattern in PII_FIELD_PATTERNS:
+            idx = lowered.find(pattern)
+            while idx != -1:
+                # Redact `pattern=value`-style fragments (`email=ada@…`, `nin: 123`).
+                m = re.match(
+                    re.escape(pattern) + r"\s*[:=]\s*\S+", text[idx:], re.IGNORECASE
+                )
+                if m:
+                    text = text[:idx] + pattern + "=[REDACTED]" + text[idx + m.end():]
+                    lowered = text.lower()
+                idx = lowered.find(pattern, idx + len(pattern))
+        return text[:max_len]
 
 
 def _find_pii(node: Any, path: str = "$") -> list[str]:

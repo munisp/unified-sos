@@ -22,10 +22,10 @@ from __future__ import annotations
 
 import enum
 import hashlib
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 def utcnow() -> datetime:
@@ -43,6 +43,15 @@ class VerificationProduct(str, enum.Enum):
     KYC_ADJUNCT = "KYC_ADJUNCT"
 
 
+class ResidentStatus(str, enum.Enum):
+    """Lifecycle status. ``active == True`` ⟺ ``status == ACTIVE`` (kept in
+    sync by the model validator and the service-layer transition endpoint)."""
+
+    ACTIVE = "ACTIVE"
+    DECEASED = "DECEASED"
+    SUSPENDED = "SUSPENDED"
+
+
 class Resident(BaseModel):
     """State-scoped, NIN-linked resident record. Never leaves the module."""
 
@@ -53,11 +62,40 @@ class Resident(BaseModel):
     address: str
     registered_at: datetime = Field(default_factory=utcnow)
     active: bool = True
+    status: ResidentStatus = ResidentStatus.ACTIVE
+    date_of_birth: Optional[date] = Field(
+        default=None, description="optional; drives minor/guardianship consent rules"
+    )
+
+    @model_validator(mode="after")
+    def _sync_active_flag(self) -> "Resident":
+        # Preserve legacy activeness semantics exactly.
+        self.active = self.status is ResidentStatus.ACTIVE
+        return self
 
     @property
     def masked_nin(self) -> str:
         """Masked NIN — last three characters only; raw NIN never serialized."""
         return f"********{self.nin[-3:]}"
+
+
+class GuardianLink(BaseModel):
+    """Guardianship of a minor resident, backed by a verified KYC case.
+
+    Consent grants for a minor (age < 18 at the service's injected clock)
+    require an active link; links auto-expire at the resident's 18th
+    birthday because adults no longer need a guardian to consent.
+    """
+
+    state_id: str
+    resident_id: str = Field(description="the minor resident")
+    guardian_resident_id: str
+    kyc_case_ref: str = Field(description="verified mod-kyc-kyb case for the guardianship")
+    expires_at: datetime
+    created_at: datetime = Field(default_factory=utcnow)
+
+    def is_active(self, now: Optional[datetime] = None) -> bool:
+        return (now or utcnow()) < self.expires_at
 
 
 class ResidentRead(BaseModel):
@@ -74,6 +112,7 @@ class ResidentRead(BaseModel):
     address: str
     registered_at: datetime
     active: bool = True
+    status: ResidentStatus = ResidentStatus.ACTIVE
 
 
 class Credential(BaseModel):

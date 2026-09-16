@@ -14,7 +14,9 @@ from typing import Dict, List, Optional, TYPE_CHECKING
 from .domain import (
     DEFAULT_SPLIT_BPS,
     DEFAULT_SSO_SESSION_TTL,
+    BindingStatus,
     BiometricVerification,
+    ChannelAuth,
     CivilServant,
     GhostRule,
     GhostWorkerFinding,
@@ -22,6 +24,7 @@ from .domain import (
     PayrollAudit,
     Petition,
     PetitionStatus,
+    PortalAuditEvent,
     Priority,
     RequestStatus,
     ServiceCatalogEntry,
@@ -34,7 +37,11 @@ from .domain import (
     SsoSessionStatus,
     StatusEvent,
     TemporalWorkflowRef,
+    WalletBinding,
+    WalletStatus,
+    hash_msisdn,
     hash_nin,
+    hash_pin,
     utcnow,
 )
 from .repository import CitizenPortalRepository
@@ -102,9 +109,16 @@ class CitizenPortalService:
         repo: CitizenPortalRepository,
         state_splits: Optional[Dict[str, Dict[str, int]]] = None,
         catalog_provider: Optional["CatalogProvider"] = None,
+        kyc_client=None,
     ) -> None:
         self.repo = repo
         self._ids = itertools.count(1)
+        # Account-recovery seam to mod-kyc-kyb (fail-closed; fixture default).
+        if kyc_client is None:
+            from .kyc_seam import build_portal_kyc_client
+
+            kyc_client = build_portal_kyc_client()
+        self.kyc_client = kyc_client
         # Per-state settlement split overrides (bps); default 70/15/15.
         self._state_splits = state_splits or {}
         # Catalog source; defaults to the deterministic static seed catalog.
@@ -121,6 +135,116 @@ class CitizenPortalService:
     def _require_tenant(record_state: str, state_id: str, what: str) -> None:
         if record_state != state_id:
             raise TenantIsolationError(f"{what} belongs to tenant {record_state!r}, not {state_id!r}")
+
+    # -- hash-chained audit -------------------------------------------------
+    def _audit(self, action: str, state_id: str, actor_id: str, subject_id: str, details: str = "") -> PortalAuditEvent:
+        prev = self.repo.audit_tail_hash()
+        seq = len(self.repo.list_audit()) + 1
+        payload = f"{seq}|{action}|{state_id}|{actor_id}|{subject_id}|{details}"
+        entry = PortalAuditEvent(
+            seq=seq,
+            action=action,
+            state_id=state_id,
+            actor_id=actor_id,
+            subject_id=subject_id,
+            details=details,
+            prev_hash=prev,
+            entry_hash=PortalAuditEvent.compute_hash(prev, payload),
+        )
+        return self.repo.append_audit(entry)
+
+    # -- channel credentials (USSD/IVR PIN — SIM-swap defence) ---------------
+    MAX_PIN_FAILURES = 3
+
+    def register_channel_pin(self, state_id: str, msisdn_hash: str, pin: str) -> ChannelAuth:
+        """Register (or rotate) a channel PIN; the raw PIN never persists."""
+        auth = ChannelAuth(
+            state_id=state_id,
+            msisdn_hash=msisdn_hash,
+            pin_hash=hash_pin(pin, msisdn_hash),
+        )
+        self.repo.save_channel_auth(auth)
+        self._audit("CHANNEL_PIN_SET", state_id, msisdn_hash[:16], msisdn_hash[:16])
+        return auth
+
+    def verify_channel_pin(self, state_id: str, msisdn_hash: str, pin: str) -> bool:
+        """Verify a channel PIN; MAX_PIN_FAILURES consecutive misses lock it."""
+        auth = self.repo.get_channel_auth(state_id, msisdn_hash)
+        if auth is None:
+            return False  # fail-closed: no credential registered
+        if auth.locked:
+            return False
+        if hash_pin(pin, msisdn_hash) == auth.pin_hash:
+            if auth.failed_attempts:
+                auth.failed_attempts = 0
+                auth.updated_at = utcnow()
+                self.repo.save_channel_auth(auth)
+            return True
+        auth.failed_attempts += 1
+        auth.updated_at = utcnow()
+        if auth.failed_attempts >= self.MAX_PIN_FAILURES:
+            auth.locked = True
+            self._audit("CHANNEL_PIN_LOCKED", state_id, msisdn_hash[:16], msisdn_hash[:16],
+                        f"failures={auth.failed_attempts}")
+        self.repo.save_channel_auth(auth)
+        return False
+
+    # -- wallet bindings / account recovery -----------------------------------
+    def bind_wallet_msisdn(self, state_id: str, wallet_id: str, msisdn_hash: str) -> WalletBinding:
+        binding = WalletBinding(state_id=state_id, wallet_id=wallet_id, msisdn_hash=msisdn_hash)
+        return self.repo.save_binding(binding)
+
+    def wallet_for_msisdn(self, state_id: str, msisdn_hash: str) -> IdentityWallet:
+        """Resolve the wallet bound to a (hashed) MSISDN, fail-closed."""
+        binding = self.repo.get_binding(state_id, msisdn_hash)
+        if binding is None:
+            raise NotFoundError("no wallet binding for this MSISDN")
+        if binding.status is not BindingStatus.ACTIVE:
+            raise WalletSuspendedError("wallet binding is suspended (rebound to a new MSISDN)")
+        return self.get_wallet(binding.wallet_id, state_id)
+
+    def rebind_wallet(self, state_id: str, wallet_id: str, new_msisdn: str, kyc_case_ref: str) -> IdentityWallet:
+        """Account recovery: migrate a wallet to a new MSISDN.
+
+        Fail-closed: requires a VERIFIED (APPROVED) KYC case from
+        mod-kyc-kyb via the injected seam; an unreachable KYC service or an
+        unverified case denies the rebind. Both transitions are hash-chain
+        audited.
+        """
+        from .kyc_seam import PortalKycUnavailableError
+
+        wallet = self.get_wallet(wallet_id, state_id)
+        try:
+            verified = bool(self.kyc_client.is_verified(kyc_case_ref))
+        except PortalKycUnavailableError:
+            self._audit("WALLET_REBIND_DENIED", state_id, wallet_id, wallet_id,
+                        "kyc_unavailable")
+            raise
+        if not verified:
+            self._audit("WALLET_REBIND_DENIED", state_id, wallet_id, wallet_id,
+                        f"kyc_case_ref={kyc_case_ref} not verified")
+            raise InvalidTransitionError(
+                f"KYC case {kyc_case_ref!r} is not verified; wallet rebind denied"
+            )
+        new_hash = hash_msisdn(new_msisdn)
+        # Suspend every existing binding (the old MSISDN can no longer auth).
+        for binding in self.repo.list_bindings(wallet_id):
+            if binding.status is BindingStatus.ACTIVE and binding.msisdn_hash != new_hash:
+                binding.status = BindingStatus.SUSPENDED
+                binding.updated_at = utcnow()
+                self.repo.save_binding(binding)
+                self._audit("WALLET_BINDING_SUSPENDED", state_id, wallet_id, wallet_id,
+                            f"old_msisdn_hash={binding.msisdn_hash[:16]}")
+        # Migrate the wallet to the new binding.
+        wallet.nin_hash = new_hash
+        if wallet.status is WalletStatus.SUSPENDED:
+            wallet.status = WalletStatus.ACTIVE
+        self.repo.save_wallet(wallet)
+        self.repo.save_binding(WalletBinding(
+            state_id=state_id, wallet_id=wallet_id, msisdn_hash=new_hash))
+        self._audit("WALLET_REBOUND", state_id, wallet_id, wallet_id,
+                    f"kyc_case_ref={kyc_case_ref};new_msisdn_hash={new_hash[:16]}")
+        return wallet
 
     # -- settlement -------------------------------------------------------
     def _split(self, state_id: str) -> Dict[str, int]:
@@ -170,8 +294,6 @@ class CitizenPortalService:
 
     def create_sso_session(self, state_id: str, wallet_id: str, redirect_uri: str, scopes: Optional[List[str]] = None) -> SsoSession:
         wallet = self.get_wallet(wallet_id, state_id)
-        from .domain import WalletStatus
-
         if wallet.status is not WalletStatus.ACTIVE:
             raise WalletSuspendedError(f"wallet {wallet_id!r} is {wallet.status.value}")
         session = SsoSession(

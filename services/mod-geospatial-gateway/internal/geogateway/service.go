@@ -118,6 +118,7 @@ type Service struct {
 	PythonClient PythonServiceClient
 	RustCLI      RustValidatorCLI // optional; when nil the internal validator is used
 	IDGenerator  func() string    // injectable deterministic ID generator
+	Audit        *AuditLog        // hash-chained audit log (nil-safe: see auditRecord)
 }
 
 // NewLocalService builds a Service with deterministic local defaults.
@@ -139,6 +140,7 @@ func NewLocalService(idGen func() string) *Service {
 		Store:        store,
 		PythonClient: LocalPythonClient{},
 		IDGenerator:  idGen,
+		Audit:        NewAuditLog(),
 	}
 }
 
@@ -192,6 +194,10 @@ func (s *Service) CreateJob(ctx context.Context, tenant string, req CreateJobReq
 	}
 	if err := s.Dispatcher.Enqueue(ctx, job); err != nil {
 		return Job{}, nil, fmt.Errorf("dispatch failed: %w", err)
+	}
+	if s.Audit != nil {
+		s.Audit.Record("geogateway.job_created", tenant, "mod-geospatial-gateway",
+			map[string]any{"job_id": job.JobID, "job_type": string(job.JobType)})
 	}
 	return job, nil, nil
 }

@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from pydantic import BaseModel, Field, ValidationError
 
+from .audit import AuditLog
 from .domain import (
     EducationStore,
     FeeLine,
@@ -86,11 +87,27 @@ def create_app(store: EducationStore | None = None, fspiop=None) -> FastAPI:
     app = FastAPI(title="SOS mod-education — Tertiary Consolidated Billing", version="0.1.0")
     app.state.store = store or EducationStore()
     app.state.fspiop = fspiop
+    app.state.audit = AuditLog()
+
+    @app.get("/api/v1/states/{state_id}/audit/verify")
+    def verify_audit(state_id: str, request: Request) -> dict:
+        """Hash-chain integrity check; entries scoped to the tenant."""
+        audit: AuditLog = request.app.state.audit
+        return {
+            "valid": audit.verify() == [],
+            "entries": len(audit.events(tenant_state_id=state_id)),
+        }
 
     @app.post("/education/v1/students", status_code=status.HTTP_201_CREATED,
               response_model=Student)
-    def enroll(req: EnrollRequest, store: EducationStore = Depends(get_store)):
-        return store.enroll(req.tenant_state_id, req.institution_id, req.matric_no)
+    def enroll(req: EnrollRequest, request: Request,
+               store: EducationStore = Depends(get_store)):
+        student = store.enroll(req.tenant_state_id, req.institution_id, req.matric_no)
+        request.app.state.audit.record(
+            "education.student_enrolled", req.tenant_state_id,
+            detail={"student_id": student.student_id,
+                    "institution_id": req.institution_id})
+        return student
 
     @app.post("/education/v1/invoices", status_code=status.HTTP_201_CREATED,
               response_model=StudentInvoice)

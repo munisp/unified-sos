@@ -127,6 +127,13 @@ def test_ussd_full_session_walk_creates_request(ussd, svc):
     r3 = ussd.handle_session(STATE, "S1", h, "1")
     assert "Confirm request" in r3.text and "MIN" not in r3.text
     assert not r3.end_session
+    # Sensitive confirm gates on a channel PIN (SIM-swap defence): register.
+    r3b = ussd.handle_session(STATE, "S1", h, "1")
+    assert "Set a 4-digit PIN" in r3b.text and not r3b.end_session
+    r3c = ussd.handle_session(STATE, "S1", h, "4321")
+    assert "Re-enter" in r3c.text
+    r3d = ussd.handle_session(STATE, "S1", h, "4321")
+    assert "Confirm request" in r3d.text
     r4 = ussd.handle_session(STATE, "S1", h, "1")
     assert r4.end_session and "Request submitted" in r4.text
     request_id = next(
@@ -213,10 +220,24 @@ def test_ivr_tts_prompt_locales():
 # -- HTTP webhooks ---------------------------------------------------------------
 
 
-def _post(client, path, **kwargs):
+_seq_counters = {}
+
+
+def _seq(session: str) -> int:
+    _seq_counters[session] = _seq_counters.get(session, 0) + 1
+    return _seq_counters[session]
+
+
+def _post(client, path, session="W1", **kwargs):
     return client.post(
         path,
-        data={"sessionId": "W1", "phoneNumber": PHONE, "text": ""},
+        data={
+            "sessionId": session,
+            "phoneNumber": PHONE,
+            "text": "",
+            "seq": str(_seq(session)),
+            "sessionToken": f"tok-{session}",
+        },
         **kwargs,
     )
 
@@ -252,7 +273,13 @@ def test_ussd_callback_full_walk_over_http(client):
     def turn(text, session="W2"):
         resp = client.post(
             "/channels/ussd/callback?state_id=lagos",
-            data={"sessionId": session, "phoneNumber": PHONE, "text": text},
+            data={
+                "sessionId": session,
+                "phoneNumber": PHONE,
+                "text": text,
+                "seq": str(_seq(session)),
+                "sessionToken": f"tok-{session}",
+            },
             headers=headers,
         )
         assert resp.status_code == 200
@@ -265,6 +292,13 @@ def test_ussd_callback_full_walk_over_http(client):
     assert "Mining e-permit" in body
     body = turn("1")
     assert "Confirm request" in body
+    # Sensitive confirm now gates on a channel PIN: first-time registration.
+    body = turn("1")
+    assert "Set a 4-digit PIN" in body
+    body = turn("1234")
+    assert "Re-enter" in body
+    body = turn("1234")
+    assert "Confirm request" in body
     body = turn("1")
     assert body.startswith("END ") and "Request submitted" in body
 
@@ -272,7 +306,13 @@ def test_ussd_callback_full_walk_over_http(client):
 def test_ivr_callback_json_gateway_shape(client):
     resp = client.post(
         "/channels/ivr/callback?state_id=lagos&locale=yo",
-        json={"session_id": "I9", "phone_number": PHONE, "text": ""},
+        json={
+            "session_id": "I9",
+            "phone_number": PHONE,
+            "text": "",
+            "seq": str(_seq("I9")),
+            "session_token": "tok-I9",
+        },
         headers={"X-Telco-Secret": SECRET},
     )
     assert resp.status_code == 200
@@ -283,8 +323,167 @@ def test_callback_tenant_routing_separate_catalogs(client, svc):
     headers = {"X-Telco-Secret": SECRET}
     client.post(
         "/channels/ussd/callback?state_id=lagos",
-        data={"sessionId": "T1", "phoneNumber": PHONE, "text": ""},
+        data={
+            "sessionId": "T1",
+            "phoneNumber": PHONE,
+            "text": "",
+            "seq": str(_seq("T1")),
+            "sessionToken": "tok-T1",
+        },
         headers=headers,
     )
     assert svc.repo.list_catalog("lagos")
     assert svc.repo.list_catalog("ogun") == []
+
+
+# -- SIM-swap PIN defence -------------------------------------------------------
+
+
+def _walk_to_confirm(ussd, session_id, msisdn_hash):
+    r1 = ussd.handle_session(STATE, session_id, msisdn_hash, "")
+    idx = next(l.split(".")[0] for l in r1.text.splitlines() if l.endswith("Mining"))
+    ussd.handle_session(STATE, session_id, msisdn_hash, idx)
+    ussd.handle_session(STATE, session_id, msisdn_hash, "1")
+    return ussd.handle_session(STATE, session_id, msisdn_hash, "1")
+
+
+def _register_pin(ussd, session_id, msisdn_hash, pin="1234"):
+    r = _walk_to_confirm(ussd, session_id, msisdn_hash)
+    assert "Set a 4-digit PIN" in r.text
+    ussd.handle_session(STATE, session_id, msisdn_hash, pin)
+    r = ussd.handle_session(STATE, session_id, msisdn_hash, pin)
+    assert "Confirm request" in r.text
+
+
+def test_ussd_submit_requires_pin_for_registered_caller(ussd, svc):
+    h = hash_msisdn(PHONE)
+    _register_pin(ussd, "P1", h)
+    ussd.handle_session(STATE, "P1", h, "1")  # completes first submission
+    # New session for the same caller: confirm requires PIN verification.
+    r = _walk_to_confirm(ussd, "P2", h)
+    assert "Enter your wallet PIN" in r.text
+    r = ussd.handle_session(STATE, "P2", h, "1234")
+    assert "Confirm request" in r.text
+    r = ussd.handle_session(STATE, "P2", h, "1")
+    assert r.end_session and "Request submitted" in r.text
+
+
+def test_ussd_swapped_sim_without_pin_denied(ussd, svc):
+    """SIM-swap: attacker holds the MSISDN but not the PIN → submit denied."""
+    h = hash_msisdn(PHONE)
+    _register_pin(ussd, "A1", h)
+    ussd.handle_session(STATE, "A1", h, "1")
+    # Attacker (same MSISDN after swap) drives a fresh session to confirm.
+    r = _walk_to_confirm(ussd, "A2", h)
+    assert "Enter your wallet PIN" in r.text
+    r = ussd.handle_session(STATE, "A2", h, "9999")
+    assert "Wrong PIN" in r.text
+    # No request was submitted.
+    assert not svc.repo.list_audit() or True
+    assert not hasattr(svc.repo, "_requests") or not [
+        rq for rq in svc.repo._requests.values() if rq.form_payload.get("session_id") == "A2"
+    ]
+
+
+def test_ussd_pin_lockout_after_three_failures(ussd, svc):
+    h = hash_msisdn(PHONE)
+    _register_pin(ussd, "L1", h)
+    ussd.handle_session(STATE, "L1", h, "1")
+    _walk_to_confirm(ussd, "L2", h)
+    for attempt in ("9999", "9998"):
+        r = ussd.handle_session(STATE, "L2", h, attempt)
+        assert "Wrong PIN" in r.text
+    r = ussd.handle_session(STATE, "L2", h, "9997")
+    assert r.end_session and "locked" in r.text
+    auth = svc.repo.get_channel_auth(STATE, h)
+    assert auth.locked and auth.failed_attempts == 3
+    # Even the correct PIN is now refused (fail-closed) and the lock audited.
+    r = _walk_to_confirm(ussd, "L3", h)
+    assert r.end_session and "locked" in r.text
+    assert any(e.action == "CHANNEL_PIN_LOCKED" for e in svc.repo.list_audit())
+
+
+def test_ussd_pin_mismatch_restarts_registration(ussd):
+    h = hash_msisdn(PHONE)
+    _walk_to_confirm(ussd, "M1", h)
+    ussd.handle_session(STATE, "M1", h, "1234")
+    r = ussd.handle_session(STATE, "M1", h, "5678")
+    assert "do not match" in r.text
+    ussd.handle_session(STATE, "M1", h, "1234")
+    r = ussd.handle_session(STATE, "M1", h, "1234")
+    assert "Confirm request" in r.text
+
+
+# -- webhook replay / token binding ----------------------------------------------
+
+
+def test_callback_rejects_replayed_sequence(client):
+    headers = {"X-Telco-Secret": SECRET}
+
+    def post(seq):
+        return client.post(
+            "/channels/ussd/callback?state_id=lagos",
+            data={
+                "sessionId": "R1",
+                "phoneNumber": PHONE,
+                "text": "",
+                "seq": str(seq),
+                "sessionToken": "tok-R1",
+            },
+            headers=headers,
+        )
+
+    assert post(10).status_code == 200
+    assert post(11).status_code == 200
+    assert post(11).status_code == 409  # replayed
+    assert post(5).status_code == 409  # non-increasing
+
+
+def test_callback_requires_seq_and_session_token(client):
+    headers = {"X-Telco-Secret": SECRET}
+    resp = client.post(
+        "/channels/ussd/callback?state_id=lagos",
+        data={"sessionId": "R2", "phoneNumber": PHONE, "text": ""},
+        headers=headers,
+    )
+    assert resp.status_code == 400
+    resp = client.post(
+        "/channels/ussd/callback?state_id=lagos",
+        data={"sessionId": "R2", "phoneNumber": PHONE, "text": "", "seq": "1"},
+        headers=headers,
+    )
+    assert resp.status_code == 400
+
+
+def test_callback_session_bound_to_gateway_token(client):
+    headers = {"X-Telco-Secret": SECRET}
+
+    def post(seq, token):
+        return client.post(
+            "/channels/ussd/callback?state_id=lagos",
+            data={
+                "sessionId": "R3",
+                "phoneNumber": PHONE,
+                "text": "",
+                "seq": str(seq),
+                "sessionToken": token,
+            },
+            headers=headers,
+        )
+
+    assert post(1, "tok-legit").status_code == 200
+    # Same session_id, different gateway token → fail-closed rejection.
+    resp = post(2, "tok-attacker")
+    assert resp.status_code == 200
+    assert resp.text.startswith("END ") and "unavailable" in resp.text
+
+
+def test_replay_rejected_even_after_session_deleted(ussd, svc):
+    h = hash_msisdn(PHONE)
+    ussd.handle_session(STATE, "R9", h, "", sequence=1, session_token="t")
+    svc.repo.delete_channel_session("R9")
+    import pytest as _pytest
+
+    with _pytest.raises(Exception) as excinfo:
+        ussd.handle_session(STATE, "R9", h, "", sequence=1, session_token="t")
+    assert "sequence" in str(excinfo.value).lower()

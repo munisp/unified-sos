@@ -14,6 +14,7 @@ import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
+from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel
 
@@ -61,6 +62,11 @@ from .adapters import (  # noqa: E402
     ErpPushError,
     FixtureErpAdapter,
     build_adapter,
+)
+from .dedupe import (  # noqa: E402
+    InMemoryProcessedEventStore,
+    ProcessedEventStore,
+    select_processed_event_store,
 )
 from .domain import (  # noqa: E402
     CoaMapping,
@@ -118,6 +124,36 @@ class RetryItem(BaseModel):
     last_error: str = ""
 
 
+class InvalidSettlementEventError(ValueError):
+    """Settlement event payload is missing/unparseable where required
+    (e.g. no usable ``timestamp``) — rejected, never silently booked."""
+
+
+#: Journals are booked in West Africa Time (Africa/Lagos), not by naive
+#: truncation of the UTC event timestamp.
+JOURNAL_TIMEZONE = ZoneInfo("Africa/Lagos")
+
+
+def journal_date_from_timestamp(ts: object) -> date:
+    """Parse a full ISO-8601 timestamp and return the Africa/Lagos date.
+
+    Raises :class:`InvalidSettlementEventError` on missing/unparseable
+    input — there is no silent fallback to "today"."""
+    if not ts or not isinstance(ts, str):
+        raise InvalidSettlementEventError(
+            "settlement event is missing a 'timestamp'; refusing to book "
+            "without an event time")
+    try:
+        parsed = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise InvalidSettlementEventError(
+            f"settlement event timestamp {ts!r} is not ISO-8601: {exc}") from exc
+    if parsed.tzinfo is None:
+        raise InvalidSettlementEventError(
+            f"settlement event timestamp {ts!r} has no timezone offset")
+    return parsed.astimezone(JOURNAL_TIMEZONE).date()
+
+
 def require_state(state: str) -> str:
     if state not in TENANT_STATES:
         raise UnknownTenantError(f"unknown tenant state {state!r}")
@@ -148,10 +184,15 @@ class ErpBridgeService:
         bus: Optional[object] = None,
         max_attempts: int = 3,
         backoff_base_s: float = 60.0,
+        event_store: Optional[ProcessedEventStore] = None,
     ) -> None:
         self.adapter = adapter or FixtureErpAdapter()
         self.max_attempts = max_attempts
         self.backoff_base_s = backoff_base_s
+        # Persistent processed-event seam (durable across restarts). The
+        # default is in-memory for dev/tests; production wiring goes through
+        # select_processed_event_store (fail-closed without SOS_ERP_DSN).
+        self._events: ProcessedEventStore = event_store or InMemoryProcessedEventStore()
         self._entries: Dict[str, Dict[str, JournalEntry]] = {s: {} for s in TENANT_STATES}
         # Dedupe index: state -> source_event_id -> entry_id
         self._by_source: Dict[str, Dict[str, str]] = {s: {} for s in TENANT_STATES}
@@ -181,23 +222,43 @@ class ErpBridgeService:
     # ---------------- ingestion ----------------
 
     def ingest(self, entry: JournalEntry) -> OutboundRecord:
-        """Push one journal entry; replayed ``source_event_id`` is deduped."""
+        """Push one journal entry; replayed ``source_event_id`` is deduped.
+
+        Dedupe is checked against the persistent processed-event store
+        BEFORE posting; the processed-event marker is written in the same
+        unit of work as the journal row so a restart cannot double-post."""
         state = require_state(entry.tenant_state_id)
         existing = self._by_source[state].get(entry.source_event_id)
+        if existing is None:
+            # Durable seam: survives process restart (in-memory index does not).
+            persisted = self._events.lookup(state, entry.source_event_id)
+            if persisted is not None:
+                existing = persisted
         if existing is not None:
-            prior = self._entries[state][existing]
+            prior = self._entries[state].get(existing)
+            if prior is None:
+                # Known from the durable store but not in this process —
+                # dedupe against the event itself, not a cached entry.
+                prior = entry
             record = self._record(prior, status=PushStatus.DEDUPED, receipt=None)
+            self._by_source[state][entry.source_event_id] = existing
             return record
         try:
             receipt = self.adapter.push_journal(entry, self._coa[state].mapping)
         except ErpPushError as exc:
             self._entries[state][entry.entry_id] = entry
-            self._by_source[state][entry.source_event_id] = entry.entry_id
+            self._mark_processed(state, entry)
             self._enqueue_retry(entry, str(exc))
             return self._record(entry, status=PushStatus.RETRY_PENDING, receipt=None)
         self._entries[state][entry.entry_id] = entry
-        self._by_source[state][entry.source_event_id] = entry.entry_id
+        self._mark_processed(state, entry)
         return self._record(entry, status=PushStatus.PUSHED, receipt=receipt)
+
+    def _mark_processed(self, state: str, entry: JournalEntry) -> None:
+        """Same unit of work as the journal row: in-memory index + durable
+        processed-event marker written together."""
+        self._by_source[state][entry.source_event_id] = entry.entry_id
+        self._events.mark_processed(state, entry.source_event_id, entry.entry_id)
 
     def ingest_settlement(self, payload: BaseModel) -> Optional[OutboundRecord]:
         """Convert a ``ng.sos.payments.settlement_completed`` payload into a
@@ -218,11 +279,11 @@ class ErpBridgeService:
             lines.append(JournalLine(account_code=accounts[1], credit_kobo=amount))
         if not lines:
             return None
-        ts = str(data.get("timestamp", ""))[:10]
+        ts = data.get("timestamp")
         entry = JournalEntry(
             entry_id=f"SETTLE-{data.get('bill_reference', 'unknown')}",
             tenant_state_id=state,
-            date=date.fromisoformat(ts) if ts else utcnow().date(),
+            date=journal_date_from_timestamp(ts),  # Africa/Lagos, no fallback
             memo=f"Settlement {data.get('bill_reference', '')}",
             lines=lines,
             source_event_id=f"settlement:{data.get('bill_reference', '')}",
@@ -414,4 +475,5 @@ def build_service(
 
             bus = KafkaEventBus()
         adapter = build_adapter(env)
-    return ErpBridgeService(adapter=adapter, bus=bus)
+    event_store = select_processed_event_store(env=env)
+    return ErpBridgeService(adapter=adapter, bus=bus, event_store=event_store)

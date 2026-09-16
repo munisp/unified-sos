@@ -7,7 +7,9 @@ from pydantic import BaseModel
 
 from .adapters.base import AdapterUnavailableError
 from .domain import (
+    BillEventConflict,
     ClearingRecord,
+    EscrowExpiredError,
     EscrowRecord,
     FareRule,
     FareTable,
@@ -123,6 +125,8 @@ def create_app(store: MobilityStore | None = None, fspiop=None, nibss=None) -> F
             return store.settle_operator(tenant_state_id, operator_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=exc.args[0])
+        except AdapterUnavailableError as exc:
+            raise HTTPException(status_code=503, detail=str(exc))
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc))
 
@@ -137,21 +141,37 @@ def create_app(store: MobilityStore | None = None, fspiop=None, nibss=None) -> F
                        store: MobilityStore = Depends(get_store)):
         """Begin a pending-transfer escrow: reserves the batch gross on the
         escrow account and (when an FSPIOP adapter is wired) POSTs
-        /transfers prepare to the scheme. Idempotent on transfer_id."""
+        /transfers prepare to the scheme. Idempotent on transfer_id.
+
+        Ordering: the local record is created FIRST; if the scheme call then
+        fails, the local escrow is compensated (aborted) so no orphaned
+        scheme-side prepare can exist without a local record."""
         fspiop = request.app.state.fspiop
-        if fspiop is not None:
-            try:
-                fspiop.transfer_prepare(req.transfer_id, req.amount_kobo,
-                                        req.condition, "")
-            except AdapterUnavailableError as exc:
-                raise HTTPException(status_code=503, detail=str(exc))
+        replay = req.transfer_id in store.escrows
         try:
-            return store.begin_escrow(req.transfer_id, req.batch_id,
-                                      req.amount_kobo, req.condition)
+            rec = store.begin_escrow(req.transfer_id, req.batch_id,
+                                     req.amount_kobo, req.condition)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=exc.args[0])
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc))
+        if fspiop is not None and not replay:
+            try:
+                fspiop.transfer_prepare(req.transfer_id, req.amount_kobo,
+                                        req.condition, rec.expires_at)
+            except AdapterUnavailableError as exc:
+                store.abort_escrow(req.transfer_id)  # compensating abort
+                raise HTTPException(status_code=503, detail=str(exc))
+            except Exception as exc:  # scheme-side failure → compensate
+                store.abort_escrow(req.transfer_id)
+                raise HTTPException(status_code=502,
+                                    detail=f"scheme prepare failed: {exc}")
+        return rec
+
+    @app.post("/mobility/v1/escrow/sweep", response_model=list[EscrowRecord])
+    def sweep_escrows(store: MobilityStore = Depends(get_store)):
+        """Auto-abort every expired PENDING escrow (idempotent sweep)."""
+        return store.sweep_expired_escrows()
 
     @app.post("/mobility/v1/escrow/{transfer_id}/fulfil", response_model=EscrowRecord)
     def fulfil_escrow(transfer_id: str, request: Request,
@@ -170,7 +190,7 @@ def create_app(store: MobilityStore | None = None, fspiop=None, nibss=None) -> F
             return store.fulfil_escrow(transfer_id, fulfilment)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=exc.args[0])
-        except ValueError as exc:
+        except (EscrowExpiredError, ValueError) as exc:
             raise HTTPException(status_code=409, detail=str(exc))
 
     @app.post("/mobility/v1/escrow/{transfer_id}/abort", response_model=EscrowRecord)
@@ -197,14 +217,23 @@ def create_app(store: MobilityStore | None = None, fspiop=None, nibss=None) -> F
         body = req.model_dump_json().encode("utf-8")
         if not nibss.verify_notification_signature(request.headers, body):
             raise HTTPException(status_code=401, detail="invalid NIBSS signature")
-        event = store.record_bill_event(req.bill_reference, {
-            "bill_reference": req.bill_reference,
-            "amount_kobo": req.amount_kobo,
-            "channel": req.channel,
-            "provider_reference": req.provider_reference,
-            "received_at": _now(),
-        })
+        try:
+            event = store.record_bill_event(req.bill_reference, {
+                "bill_reference": req.bill_reference,
+                "amount_kobo": req.amount_kobo,
+                "channel": req.channel,
+                "provider_reference": req.provider_reference,
+                "received_at": _now(),
+            })
+        except BillEventConflict as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
         return {"status": "recorded", "event": event}
+
+    @app.get("/mobility/v1/audit")
+    def audit_feed(store: MobilityStore = Depends(get_store)):
+        """Hash-chained audit feed (bill events, conflicts, settlements)."""
+        return {"chain_errors": store.verify_audit_chain(),
+                "events": store.audit_chain}
 
     @app.post("/mobility/v1/cowry/authorize")
     def cowry_authorization(req: CowryAuthRequest):

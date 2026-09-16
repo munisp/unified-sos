@@ -9,6 +9,37 @@ info:
     universities and polytechnics with automated disbursement, course-registration payment lock, and treasury↔CRF reconciliation.
     Deploys: Osun (lead), all 6.'
 paths:
+  /api/v1/states/{state_id}/audit/verify:
+    get:
+      summary: Verify Audit
+      description: Hash-chain integrity check; entries scoped to the tenant.
+      operationId: verify_audit_api_v1_states__state_id__audit_verify_get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Verify Audit Api V1 States  State Id  Audit Verify Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - education
+      security:
+      - bearerAuth: []
   /education/v1/students:
     post:
       summary: Enroll

@@ -29,6 +29,13 @@ End-to-end digital land registry: parcel storage/validation (UTM Minna Datum EPS
 | Chain-of-title history | [lands_app/history.py](lands_app/history.py) | Chronological owner/instrument/from-to/tx-reference entries from registry + workflow transitions + lineage events |
 | Title-risk scoring seam | [lands_app/risk.py](lands_app/risk.py) | `FixtureTitleRiskScorer` (deterministic sha256 base + factors: open dispute +30, rapid transfers +15, lineage gaps +20); `HttpTitleRiskScorer` to mod-ml-inference |
 | Title-hash anchoring seam | [lands_app/anchoring.py](lands_app/anchoring.py) | `FixtureAnchor` append-only merkle chain (`sha256(payload)‖prev`); anchor/verify with tamper detection; `HttpAnchorAdapter` notary seam |
+| Transfer of ownership (`TransferWorkflow`) | [lands_app/transfers.py](lands_app/transfers.py) | SALE / GIFT / ASSENT / COURT_ORDER / FORECLOSURE_SALE / PARTITION; APPLICATION → EVIDENCE_VERIFICATION → CONSENT → TAX_CLEARANCE → REGISTERED; signed transfer JWS chained to previous title hash; `TitleRegistry` keeps replaced/revoked titles (never deleted) |
+| Governor consent instruments | [lands_app/transfers.py](lands_app/transfers.py) | Single-use, expiring consent consumed at the CONSENT stage (SALE-class dealings) |
+| Land-docs / tax adapter seams | [lands_app/legal_adapters.py](lands_app/legal_adapters.py) | Fail-closed `LandDocsAdapter` (evidence verification) + `TaxClearanceAdapter`; fixture defaults |
+| Encumbrance register | [lands_app/encumbrances.py](lands_app/encumbrances.py) | MORTGAGE / CAVEAT / CAUTION / LIS_PENDENS / COURT_ORDER / LEASE; priority + instrument hash + expiry; release/withdraw workflow; `EncumbranceGuard` freezes titling/subdivision/merger/transfer (409) |
+| Probate / transmission | [lands_app/succession.py](lands_app/succession.py) | DEATH_REPORTED (docs-verified certificate) → PROBATE_VERIFICATION → REGISTRAR_REVIEW → AG_REVIEW → TRANSMISSION_REGISTERED; multi-beneficiary; completes via TransferService (ASSENT) |
+| Court orders | [lands_app/court_orders.py](lands_app/court_orders.py) | VEST_TITLE / RECTIFY_OWNER (via TransferService COURT_ORDER) / RECTIFY_BOUNDARY (pre-rectification snapshot in event log); registrar + AG approvals |
+| Revocation + compensation | [lands_app/revocation.py](lands_app/revocation.py) | NOTICE_ISSUED → PUBLIC_PURPOSE_VERIFIED → COMPENSATION_ASSESSED (integer-kobo line items) → GOVERNOR_INSTRUMENT_SIGNED (Ed25519, chains to original title hash) → REVOCATION_EFFECTIVE; two-phase hold/post/void ledger (`SOS_LANDS_LEDGER_URL`) with deterministic ids |
 
 ## Extension endpoints
 
@@ -43,8 +50,15 @@ All tenant-scoped by path `state_id` **and** the `X-State-Tenant` header (400 wh
 | `POST /api/v1/states/{state_id}/cadastre/disputes/{dispute_id}/review\|resolve\|dismiss` | Dispute lifecycle transitions |
 | `GET  /api/v1/states/{state_id}/cadastre/parcels/{id}/risk` | Title-risk score + factors |
 | `POST /api/v1/states/{state_id}/cadastre/parcels/{id}/anchor` · `GET .../anchors/{anchor_id}/verify` | Anchor title hash / verify anchor |
+| `POST /api/v1/states/{state_id}/cadastre/parcels/{id}/encumbrances` · `GET .../encumbrances` | Register / list encumbrances |
+| `POST /api/v1/states/{state_id}/cadastre/encumbrances/{encumbrance_id}/release\|withdraw` | Encumbrance discharge lifecycle |
+| `POST /api/v1/states/{state_id}/cadastre/parcels/{id}/transfers` · `GET .../transfers/{transfer_id}` · `POST .../transfers/{transfer_id}/advance` | Transfer dealings (ownership change) |
+| `POST /api/v1/states/{state_id}/cadastre/consents` · `GET .../consents/{consent_id}` | Governor consent instruments (single-use, expiring) |
+| `POST /api/v1/states/{state_id}/cadastre/parcels/{id}/transmissions` · `POST .../transmissions/{id}/advance` | Probate / transmission to beneficiaries |
+| `POST /api/v1/states/{state_id}/cadastre/court-orders` · `POST .../court-orders/{id}/approve\|apply` | Court-ordered vesting / rectification |
+| `POST /api/v1/states/{state_id}/cadastre/parcels/{id}/revocations` · `POST .../revocations/{id}/advance` | Public-purpose revocation + compensation |
 
-Subdivision/merger require status `ACTIVE`/`REGISTERED`, no open dispute, and no RUNNING titling workflow; disputed parcels also block titling approvals (409).
+Subdivision/merger require status `ACTIVE`/`REGISTERED`, no open dispute, no active encumbrance, and no RUNNING titling workflow; children **always inherit the parent owner** (the deprecated `owner_stin` override is rejected with 422, as is a merger of differently-owned parents — change ownership via a registered transfer first). `verifyDeed` is lifecycle-aware: SUPERSEDED/REVOKED parcels and REPLACED/REVOKED titles return `valid=false` with the parcel status and a replacement/revocation reference. Titling decisions enforce segregation of duties: a distinct actor per stage with role mapping registry → surveyor → ministry (`town-planning`) → AG (`attorney-general`) → governor (actor prefix before `:` must match the stage role; violations → 409).
 
 ## Configuration
 
@@ -53,6 +67,9 @@ Subdivision/merger require status `ACTIVE`/`REGISTERED`, no open dispute, and no
 | `SOS_LANDS_PROFILE` | `dev` | `production` enables fail-closed boot: missing seam URLs raise `AdapterUnavailableError` at startup |
 | `SOS_LANDS_RISK_URL` | _(fixture scorer in dev)_ | Title-risk HTTP endpoint, e.g. `http://mod-ml-inference:8021/ml/v1/fraud/score`; **required in production** |
 | `SOS_LANDS_ANCHOR_URL` | _(in-memory fixture anchor in dev)_ | Anchor/notary service URL; **required in production** |
+| `SOS_LANDS_DOCS_URL` | _(fixture adapter in dev)_ | mod-land-docs evidence verification endpoint; **required in production** |
+| `SOS_LANDS_TAX_URL` | _(fixture adapter in dev)_ | Tax clearance endpoint for transfers; **required in production** |
+| `SOS_LANDS_LEDGER_URL` | _(fixture ledger in dev)_ | Compensation ledger (hold/post/void); **required in production** |
 
 ## Run & test
 

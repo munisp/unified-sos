@@ -197,7 +197,7 @@ def test_no_inline_secrets_in_deploy_and_infra():
 # 4. Webhook auth (USSD / IVR telco callbacks)
 # ---------------------------------------------------------------------------
 
-USSD_PAYLOAD = {"sessionId": "SAT-SESS-1", "phoneNumber": "+2348012345678", "text": ""}
+USSD_PAYLOAD = {"sessionId": "SAT-SESS-1", "phoneNumber": "+2348012345678", "text": "", "sessionToken": "SAT-TOK-1", "seq": "1"}
 
 
 @pytest.mark.parametrize("channel", ["ussd", "ivr"])

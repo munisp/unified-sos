@@ -24,6 +24,7 @@ from shapely.geometry import shape
 from shapely.ops import unary_union
 
 from .disputes import DisputeGuard
+from .encumbrances import EncumbranceGuard
 from .eventlog import CadastreEventLog
 from .geometry import GeometryError, area_sqm, parse_boundary
 from .repository import ParcelRepository
@@ -47,13 +48,25 @@ class AreaConservationError(ValueError):
     """Child/parent area mismatch beyond tolerance (mapped to HTTP 422)."""
 
 
+class OwnershipChangeError(AreaConservationError):
+    """Subdivision/merger attempted to change ownership (mapped to HTTP 422).
+
+    Ownership can only change through a completed transfer dealing
+    (:mod:`lands_app.transfers`); subdivision/merger children always inherit
+    the parent(s)' registered owner.
+    """
+
+
 class ChildParcelSpec(BaseModel):
     """Boundary + identity of one child parcel produced by subdivision/merger."""
 
     parcel_uin: str = Field(description="Unique Identification Number for the child parcel")
     boundary_geojson: dict[str, Any] = Field(description="GeoJSON Polygon, WGS84 (EPSG:4326)")
     owner_stin: Optional[str] = Field(
-        default=None, description="Defaults to the parent's owner when omitted"
+        default=None,
+        description="DEPRECATED: ownership changes via subdivision/merger are "
+        "forbidden — children inherit the parent owner. Supplying a value "
+        "different from the parent's owner is rejected with 422.",
     )
     survey_plan_no: Optional[str] = None
 
@@ -67,11 +80,13 @@ class SubdivisionService:
         titling_runner: LocalTitlingRunner,
         event_log: CadastreEventLog,
         dispute_guard: DisputeGuard,
+        encumbrance_guard: EncumbranceGuard | None = None,
     ) -> None:
         self._repo = repository
         self._runner = titling_runner
         self._log = event_log
         self._guard = dispute_guard
+        self._eguard = encumbrance_guard
 
     # -- eligibility ---------------------------------------------------------
     def _assert_eligible(self, record: ParcelRecord) -> None:
@@ -82,6 +97,9 @@ class SubdivisionService:
             )
         # DisputeGuard: contested titles are frozen (HTTP 409 at the API).
         self._guard.assert_clear(record.tenant_state_id, record.parcel_id)
+        # EncumbranceGuard: encumbered titles are frozen (HTTP 409 at the API).
+        if self._eguard is not None:
+            self._eguard.assert_clear(record.tenant_state_id, record.parcel_id)
         # No RUNNING titling workflow on the parcel.
         if record.titling_workflow_id:
             try:
@@ -107,6 +125,21 @@ class SubdivisionService:
                 f"{AREA_CONSERVATION_TOLERANCE:.1%} (area conservation)"
             )
 
+    @staticmethod
+    def _assert_no_owner_change(spec: ChildParcelSpec, inherited_owner: str) -> None:
+        """Forbid ownership change via subdivision/merger (deprecated param).
+
+        Children inherit the parent owner; a differing ``owner_stin`` is
+        rejected (422) — ownership only changes via a completed transfer.
+        """
+        if spec.owner_stin is not None and spec.owner_stin != inherited_owner:
+            raise OwnershipChangeError(
+                "subdivision/merger cannot change ownership: child parcels "
+                f"inherit the parent owner {inherited_owner!r}; complete a "
+                "registered transfer (cadastre/parcels/{id}/transfers) first "
+                "to change ownership"
+            )
+
     def _make_child(
         self,
         spec: ChildParcelSpec,
@@ -129,7 +162,7 @@ class SubdivisionService:
             tenant_state_id=tenant_state_id,
             lga_id=lga_id,
             parcel_uin=spec.parcel_uin,
-            owner_stin=spec.owner_stin or fallback_owner,
+            owner_stin=fallback_owner,  # children always inherit parent ownership
             land_use_type=land_use_type,
             survey_plan_no=spec.survey_plan_no or fallback_survey_plan,
             beacon_count=max(3, len(spec.boundary_geojson["coordinates"][0]) - 1),
@@ -163,6 +196,7 @@ class SubdivisionService:
         child_records: list[ParcelRecord] = []
         child_areas: list[float] = []
         for spec in children:
+            self._assert_no_owner_change(spec, parent.owner_stin)
             child, child_area = self._make_child(
                 spec,
                 tenant_state_id=tenant_state_id,
@@ -227,6 +261,18 @@ class SubdivisionService:
             parents.append(record)
         for record in parents:
             self._assert_eligible(record)
+
+        # Ownership lock: parents must share one registered owner — a merger
+        # across differing owners is an ownership change and requires a
+        # completed transfer first (HTTP 422).
+        distinct_owners = {p.owner_stin for p in parents}
+        if len(distinct_owners) > 1:
+            raise OwnershipChangeError(
+                "cannot merge parcels with differing owners "
+                f"{sorted(distinct_owners)}; complete a registered transfer to "
+                "a single owner first"
+            )
+        self._assert_no_owner_change(child, parents[0].owner_stin)
 
         # Adjacency: the union of parent boundaries must be a single
         # connected polygon (MultiPolygon ⇒ non-contiguous parents).

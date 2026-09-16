@@ -207,7 +207,8 @@ def test_nibss_webhook_signature_and_idempotency() -> None:
 
     # Bad signature is rejected.
     bad = client.post("/mobility/v1/webhooks/nibss/ebills", content=body,
-                      headers={"X-NIBSS-Signature": "deadbeef"})
+                      headers={"X-NIBSS-Signature": "deadbeef",
+                               "Content-Type": "application/json"})
     assert bad.status_code == 401
 
 

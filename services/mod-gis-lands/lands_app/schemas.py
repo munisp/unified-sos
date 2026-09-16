@@ -114,6 +114,15 @@ class DeedVerificationResult(BaseModel):
     parcel_uin: Optional[str] = None
     tenant_state_id: str
     title_type: Optional[TitleType] = None
+    parcel_status: Optional[str] = Field(
+        default=None,
+        description="Lifecycle status of the parcel (invalid results include it)",
+    )
+    reference: Optional[str] = Field(
+        default=None,
+        description="Replacement C-of-O number or revocation reference for "
+        "superseded/replaced/revoked titles",
+    )
     signature_chain: list[str] = Field(
         default_factory=list,
         description="Ordered JWS (Ed25519/EdDSA) tokens: registry issuance signature, governor consent countersignature",

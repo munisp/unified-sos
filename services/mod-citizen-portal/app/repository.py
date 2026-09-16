@@ -10,15 +10,18 @@ from typing import Dict, List, Optional, Protocol
 
 from .domain import (
     BiometricVerification,
+    ChannelAuth,
     ChannelSession,
     CivilServant,
     IdentityWallet,
     PayrollAudit,
     Petition,
+    PortalAuditEvent,
     ServiceCatalogEntry,
     ServiceRequest,
     SettlementRecord,
     SsoSession,
+    WalletBinding,
 )
 
 
@@ -46,6 +49,18 @@ class CitizenPortalRepository(Protocol):
     def save_channel_session(self, session: ChannelSession) -> ChannelSession: ...
     def get_channel_session(self, session_id: str) -> Optional[ChannelSession]: ...
     def delete_channel_session(self, session_id: str) -> None: ...
+    def save_channel_auth(self, auth: ChannelAuth) -> ChannelAuth: ...
+    def get_channel_auth(self, state_id: str, msisdn_hash: str) -> Optional[ChannelAuth]: ...
+    def get_callback_seq(self, session_id: str) -> int: ...
+    def set_callback_seq(self, session_id: str, seq: int) -> None: ...
+    def get_session_token_hash(self, session_id: str) -> Optional[str]: ...
+    def set_session_token_hash(self, session_id: str, token_hash: str) -> None: ...
+    def save_binding(self, binding: WalletBinding) -> WalletBinding: ...
+    def get_binding(self, state_id: str, msisdn_hash: str) -> Optional[WalletBinding]: ...
+    def list_bindings(self, wallet_id: str) -> List[WalletBinding]: ...
+    def append_audit(self, entry: PortalAuditEvent) -> PortalAuditEvent: ...
+    def list_audit(self, state_id: Optional[str] = None) -> List[PortalAuditEvent]: ...
+    def audit_tail_hash(self) -> str: ...
 
 
 class InMemoryCitizenPortalRepository:
@@ -60,6 +75,12 @@ class InMemoryCitizenPortalRepository:
         self._audits: Dict[str, PayrollAudit] = {}
         self._settlements: List[SettlementRecord] = []
         self._channel_sessions: Dict[str, ChannelSession] = {}
+        self._channel_auth: Dict[str, ChannelAuth] = {}  # key: state_id|msisdn_hash
+        # Replay/binding state survives session deletion (fail-closed).
+        self._callback_seqs: Dict[str, int] = {}
+        self._session_tokens: Dict[str, str] = {}
+        self._bindings: Dict[str, WalletBinding] = {}  # key: state_id|msisdn_hash
+        self._audit: List[PortalAuditEvent] = []
 
     def save_wallet(self, wallet: IdentityWallet) -> IdentityWallet:
         self._wallets[wallet.wallet_id] = wallet
@@ -143,3 +164,54 @@ class InMemoryCitizenPortalRepository:
 
     def delete_channel_session(self, session_id: str) -> None:
         self._channel_sessions.pop(session_id, None)
+
+    # -- channel credentials (USSD/IVR PIN) -----------------------------------
+    def save_channel_auth(self, auth: ChannelAuth) -> ChannelAuth:
+        self._channel_auth[f"{auth.state_id}|{auth.msisdn_hash}"] = auth
+        return auth
+
+    def get_channel_auth(self, state_id: str, msisdn_hash: str) -> Optional[ChannelAuth]:
+        return self._channel_auth.get(f"{state_id}|{msisdn_hash}")
+
+    # -- webhook replay protection (per-session monotonic sequence + token) ---
+    def get_callback_seq(self, session_id: str) -> int:
+        return self._callback_seqs.get(session_id, 0)
+
+    def set_callback_seq(self, session_id: str, seq: int) -> None:
+        self._callback_seqs[session_id] = seq
+
+    def get_session_token_hash(self, session_id: str) -> Optional[str]:
+        return self._session_tokens.get(session_id)
+
+    def set_session_token_hash(self, session_id: str, token_hash: str) -> None:
+        self._session_tokens[session_id] = token_hash
+
+    # -- wallet bindings (account recovery) ------------------------------------
+    def save_binding(self, binding: WalletBinding) -> WalletBinding:
+        self._bindings[f"{binding.state_id}|{binding.msisdn_hash}"] = binding
+        return binding
+
+    def get_binding(self, state_id: str, msisdn_hash: str) -> Optional[WalletBinding]:
+        return self._bindings.get(f"{state_id}|{msisdn_hash}")
+
+    def list_bindings(self, wallet_id: str) -> List[WalletBinding]:
+        return [b for b in self._bindings.values() if b.wallet_id == wallet_id]
+
+    # -- hash-chained audit (append-only by construction) ----------------------
+    GENESIS_HASH = "0" * 64
+
+    def append_audit(self, entry: PortalAuditEvent) -> PortalAuditEvent:
+        if self._audit and entry.seq != self._audit[-1].seq + 1:
+            raise ValueError("audit chain sequence violation (append-only)")
+        if entry.prev_hash != self.audit_tail_hash():
+            raise ValueError("audit chain prev_hash mismatch (append-only)")
+        self._audit.append(entry)
+        return entry
+
+    def list_audit(self, state_id: Optional[str] = None) -> List[PortalAuditEvent]:
+        if state_id is None:
+            return list(self._audit)
+        return [e for e in self._audit if e.state_id == state_id]
+
+    def audit_tail_hash(self) -> str:
+        return self._audit[-1].entry_hash if self._audit else self.GENESIS_HASH

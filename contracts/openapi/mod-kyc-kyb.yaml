@@ -1094,6 +1094,11 @@ components:
           - type: string
           - type: 'null'
           title: Decision Reason
+        created_by:
+          type: string
+          title: Created By
+          description: actor that opened the case (SoD check)
+          default: ''
         created_at:
           type: string
           format: date-time
@@ -1157,6 +1162,11 @@ components:
           - type: string
           - type: 'null'
           title: Decision Reason
+        created_by:
+          type: string
+          title: Created By
+          description: actor that opened the case (SoD check)
+          default: ''
         created_at:
           type: string
           format: date-time

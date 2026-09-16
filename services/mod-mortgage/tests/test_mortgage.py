@@ -79,8 +79,14 @@ class TestAdapters:
 
     def test_fixture_lands_title_ref_format(self):
         lands = FixtureLandRegistry()
-        assert lands.parcel_exists("lagos", "p1", "LAG-2024-000123")
-        assert not lands.parcel_exists("lagos", "p1", "not-a-title")
+        lands.register("p1", "LAG-2024-000123", "owner-1")
+        snap = lands.title_snapshot("lagos", "p1")
+        assert snap.status == "current"
+        assert snap.current_title_ref == "LAG-2024-000123"
+        lands.register("p2", "not-a-title", "owner-2")
+        assert lands.title_snapshot("lagos", "p2").status == "not_found"
+        # unknown parcel → deterministic UNVERIFIED snapshot (fixture-lenient)
+        assert lands.title_snapshot("lagos", "p-unknown").status == "unverified"
 
     def test_deterministic_transfer_id_128bit_stable(self):
         a = deterministic_transfer_id("k", "leg")
@@ -363,9 +369,11 @@ class TestPayments:
         total = client.get(f"{BASE}/{mid}/schedule", headers=HEADERS).json()["total_kobo"]
         extra = 50_000
         r = client.post(f"{BASE}/{mid}/payments",
-                        json={"amount_kobo": total + extra, "idempotency_key": "big"},
+                        json={"amount_kobo": total + extra, "idempotency_key": "big",
+                              "allow_credit": True},
                         headers=HEADERS)
         assert r.status_code == 201
+        assert r.json()["overpayment_kobo"] == extra
         m = client.get(f"{BASE}/{mid}", headers=HEADERS).json()["mortgage"]
         assert m["outstanding_principal_kobo"] == 0
 
@@ -524,6 +532,7 @@ class TestOps:
         monkeypatch.setenv("SOS_MORTGAGE_PROFILE", "production")
         monkeypatch.setenv("SOS_MORTGAGE_TB_URL", "tb://cluster:3000")
         monkeypatch.setenv("SOS_MORTGAGE_LANDS_URL", "http://lands:8003")
+        monkeypatch.setenv("SOS_MORTGAGE_OUTBOX_DSN", "postgresql://sos:sos@pg:5432/sos")
         app = create_app(store=make_store(), bus=bus)
         assert app is not None
 

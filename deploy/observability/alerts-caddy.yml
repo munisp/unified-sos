@@ -1,0 +1,53 @@
+# SOS edge (Caddy) Prometheus alert rules — on-demand TLS issuance.
+#
+# Caddy's Prometheus metrics (servers { metrics } in deploy/caddy/Caddyfile,
+# scraped at caddy:2019/metrics) do not expose a dedicated "cert obtain
+# failed" counter on every version; the reliable signals are:
+#   * caddy_http_requests_total{handler="subroute",code="5xx"} on the
+#     fallback :443 block — failed issuance surfaces as 5xx/handshake failure;
+#   * absence of ANY successful TLS handshakes, approximated by a flatline
+#     in caddy_http_requests_total on the edge (a healthy edge always serves
+#     traffic for the 37 seeded state domains).
+# If the running Caddy build exposes caddy_tls_* obtain/cert metrics, prefer
+# alerting on those; these rules are deliberately pragmatic and documented.
+groups:
+  - name: sos-edge-caddy
+    interval: 30s
+    rules:
+      - alert: SosEdgeOnDemandTlsIssuanceFailing
+        # 5xx spikes on the Caddy edge indicate failed on-demand TLS
+        # handshakes (ask gate down or rejecting legitimate tenant domains).
+        expr: |
+          sum(rate(caddy_http_requests_total{code=~"5.."}[5m])) > 0
+        for: 5m
+        labels:
+          severity: page
+          team: sos-platform
+        annotations:
+          summary: "Caddy edge returning 5xx — possible on-demand TLS issuance failure"
+          description: "5xx responses on the Caddy edge for 5m. Check the control-plane ask endpoint (GET /cp/v1/domains/allowed) and Caddy logs for certificate obtain errors."
+
+      - alert: SosEdgeNoSuccessfulHandshakes
+        # Absence of successful edge traffic: the platform edge always has
+        # requests for seeded state domains, so a 10m flatline means TLS
+        # handshakes are failing wholesale (or Caddy is down).
+        expr: |
+          sum(rate(caddy_http_requests_total{code=~"2..|3.."}[10m])) == 0
+        for: 10m
+        labels:
+          severity: critical
+          team: sos-platform
+        annotations:
+          summary: "No successful Caddy edge handshakes for 10m"
+          description: "Zero successful edge requests — on-demand TLS issuance may be broken for all domains. Verify control-plane /cp/v1/domains/allowed reachability from Caddy."
+
+      - alert: SosEdgeMetricsMissing
+        # Caddy metrics endpoint itself absent (job 'caddy' in prometheus.yml).
+        expr: absent(up{job="caddy"} == 1)
+        for: 5m
+        labels:
+          severity: warning
+          team: sos-platform
+        annotations:
+          summary: "Caddy metrics target missing from Prometheus"
+          description: "No up{job=\"caddy\"} series — the edge may be down or metrics are not scraped."

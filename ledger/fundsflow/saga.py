@@ -121,32 +121,227 @@ class PostgresSagaStore:
             raise AdapterUnavailableError("psycopg package not installed") from exc
 
 
-def default_steps() -> List[SagaStep]:
-    """Step names for the canonical funds-flow saga (actions bound by caller)."""
-    return [
-        SagaStep("hold", lambda ctx: None, lambda ctx: None, SagaState.HELD),
-        SagaStep("split_commit", lambda ctx: None, lambda ctx: None,
-                 SagaState.SPLIT_COMMITTED),
-        SagaStep("payout", lambda ctx: None, lambda ctx: None, SagaState.PAYOUT_DONE),
-        SagaStep("event_publish", lambda ctx: None, None, SagaState.EVENT_PUBLISHED),
+# ---------------------------------------------------------------------------
+# Real, registry-backed funds-flow steps.
+#
+# Every step is described at ``begin()`` by a JSON-serializable descriptor
+# (adapter name, account ids, leg amounts) persisted in SagaRecord.context
+# under "step_descriptors". ``recover_unfinished`` rebuilds executable steps
+# from STEP_REGISTRY, so recovery works after a full process restart with no
+# closures carried over. Compensations are REAL money movements:
+#   hold         → void the pending chain
+#   split_commit → reverse_chain of the posted legs
+#   payout       → reverse the payout transfer
+# An unbound compensation is impossible: a descriptor whose kind is not in
+# the registry raises at build time (fail-closed).
+# ---------------------------------------------------------------------------
+
+SAGA_FAILED_TOPIC = "ng.sos.fundsflow.saga_failed"
+
+# descriptor kind → builder(descriptor: dict, deps: dict) -> SagaStep
+STEP_REGISTRY: Dict[str, Callable[[Dict[str, Any], Dict[str, Any]], SagaStep]] = {}
+
+
+def register_step(kind: str):
+    def deco(builder):
+        STEP_REGISTRY[kind] = builder
+        return builder
+    return deco
+
+
+def canonical_step_descriptors(
+    *,
+    source_account: int,
+    legs: List[tuple],  # [(leg_name, destination_account, amount_kobo), ...]
+    payout: Optional[tuple] = None,  # (payout_account, destination_account, amount_kobo)
+    event_topic: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """JSON-serializable descriptors for the canonical funds-flow saga."""
+    leg_dicts = [
+        {"leg": leg, "destination_account": dest, "amount_kobo": int(amount)}
+        for (leg, dest, amount) in legs
     ]
+    descriptors: List[Dict[str, Any]] = [
+        {"kind": "tigerbeetle.hold", "adapter": "tigerbeetle",
+         "source_account": source_account, "legs": leg_dicts},
+        {"kind": "tigerbeetle.split_commit", "adapter": "tigerbeetle",
+         "source_account": source_account, "legs": leg_dicts},
+    ]
+    if payout is not None:
+        pay_acct, pay_dest, pay_amount = payout
+        descriptors.append(
+            {"kind": "tigerbeetle.payout", "adapter": "tigerbeetle",
+             "payout_account": pay_acct, "destination_account": pay_dest,
+             "amount_kobo": int(pay_amount)}
+        )
+    descriptors.append(
+        {"kind": "outbox.event_publish", "adapter": "outbox",
+         "topic": event_topic or "ng.sos.fundsflow.payment_completed"}
+    )
+    return descriptors
+
+
+def _desc_legs(desc: Dict[str, Any]) -> List[tuple]:
+    return [
+        (l["leg"], int(l["destination_account"]), int(l["amount_kobo"]))
+        for l in desc["legs"]
+    ]
+
+
+@register_step("tigerbeetle.hold")
+def _build_hold_step(desc, deps):
+    from .tigerbeetle_flows import build_hold_chain
+
+    def action(ctx: SagaContext) -> None:
+        chain = build_hold_chain(
+            idempotency_key=ctx.idempotency_key,
+            source_account=int(desc["source_account"]),
+            legs=_desc_legs(desc),
+        )
+        deps["tb_client"].create_transfers(chain)
+        ctx.data["hold_chain_ids"] = [t.id for t in chain]
+
+    def compensate(ctx: SagaContext) -> None:
+        # Void only legs that are still PENDING. If split_commit already
+        # posted the chain, its own compensation (reverse_chain) has run
+        # first in the reverse-order walk; voiding posted transfers is
+        # illegal and would fail the whole compensation.
+        client = deps["tb_client"]
+        ids = [int(i) for i in ctx.data["hold_chain_ids"]]
+        if hasattr(client, "transfers"):
+            ids = [
+                i for i in ids
+                if getattr(client.transfers.get(i), "state", "PENDING") == "PENDING"
+            ]
+        if ids:
+            client.void_pending_transfers(ids)
+
+    return SagaStep("hold", action, compensate, SagaState.HELD)
+
+
+@register_step("tigerbeetle.split_commit")
+def _build_split_commit_step(desc, deps):
+    from .tigerbeetle_flows import reverse_chain
+
+    def action(ctx: SagaContext) -> None:
+        deps["tb_client"].post_pending_transfers(
+            [int(i) for i in ctx.data["hold_chain_ids"]]
+        )
+
+    def compensate(ctx: SagaContext) -> None:
+        # the chain is POSTED — voiding is illegal; reverse with swapped accounts
+        reverse_chain(
+            deps["tb_client"],
+            original_idempotency_key=ctx.idempotency_key,
+            legs=_desc_legs(desc),
+            original_debit_account=int(desc["source_account"]),
+        )
+
+    return SagaStep("split_commit", action, compensate, SagaState.SPLIT_COMMITTED)
+
+
+@register_step("tigerbeetle.payout")
+def _build_payout_step(desc, deps):
+    from .tigerbeetle_flows import Transfer, deterministic_transfer_id
+
+    def action(ctx: SagaContext) -> None:
+        t = Transfer(
+            id=deterministic_transfer_id(ctx.idempotency_key, "payout"),
+            debit_account=int(desc["payout_account"]),
+            credit_account=int(desc["destination_account"]),
+            amount=int(desc["amount_kobo"]),
+            pending=False,
+            idempotency_key=ctx.idempotency_key,
+            leg="payout",
+        )
+        deps["tb_client"].create_transfers([t])
+        ctx.data["payout_transfer_id"] = t.id
+
+    def compensate(ctx: SagaContext) -> None:
+        # payout settled instantly — compensate with a reversal transfer
+        t = Transfer(
+            id=deterministic_transfer_id(ctx.idempotency_key, "payout|reversal"),
+            debit_account=int(desc["destination_account"]),
+            credit_account=int(desc["payout_account"]),
+            amount=int(desc["amount_kobo"]),
+            pending=False,
+            idempotency_key=f"{ctx.idempotency_key}|reversal",
+            leg="payout|reversal",
+        )
+        deps["tb_client"].create_transfers([t])
+
+    return SagaStep("payout", action, compensate, SagaState.PAYOUT_DONE)
+
+
+@register_step("outbox.event_publish")
+def _build_event_publish_step(desc, deps):
+    def action(ctx: SagaContext) -> None:
+        writer = deps.get("outbox_writer")
+        if writer is None:
+            raise AdapterUnavailableError(
+                "outbox.event_publish requires deps['outbox_writer'] (fail-closed)"
+            )
+        writer.write(
+            domain_record={"saga_id": ctx.saga_id, "step": "event_publish"},
+            topic=desc["topic"],
+            event_payload={"saga_id": ctx.saga_id,
+                           "idempotency_key": ctx.idempotency_key},
+            idempotency_key=f"{ctx.idempotency_key}|event_publish",
+        )
+
+    return SagaStep("event_publish", action, None, SagaState.EVENT_PUBLISHED)
+
+
+def build_steps_from_descriptors(
+    descriptors: List[Dict[str, Any]], deps: Dict[str, Any]
+) -> List[SagaStep]:
+    """Rebuild executable steps from persisted descriptors via the registry."""
+    steps = []
+    for desc in descriptors:
+        builder = STEP_REGISTRY.get(desc.get("kind"))
+        if builder is None:
+            raise AdapterUnavailableError(
+                f"no registered builder for step kind {desc.get('kind')!r} "
+                "(fail-closed: unbound compensation is impossible)"
+            )
+        steps.append(builder(desc, deps))
+    return steps
 
 
 class SagaCoordinator:
     """Drives a saga to a terminal state with persisted transitions."""
 
-    def __init__(self, store: Optional[SagaStore] = None) -> None:
+    def __init__(
+        self,
+        store: Optional[SagaStore] = None,
+        outbox_writer: Optional[Any] = None,
+        deps: Optional[Dict[str, Any]] = None,
+    ) -> None:
         self.store = store or InMemorySagaStore()
+        # outbox writer used to publish ng.sos.fundsflow.saga_failed on FAILED
+        self.outbox_writer = outbox_writer
+        # adapter deps (tb_client, outbox_writer, ...) for registry rebuilds
+        self.deps: Dict[str, Any] = dict(deps or {})
 
-    def begin(self, idempotency_key: str, data: Optional[Dict[str, Any]] = None) -> SagaRecord:
+    def begin(
+        self,
+        idempotency_key: str,
+        data: Optional[Dict[str, Any]] = None,
+        step_descriptors: Optional[List[Dict[str, Any]]] = None,
+    ) -> SagaRecord:
         existing = self.store.by_idempotency_key(idempotency_key)
         if existing is not None:
             return existing  # idempotent begin: replay returns the same saga
+        context = dict(data or {})
+        if step_descriptors is not None:
+            # persisted at begin: JSON-serializable action descriptors so
+            # recovery after a process restart can rebuild real steps
+            context["step_descriptors"] = step_descriptors
         record = SagaRecord(
             saga_id=str(uuid.uuid4()),
             idempotency_key=idempotency_key,
             state=SagaState.INIT,
-            context=dict(data or {}),
+            context=context,
         )
         self.store.save(record)
         return record
@@ -186,18 +381,54 @@ class SagaCoordinator:
             record.context["compensation_error"] = str(exc)
             record.state = SagaState.FAILED
             self.store.save(record)
+            self._emit_failed(record, error=str(exc))
             return record
         record.state = SagaState.COMPENSATED
         self.store.save(record)
         return record
 
-    def recover_unfinished(self, steps: List[SagaStep]) -> List[SagaRecord]:
-        """Recovery pass: drive every persisted non-terminal saga forward."""
+    def _emit_failed(self, record: SagaRecord, *, error: str) -> None:
+        """Publish ng.sos.fundsflow.saga_failed via the transactional outbox."""
+        if self.outbox_writer is None:
+            return  # no outbox configured (tests/dev); state is still FAILED
+        step = record.completed_steps[-1] if record.completed_steps else None
+        self.outbox_writer.write(
+            domain_record={"saga_id": record.saga_id, "state": SagaState.FAILED.value},
+            topic=SAGA_FAILED_TOPIC,
+            event_payload={
+                "saga_id": record.saga_id,
+                "step": step,
+                "error": error,
+            },
+            idempotency_key=f"saga_failed|{record.saga_id}",
+        )
+
+    def _steps_for(self, record: SagaRecord, steps: Optional[List[SagaStep]]) -> List[SagaStep]:
+        if steps is not None:
+            return steps
+        descriptors = record.context.get("step_descriptors")
+        if not descriptors:
+            raise AdapterUnavailableError(
+                "recover_unfinished requires steps or persisted step_descriptors"
+            )
+        return build_steps_from_descriptors(descriptors, self.deps)
+
+    def recover_unfinished(
+        self, steps: Optional[List[SagaStep]] = None
+    ) -> List[SagaRecord]:
+        """Recovery pass: drive every persisted non-terminal saga forward.
+
+        When ``steps`` is omitted, executable steps are rebuilt from the
+        descriptors persisted in each record's context via STEP_REGISTRY
+        using this coordinator's ``deps`` — recovery works after a full
+        process restart.
+        """
         recovered = []
         for record in self.store.unfinished():
+            resolved = self._steps_for(record, steps)
             if record.state in (SagaState.COMPENSATING,):
                 ctx = SagaContext(record.saga_id, record.idempotency_key, record.context)
-                recovered.append(self._compensate(record, steps, ctx))
+                recovered.append(self._compensate(record, resolved, ctx))
             else:
-                recovered.append(self.execute(record, steps))
+                recovered.append(self.execute(record, resolved))
         return recovered

@@ -1,0 +1,38 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.ml.model_rolled_back.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.ml.model_rolled_back' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "from_version": {
+      "type": "string"
+    },
+    "model_name": {
+      "enum": [
+        "fraud_gnn",
+        "credit_mlp",
+        "luc_avm",
+        "crowd_lstm"
+      ],
+      "type": "string"
+    },
+    "state_id": {
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "to_version": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "state_id",
+    "model_name",
+    "from_version",
+    "to_version",
+    "timestamp"
+  ],
+  "title": "ng.sos.ml.model_rolled_back",
+  "type": "object"
+}

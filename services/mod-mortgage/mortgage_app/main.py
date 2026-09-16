@@ -27,7 +27,7 @@ from .domain import (
     NotFoundError,
     Payment,
 )
-from . import events as ev
+from .outbox import OutboxRelay
 
 # --- shared event bus (services/_shared/eventbus) -----------------------------
 try:
@@ -113,10 +113,27 @@ class LienIn(BaseModel):
 class PaymentIn(BaseModel):
     amount_kobo: int = Field(..., gt=0)
     idempotency_key: str
+    allow_credit: bool = False
 
 
 class ForecloseIn(BaseModel):
     reason: str
+
+
+class PossessionIn(BaseModel):
+    reference: str = Field(..., description="court/consent reference")
+
+
+class AuthorizeSaleIn(BaseModel):
+    valuation_kobo: int = Field(..., gt=0)
+    reserve_price_kobo: int = Field(..., gt=0)
+    valuer_id: str
+
+
+class SellIn(BaseModel):
+    purchaser_id: str
+    gross_proceeds_kobo: int = Field(..., gt=0)
+    sale_costs_kobo: int = Field(0, ge=0)
 
 
 class MortgageOut(BaseModel):
@@ -148,15 +165,33 @@ def create_app(
         _InMemoryEventBus() if _InMemoryEventBus is not None else _NullEventBus()
     )
     app.state.metrics = LocalRegistry() if LocalRegistry is not None else None
-    app.state.default_events_sent: set = set()
     app.state.mortgage_counters: dict[str, float] = {}
+
+    # --- transactional outbox relay: the API layer NEVER publishes directly.
+    # Domain transitions commit outbox rows atomically inside MortgageStore;
+    # the relay publishes and acks. _drain() is a best-effort flush after
+    # each request — a publish failure leaves the row un-acked for retry via
+    # POST /internal/outbox/relay (or a background relay task).
+    from pydantic import BaseModel as _BM
+
+    class _OutboxEnvelope(_BM):
+        payload: dict
+
+    class _DictBus:
+        def __init__(self, inner) -> None:
+            self._inner = inner
+
+        def publish(self, topic: str, payload: dict) -> None:
+            self._inner.publish(topic, _OutboxEnvelope(payload=payload))
+
+    app.state.relay = OutboxRelay(app.state.store.outbox, _DictBus(app.state.bus))
+
+    def _drain() -> None:
+        app.state.relay.publish_pending_best_effort()
 
     def _count(metric: str, value: float = 1.0) -> None:
         counters = app.state.mortgage_counters
         counters[metric] = counters.get(metric, 0.0) + value
-
-    def _publish(topic: str, payload) -> None:
-        app.state.bus.publish(topic, payload)
 
     def _detail(m: Mortgage, tenant: str) -> MortgageOut:
         audit = app.state.store.audit_feed(tenant, m.mortgage_id)
@@ -174,10 +209,7 @@ def create_app(
         m = store.apply(tenant, body.applicant_id, body.parcel_id, body.title_ref,
                         body.principal_kobo, body.rate_bps, body.term_months)
         _count("mortgage_applications_total")
-        _publish(ev.EVENT_APPLICATION_RECEIVED, ev.ApplicationReceivedEvent(
-            tenant_state_id=tenant, mortgage_id=m.mortgage_id,
-            occurred_at=m.created_at, applicant_id=m.applicant_id,
-            parcel_id=m.parcel_id, principal_kobo=m.principal_kobo))
+        _drain()
         return _detail(m, tenant)
 
     @app.get(BASE + "/", tags=["mortgage"])
@@ -202,13 +234,7 @@ def create_app(
             m = store.get_mortgage(tenant, mortgage_id)
         except NotFoundError as exc:
             raise HTTPException(status.HTTP_404_NOT_FOUND, exc.args[0])
-        if m.status is MortgageStatus.DEFAULTED \
-                and mortgage_id not in app.state.default_events_sent:
-            app.state.default_events_sent.add(mortgage_id)
-            _publish(ev.EVENT_DEFAULTED, ev.DefaultedEvent(
-                tenant_state_id=tenant, mortgage_id=mortgage_id,
-                occurred_at=m.defaulted_at or m.created_at,
-                days_past_due=m.days_past_due(store._now())))
+        _drain()  # a lazy default evaluation may have committed outbox rows
         return _detail(m, tenant)
 
     @app.get(BASE + "/{mortgage_id}/schedule", tags=["mortgage"])
@@ -236,22 +262,9 @@ def create_app(
             raise HTTPException(status.HTTP_404_NOT_FOUND, exc.args[0])
         except InvalidTransitionError as exc:
             _conflict(exc)
-        outcome = {MortgageStatus.APPROVED: "approved",
-                   MortgageStatus.MANUAL_REVIEW: "manual_review",
-                   MortgageStatus.DECLINED: "declined"}[m.status]
-        _publish(ev.EVENT_CREDIT_SCORED, ev.CreditScoredEvent(
-            tenant_state_id=tenant, mortgage_id=m.mortgage_id,
-            occurred_at=m.created_at, applicant_id=m.applicant_id,
-            score=m.credit_score or 0, outcome=outcome))
         if m.status is MortgageStatus.APPROVED:
             _count("mortgage_approvals_total")
-            _publish(ev.EVENT_APPROVED, ev.ApprovedEvent(
-                tenant_state_id=tenant, mortgage_id=m.mortgage_id,
-                occurred_at=m.created_at))
-        elif m.status is MortgageStatus.DECLINED:
-            _publish(ev.EVENT_DECLINED, ev.DeclinedEvent(
-                tenant_state_id=tenant, mortgage_id=m.mortgage_id,
-                occurred_at=m.created_at, score=m.credit_score or 0))
+        _drain()
         return _detail(m, tenant)
 
     @app.post(BASE + "/{mortgage_id}/approve", tags=["mortgage"])
@@ -267,9 +280,7 @@ def create_app(
         except ValueError as exc:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
         _count("mortgage_approvals_total")
-        _publish(ev.EVENT_APPROVED, ev.ApprovedEvent(
-            tenant_state_id=tenant, mortgage_id=m.mortgage_id,
-            occurred_at=m.created_at, officer=body.officer, reason=body.reason))
+        _drain()
         return _detail(m, tenant)
 
     @app.post(BASE + "/{mortgage_id}/register-lien", status_code=status.HTTP_201_CREATED,
@@ -284,11 +295,7 @@ def create_app(
             raise HTTPException(status.HTTP_404_NOT_FOUND, exc.args[0])
         except (InvalidTransitionError, ConflictError) as exc:
             _conflict(exc)
-        _publish(ev.EVENT_LIEN_REGISTERED, ev.LienRegisteredEvent(
-            tenant_state_id=tenant, mortgage_id=mortgage_id,
-            occurred_at=lien.registered_at, lien_id=lien.lien_id,
-            parcel_id=lien.parcel_id, title_ref=lien.title_ref,
-            priority=lien.priority))
+        _drain()
         return lien
 
     @app.post(BASE + "/{mortgage_id}/disburse", tags=["mortgage"])
@@ -302,11 +309,7 @@ def create_app(
             _conflict(exc)
         _count("mortgage_disbursements_total")
         _count("mortgage_kobo_disbursed_total", float(m.principal_kobo))
-        _publish(ev.EVENT_DISBURSED, ev.DisbursedEvent(
-            tenant_state_id=tenant, mortgage_id=m.mortgage_id,
-            occurred_at=m.disbursed_at or m.created_at,
-            amount_kobo=m.principal_kobo,
-            transfer_id=m.disbursement_transfer_id or ""))
+        _drain()
         return _detail(m, tenant)
 
     @app.post(BASE + "/{mortgage_id}/payments", status_code=status.HTTP_201_CREATED,
@@ -316,26 +319,17 @@ def create_app(
             store: MortgageStore = Depends(get_store)):
         try:
             p = store.apply_payment(tenant, mortgage_id, body.amount_kobo,
-                                    body.idempotency_key)
+                                    body.idempotency_key, body.allow_credit)
         except NotFoundError as exc:
             raise HTTPException(status.HTTP_404_NOT_FOUND, exc.args[0])
         except ConflictError as exc:
             _conflict(exc)
         except InvalidTransitionError as exc:
             _conflict(exc)
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
         _count("mortgage_payments_total")
-        m = store.get_mortgage(tenant, mortgage_id)
-        _publish(ev.EVENT_PAYMENT_APPLIED, ev.PaymentAppliedEvent(
-            tenant_state_id=tenant, mortgage_id=mortgage_id,
-            occurred_at=p.applied_at, payment_id=p.payment_id,
-            amount_kobo=p.amount_kobo, interest_kobo=p.interest_kobo,
-            principal_kobo=p.principal_kobo,
-            outstanding_principal_kobo=m.outstanding_principal_kobo))
-        if m.status is MortgageStatus.DISCHARGED:
-            _publish(ev.EVENT_DISCHARGED, ev.DischargedEvent(
-                tenant_state_id=tenant, mortgage_id=mortgage_id,
-                occurred_at=m.discharged_at or p.applied_at,
-                lien_id=m.lien_id or ""))
+        _drain()
         return p
 
     @app.post(BASE + "/{mortgage_id}/foreclose", tags=["mortgage"])
@@ -350,10 +344,75 @@ def create_app(
             _conflict(exc)
         except ValueError as exc:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
-        _publish(ev.EVENT_FORECLOSED, ev.ForeclosedEvent(
-            tenant_state_id=tenant, mortgage_id=mortgage_id,
-            occurred_at=m.foreclosed_at or m.created_at, reason=body.reason))
+        _drain()
         return _detail(m, tenant)
+
+    @app.post(BASE + "/{mortgage_id}/possession", tags=["foreclosure"])
+    def register_possession(mortgage_id: str, body: PossessionIn,
+                            tenant: str = Depends(tenant_from_header),
+                            store: MortgageStore = Depends(get_store)):
+        try:
+            m = store.register_possession(tenant, mortgage_id, body.reference)
+        except NotFoundError as exc:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, exc.args[0])
+        except InvalidTransitionError as exc:
+            _conflict(exc)
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        _drain()
+        return _detail(m, tenant)
+
+    @app.post(BASE + "/{mortgage_id}/authorize-sale", tags=["foreclosure"])
+    def authorize_sale(mortgage_id: str, body: AuthorizeSaleIn,
+                       tenant: str = Depends(tenant_from_header),
+                       store: MortgageStore = Depends(get_store)):
+        try:
+            m = store.authorize_sale(tenant, mortgage_id, body.valuation_kobo,
+                                     body.reserve_price_kobo, body.valuer_id)
+        except NotFoundError as exc:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, exc.args[0])
+        except InvalidTransitionError as exc:
+            _conflict(exc)
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        _drain()
+        return _detail(m, tenant)
+
+    @app.post(BASE + "/{mortgage_id}/sell", tags=["foreclosure"])
+    def sell(mortgage_id: str, body: SellIn,
+             tenant: str = Depends(tenant_from_header),
+             store: MortgageStore = Depends(get_store)):
+        try:
+            m = store.sell(tenant, mortgage_id, body.purchaser_id,
+                           body.gross_proceeds_kobo, body.sale_costs_kobo)
+        except NotFoundError as exc:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, exc.args[0])
+        except InvalidTransitionError as exc:
+            _conflict(exc)
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+        _drain()
+        return _detail(m, tenant)
+
+    @app.post(BASE + "/{mortgage_id}/distribute-proceeds", tags=["foreclosure"])
+    def distribute_proceeds(mortgage_id: str,
+                            tenant: str = Depends(tenant_from_header),
+                            store: MortgageStore = Depends(get_store)):
+        try:
+            m = store.distribute_proceeds(tenant, mortgage_id)
+        except NotFoundError as exc:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, exc.args[0])
+        except InvalidTransitionError as exc:
+            _conflict(exc)
+        _drain()
+        return _detail(m, tenant)
+
+    @app.post("/internal/outbox/relay", tags=["internal"])
+    def outbox_relay(request: Request):
+        """Explicit relay pass (tests/ops): publish every un-acked outbox
+        row and ack on success. At-least-once delivery; consumers dedupe on
+        ``idempotency_key``/``event_id``."""
+        return {"published": request.app.state.relay.publish_pending()}
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:

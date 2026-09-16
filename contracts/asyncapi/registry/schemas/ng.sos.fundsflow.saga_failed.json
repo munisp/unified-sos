@@ -1,0 +1,28 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.fundsflow.saga_failed.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.fundsflow.saga_failed' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "error": {
+      "type": "string"
+    },
+    "failed_step": {
+      "type": "string"
+    },
+    "saga_id": {
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "saga_id",
+    "failed_step",
+    "error",
+    "timestamp"
+  ],
+  "title": "ng.sos.fundsflow.saga_failed",
+  "type": "object"
+}

@@ -27,8 +27,10 @@ from ..domain import (
     Priority,
     ServiceCatalogEntry,
     ServiceCategory,
+    hash_gateway_token,
+    hash_pin,
 )
-from ..service import CitizenPortalService, NotFoundError, TenantIsolationError
+from ..service import CitizenPortalService, NotFoundError, TenantIsolationError, WalletSuspendedError
 from .base import ChannelResponse
 
 SESSION_TIMEOUT = timedelta(seconds=180)
@@ -37,6 +39,9 @@ MAX_DEPTH = 4
 NODE_ROOT = "root"
 NODE_CATEGORY = "category"
 NODE_CONFIRM = "confirm"
+NODE_PIN_SET = "pin_set"
+NODE_PIN_CONFIRM = "pin_confirm"
+NODE_PIN_VERIFY = "pin_verify"
 
 PROMPTS = {
     "welcome": "Welcome to {state} e-Government services.",
@@ -47,7 +52,18 @@ PROMPTS = {
     "invalid": "Invalid selection. Please try again.",
     "expired": "Session expired. Dial again to restart.",
     "unavailable": "Service temporarily unavailable. Please try later.",
+    "pin_set": "Set a 4-digit PIN to secure your wallet:",
+    "pin_confirm": "Re-enter your new PIN to confirm:",
+    "pin_mismatch": "PINs do not match. Set a 4-digit PIN:",
+    "pin_invalid": "PIN must be 4-8 digits. Try again:",
+    "pin_verify": "Enter your wallet PIN:",
+    "pin_wrong": "Wrong PIN. Attempts left: {remaining}",
+    "pin_locked": "Wallet locked after 3 failed PIN attempts. Visit a registry office to unlock.",
 }
+
+
+class ReplayError(Exception):
+    """Inbound channel callback carried a non-increasing sequence number."""
 
 
 def _fmt_fee(kobo: int) -> str:
@@ -65,13 +81,36 @@ class UssdChannelAdapter:
         self.prompts = dict(PROMPTS if prompts is None else prompts)
 
     # -- session lifecycle --------------------------------------------------
-    def _load_session(self, state_id: str, session_id: str, msisdn_hash: str, now: datetime) -> ChannelSession:
+    def _load_session(
+        self,
+        state_id: str,
+        session_id: str,
+        msisdn_hash: str,
+        now: datetime,
+        session_token: Optional[str] = None,
+    ) -> ChannelSession:
+        token_hash = hash_gateway_token(session_token) if session_token else None
         session = self.repo.get_channel_session(session_id)
+        # Bind the telco session to the gateway-provided session token (not
+        # the caller-supplied session_id alone); the binding persists beyond
+        # individual sessions so a stolen session_id cannot be re-opened.
+        if token_hash is not None:
+            bound = self.repo.get_session_token_hash(session_id)
+            if bound is not None and bound != token_hash:
+                self.repo.delete_channel_session(session_id)
+                raise TenantIsolationError("channel session bound to a different gateway session token")
         if session is not None:
             if session.state_id != state_id or session.msisdn_hash != msisdn_hash:
                 # Fail-closed: never continue a session across tenants/callers.
                 self.repo.delete_channel_session(session_id)
                 raise TenantIsolationError("channel session belongs to another tenant or caller")
+            if (
+                session.gateway_token_hash is not None
+                and token_hash is not None
+                and session.gateway_token_hash != token_hash
+            ):
+                self.repo.delete_channel_session(session_id)
+                raise TenantIsolationError("channel session bound to a different gateway session token")
             if now - session.last_activity > SESSION_TIMEOUT:
                 self.repo.delete_channel_session(session_id)
                 session = None
@@ -81,7 +120,10 @@ class UssdChannelAdapter:
                 state_id=state_id,
                 msisdn_hash=msisdn_hash,
                 channel=self.channel_kind,
+                gateway_token_hash=token_hash,
             )
+            if token_hash is not None:
+                self.repo.set_session_token_hash(session_id, token_hash)
         session.last_activity = now
         return session
 
@@ -110,10 +152,20 @@ class UssdChannelAdapter:
         session_id: str,
         msisdn_hash: str,
         input_text: str,
+        sequence: Optional[int] = None,
+        session_token: Optional[str] = None,
     ) -> ChannelResponse:
         now = datetime.now(timezone.utc)
+        if sequence is not None:
+            # Replay protection: per-session monotonic sequence; the record
+            # survives session deletion so replays after logout still fail.
+            if sequence <= self.repo.get_callback_seq(session_id):
+                raise ReplayError(
+                    f"non-increasing callback sequence {sequence} for session {session_id!r}"
+                )
+            self.repo.set_callback_seq(session_id, sequence)
         try:
-            session = self._load_session(state_id, session_id, msisdn_hash, now)
+            session = self._load_session(state_id, session_id, msisdn_hash, now, session_token)
         except TenantIsolationError:
             return ChannelResponse(text=self.prompts["unavailable"], end_session=True)
 
@@ -168,9 +220,56 @@ class UssdChannelAdapter:
                 self.repo.save_channel_session(session)
                 body = self._confirm_menu(entry) if entry else self._root_menu(state_id)
                 return ChannelResponse(text=self.prompts["invalid"] + "\n" + body)
-            response = self._submit(session)
-            self.repo.delete_channel_session(session.session_id)
-            return response
+            return self._confirm_with_pin(session)
+
+        if session.node == NODE_PIN_SET:
+            if not (text.isdigit() and 4 <= len(text) <= 8):
+                self.repo.save_channel_session(session)
+                return ChannelResponse(text=self.prompts["pin_invalid"] + "\n" + self.prompts["pin_set"])
+            session.pending_pin_hash = hash_pin(text, session.msisdn_hash)
+            session.node = NODE_PIN_CONFIRM
+            self.repo.save_channel_session(session)
+            return ChannelResponse(text=self.prompts["pin_confirm"])
+
+        if session.node == NODE_PIN_CONFIRM:
+            if session.pending_pin_hash and hash_pin(text, session.msisdn_hash) == session.pending_pin_hash:
+                self.service.register_channel_pin(session.state_id, session.msisdn_hash, text)
+                session.pending_pin_hash = None
+                session.pin_verified = True
+                session.node = NODE_CONFIRM
+                self.repo.save_channel_session(session)
+                entry = self._selected_entry(session, entries)
+                body = self._confirm_menu(entry) if entry else self._root_menu(state_id)
+                return ChannelResponse(text=body)
+            session.pending_pin_hash = None
+            session.node = NODE_PIN_SET
+            self.repo.save_channel_session(session)
+            return ChannelResponse(text=self.prompts["pin_mismatch"])
+
+        if session.node == NODE_PIN_VERIFY:
+            auth = self.repo.get_channel_auth(session.state_id, session.msisdn_hash)
+            if auth is None:  # credential vanished — restart PIN registration
+                session.node = NODE_PIN_SET
+                self.repo.save_channel_session(session)
+                return ChannelResponse(text=self.prompts["pin_set"])
+            if self.service.verify_channel_pin(session.state_id, session.msisdn_hash, text):
+                session.pin_verified = True
+                session.node = NODE_CONFIRM
+                self.repo.save_channel_session(session)
+                entry = self._selected_entry(session, entries)
+                body = self._confirm_menu(entry) if entry else self._root_menu(state_id)
+                return ChannelResponse(text=body)
+            auth = self.repo.get_channel_auth(session.state_id, session.msisdn_hash)
+            if auth is None or auth.locked:
+                self.repo.delete_channel_session(session.session_id)
+                return ChannelResponse(text=self.prompts["pin_locked"], end_session=True)
+            remaining = max(0, self.service.MAX_PIN_FAILURES - auth.failed_attempts)
+            self.repo.save_channel_session(session)
+            return ChannelResponse(
+                text=self.prompts["pin_wrong"].format(remaining=remaining)
+                + "\n"
+                + self.prompts["pin_verify"]
+            )
 
         # Unknown node (depth guard) — fail-closed restart at root.
         session.node = NODE_ROOT
@@ -212,8 +311,36 @@ class UssdChannelAdapter:
     def _channel_wallet_id(self, session: ChannelSession) -> str:
         return f"CHW-{session.state_id}-{session.msisdn_hash[:16]}"
 
+    def _confirm_with_pin(self, session: ChannelSession) -> ChannelResponse:
+        """PIN gate on the sensitive submit/confirm node (SIM-swap defence).
+
+        No credential registered → register one now; registered → require
+        verification this session; locked → fail-closed.
+        """
+        auth = self.repo.get_channel_auth(session.state_id, session.msisdn_hash)
+        if auth is not None and auth.locked:
+            self.repo.delete_channel_session(session.session_id)
+            return ChannelResponse(text=self.prompts["pin_locked"], end_session=True)
+        if auth is None:
+            session.node = NODE_PIN_SET
+            self.repo.save_channel_session(session)
+            return ChannelResponse(text=self.prompts["pin_set"])
+        if not session.pin_verified:
+            session.node = NODE_PIN_VERIFY
+            self.repo.save_channel_session(session)
+            return ChannelResponse(text=self.prompts["pin_verify"])
+        response = self._submit(session)
+        self.repo.delete_channel_session(session.session_id)
+        return response
+
     def _submit(self, session: ChannelSession) -> ChannelResponse:
         wallet_id = self._channel_wallet_id(session)
+        binding = self.repo.get_binding(session.state_id, session.msisdn_hash)
+        if binding is not None:
+            if binding.status.value != "ACTIVE":
+                # Old MSISDN after an account-recovery rebind — fail-closed.
+                return ChannelResponse(text=self.prompts["unavailable"], end_session=True)
+            wallet_id = binding.wallet_id
         if self.repo.get_wallet(wallet_id) is None:
             self.repo.save_wallet(
                 IdentityWallet(
@@ -223,6 +350,7 @@ class UssdChannelAdapter:
                     keycloak_realm=f"sos-{session.state_id}",
                 )
             )
+            self.service.bind_wallet_msisdn(session.state_id, wallet_id, session.msisdn_hash)
         try:
             request = self.service.submit_service_request(
                 session.state_id,

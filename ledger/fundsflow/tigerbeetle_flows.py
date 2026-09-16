@@ -200,6 +200,83 @@ def build_hold_chain(
     return transfers
 
 
+def build_reversal_chain(
+    *,
+    original_idempotency_key: str,
+    legs: List[tuple],  # [(leg_name, destination_account, amount_kobo), ...] of the ORIGINAL chain
+    original_debit_account: int,
+) -> List[Transfer]:
+    """Build the reversing chain for a POSTED original chain.
+
+    Every leg swaps debit/credit (money flows back). Reversal transfer IDs
+    are derived as sha256(key | leg | "reversal") truncated to 128 bits via
+    :func:`deterministic_transfer_id`, so a retried reversal maps onto the
+    same IDs and TigerBeetle's idempotent create makes replays no-ops.
+
+    Conservation check: sum(reversal legs) must equal sum(original legs);
+    a mismatch means the caller supplied the wrong leg set and we fail
+    closed before touching the ledger.
+    """
+    if not legs:
+        raise TransferError("cannot reverse an empty chain")
+    if any(amount <= 0 for _, _, amount in legs):
+        raise TransferError("reversal conservation check failed: non-positive leg")
+    transfers: List[Transfer] = []
+    for i, (leg, dest, amount) in enumerate(legs):
+        transfers.append(
+            Transfer(
+                id=deterministic_transfer_id(original_idempotency_key, f"{leg}|reversal"),
+                debit_account=dest,            # swapped: original creditor pays back
+                credit_account=original_debit_account,
+                amount=amount,
+                pending=False,                 # reversals settle immediately
+                linked=i < len(legs) - 1,
+                idempotency_key=f"{original_idempotency_key}|reversal",
+                leg=f"{leg}|reversal",
+            )
+        )
+    return transfers
+
+
+def reverse_chain(
+    client,
+    *,
+    original_idempotency_key: str,
+    original_chain: Optional[List[Transfer]] = None,
+    legs: Optional[List[tuple]] = None,
+    original_debit_account: Optional[int] = None,
+) -> List[Transfer]:
+    """Reverse a POSTED chain with a new linked chain (accounts swapped).
+
+    ``original_chain`` (the Transfer records) or an explicit
+    ``(legs, original_debit_account)`` pair describes what to reverse.
+    PENDING-only chains must be voided, not reversed — reversing one raises.
+    Idempotent: replay returns the same reversal IDs without double-apply.
+    """
+    if original_chain is not None:
+        if not original_chain:
+            raise TransferError("cannot reverse an empty chain")
+        states = {t.state for t in original_chain}
+        if states == {"PENDING"}:
+            raise TransferError(
+                "cannot reverse a PENDING-only chain — void it instead"
+            )
+        if "POSTED" not in states:
+            raise TransferError(f"cannot reverse chain in states {sorted(states)}")
+        legs = [(t.leg, t.credit_account, t.amount) for t in original_chain]
+        original_debit_account = original_chain[0].debit_account
+    if legs is None or original_debit_account is None:
+        raise TransferError(
+            "reverse_chain requires original_chain or (legs, original_debit_account)"
+        )
+    chain = build_reversal_chain(
+        original_idempotency_key=original_idempotency_key,
+        legs=legs,
+        original_debit_account=original_debit_account,
+    )
+    return client.create_transfers(chain)
+
+
 def select_client(profile: Optional[str] = None):
     """Environment-driven client selection (fail-closed in production)."""
     profile = profile or os.environ.get("SOS_PROFILE", "dev")

@@ -72,6 +72,70 @@ class WorkflowError(Exception):
     """Illegal transition or decision on a workflow instance."""
 
 
+# ---------------------------------------------------------------------------
+# Segregation of duties (SoD): distinct actor per stage + role enforcement
+# ---------------------------------------------------------------------------
+
+#: Role map — which role must decide each approvable stage:
+#: registry → surveyor → ministry → AG → governor.
+STAGE_ROLES: dict[TitlingStage, str] = {
+    TitlingStage.APPLICATION_RECEIVED: "registry",
+    TitlingStage.SURVEYOR_VALIDATION: "surveyor",
+    TitlingStage.MINISTRY_REVIEW: "ministry",
+    TitlingStage.ATTORNEY_GENERAL_REVIEW: "ag",
+    TitlingStage.GOVERNOR_CONSENT: "governor",
+}
+
+#: Accepted actor-name aliases per role (house style: "<role>:<name>").
+ROLE_ALIASES: dict[str, frozenset[str]] = {
+    "registry": frozenset({"registry", "lands-registry"}),
+    "surveyor": frozenset({"surveyor"}),
+    "ministry": frozenset({"ministry", "town-planning"}),
+    "ag": frozenset({"ag", "attorney-general"}),
+    "governor": frozenset({"governor"}),
+}
+
+RoleChecker = Callable[[str, TitlingStage], bool]
+
+
+def default_role_checker(actor: str, stage: TitlingStage) -> bool:
+    """Default role check: the actor prefix before ':' must match the stage role.
+
+    E.g. ``"surveyor:abdul"`` may decide SURVEYOR_VALIDATION but not
+    GOVERNOR_CONSENT. Bare role names (``"surveyor"``) also match.
+    """
+    role = STAGE_ROLES.get(stage)
+    if role is None:
+        return True
+    prefix = actor.split(":", 1)[0]
+    return prefix in ROLE_ALIASES.get(role, frozenset({role}))
+
+
+def assert_segregation_of_duties(
+    instance: TitlingWorkflowInstance,
+    pending: TitlingStage,
+    actor: str,
+    role_checker: RoleChecker,
+) -> None:
+    """Fail-closed SoD checks for a stage decision (409 at the API).
+
+    * the same actor may not decide two stages of one workflow;
+    * the actor must hold the role mapped to the pending stage.
+    """
+    prior_actors = {t.actor for t in instance.history}
+    if actor in prior_actors:
+        raise WorkflowError(
+            f"segregation of duties: actor {actor!r} already decided an earlier "
+            f"stage of workflow {instance.workflow_id}; a distinct actor must "
+            f"decide {pending.value}"
+        )
+    if not role_checker(actor, pending):
+        raise WorkflowError(
+            f"role mismatch: actor {actor!r} may not decide {pending.value} "
+            f"(requires role {STAGE_ROLES.get(pending)!r})"
+        )
+
+
 @dataclass(frozen=True)
 class StageTransition:
     """One entry in the durable workflow history (Temporal event history equiv.)."""
@@ -198,11 +262,13 @@ class TitlingWorkflow:
         governor_key: Ed25519PrivateKey,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
         sequence: Callable[[], int] | None = None,
+        role_checker: RoleChecker = default_role_checker,
     ) -> None:
         self._registry_key = registry_key
         self._governor_key = governor_key
         self._clock = clock
         self._seq = sequence or itertools.count(1).__next__
+        self._role_checker = role_checker
 
     # -- workflow entry point ------------------------------------------------
     def start(self, parcel: ParcelRecord, actor: str = "lands-registry") -> TitlingWorkflowInstance:
@@ -241,6 +307,9 @@ class TitlingWorkflow:
         pending = next_pending_stage(instance)
         if pending in (None, TitlingStage.APPLICATION_RECEIVED, TitlingStage.ISSUANCE):
             raise WorkflowError(f"no approvable stage pending (status={instance.status.value})")
+
+        # Segregation of duties: distinct actor per stage + role enforcement.
+        assert_segregation_of_duties(instance, pending, actor, self._role_checker)
 
         now = self._clock()
         entered = instance.history[-1].exited_at
@@ -300,14 +369,25 @@ class LocalTitlingRunner:
         registry_key: Ed25519PrivateKey | None = None,
         governor_key: Ed25519PrivateKey | None = None,
         clock: Callable[[], datetime] | None = None,
+        role_checker: RoleChecker = default_role_checker,
     ) -> None:
         registry_key = registry_key or signing.generate_keypair()[0]
         governor_key = governor_key or signing.generate_keypair()[0]
+        self.registry_private_key: Ed25519PrivateKey = registry_key
+        self.governor_private_key: Ed25519PrivateKey = governor_key
         self.registry_public_key: Ed25519PublicKey = registry_key.public_key()
         self.governor_public_key: Ed25519PublicKey = governor_key.public_key()
         self._clock = clock or (lambda: datetime.now(timezone.utc))
-        self._workflow = TitlingWorkflow(registry_key, governor_key, self._clock)
+        self._workflow = TitlingWorkflow(
+            registry_key, governor_key, self._clock, role_checker=role_checker
+        )
         self._instances: dict[str, TitlingWorkflowInstance] = {}
+
+    @property
+    def c_of_o_sequence(self) -> Callable[[], int]:
+        """Shared C-of-O number sequence (used by the transfer service so
+        transfer-minted titles never collide with titling-minted numbers)."""
+        return self._workflow._seq
 
     def now(self) -> datetime:
         """Current workflow-clock time (Temporal durable timer equivalent)."""
@@ -353,11 +433,16 @@ class LocalTitlingRunner:
     def run_to_completion(
         self, workflow_id: str, parcel: ParcelRecord, actor_prefix: str = "auto"
     ) -> TitlingWorkflowInstance:
-        """Approve every pending stage through to issuance (test convenience)."""
+        """Approve every pending stage through to issuance (test convenience).
+
+        Uses a distinct, role-correct actor per stage (``"<role>:<prefix>"``)
+        to satisfy segregation-of-duties enforcement.
+        """
         instance = self.get(workflow_id)
         while (pending := next_pending_stage(instance)) is not None:
+            role = STAGE_ROLES.get(pending, "registry")
             instance = self.advance(
-                workflow_id, parcel, approved=True, actor=f"{actor_prefix}:{pending.value.lower()}"
+                workflow_id, parcel, approved=True, actor=f"{role}:{actor_prefix}"
             )
         return instance
 

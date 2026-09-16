@@ -27,7 +27,7 @@
     {
       "beneficiary": "LOCAL_GOVERNMENT_SHARE_POOL",
       "tigerbeetle_account_code": 2020,
-      "split_percentage": 5.0,
+      "split_percentage": 10.0,
       "deduction_timing": "END_OF_MONTH"
     }
   ],
@@ -35,9 +35,18 @@
     "revenue_share_ceiling_pct": 15,
     "irr_cap_pct": 20,
     "step_down_schedule": [
-      { "up_to_cumulative_igr_kobo": 50000000000, "share_pct": 15.0 },
-      { "up_to_cumulative_igr_kobo": 200000000000, "share_pct": 10.0 },
-      { "up_to_cumulative_igr_kobo": 0, "share_pct": 7.0 }
+      {
+        "up_to_cumulative_igr_kobo": 50000000000,
+        "share_pct": 15.0
+      },
+      {
+        "up_to_cumulative_igr_kobo": 200000000000,
+        "share_pct": 10.0
+      },
+      {
+        "up_to_cumulative_igr_kobo": 0,
+        "share_pct": 7.0
+      }
     ]
   }
 }

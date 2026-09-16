@@ -29,6 +29,10 @@ from conftest import (
     register_service_alias,
 )
 
+import itertools
+
+seq_counter = itertools.count(1)
+
 #: Deterministic ledger account IDs for the journey (mirrors the
 #: chart-of-accounts classes in ledger/chart-of-accounts.md).
 ACCT_PAYER_CLEARING = 100_001
@@ -52,7 +56,7 @@ def _ussd_turn(portal_client, session_id: str, text: str) -> str:
     resp = portal_client.post(
         "/channels/ussd/callback",
         params={"state_id": STATE},
-        data={"sessionId": session_id, "phoneNumber": "+2348012345678", "text": text},
+        data={"sessionId": session_id, "phoneNumber": "+2348012345678", "text": text, "sessionToken": f"tok-{session_id}", "seq": str(next(seq_counter))},
         headers={"x-telco-secret": TEST_TELCO_SECRET},
     )
     assert resp.status_code == 200, resp.text
@@ -117,6 +121,12 @@ def test_citizen_revenue_journey(
     turn = _ussd_turn(portal_client, session, "1")  # first category
     assert turn.startswith("CON ") and "Select a service" in turn, turn
     turn = _ussd_turn(portal_client, session, "1")  # first service
+    assert turn.startswith("CON ") and "Confirm" in turn, turn
+    turn = _ussd_turn(portal_client, session, "1")  # confirm -> PIN setup (new wallet)
+    assert turn.startswith("CON ") and "PIN" in turn, turn
+    turn = _ussd_turn(portal_client, session, "1234")  # set PIN
+    assert turn.startswith("CON ") and "confirm" in turn.lower(), turn
+    turn = _ussd_turn(portal_client, session, "1234")  # confirm PIN -> back to confirm
     assert turn.startswith("CON ") and "Confirm" in turn, turn
     turn = _ussd_turn(portal_client, session, "1")  # confirm -> submit
     assert turn.startswith("END ") and "Reference:" in turn, turn

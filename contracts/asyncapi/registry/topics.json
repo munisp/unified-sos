@@ -85,6 +85,18 @@
       "topic": "ng.sos.forestry.untagged_timber_alert"
     },
     {
+      "channel": "ng.sos.fundsflow.outbox_deadletter",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.fundsflow.outbox_deadletter.json",
+      "topic": "ng.sos.fundsflow.outbox_deadletter"
+    },
+    {
+      "channel": "ng.sos.fundsflow.saga_failed",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.fundsflow.saga_failed.json",
+      "topic": "ng.sos.fundsflow.saga_failed"
+    },
+    {
       "channel": "ng.sos.geospatial.agency_sync_completed",
       "contract": "platform-events.yaml",
       "schema": "schemas/ng.sos.geospatial.agency_sync_completed.json",
@@ -163,6 +175,24 @@
       "topic": "ng.sos.landdocs.ocr_completed"
     },
     {
+      "channel": "ng.sos.lands.compensation_paid",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.lands.compensation_paid.json",
+      "topic": "ng.sos.lands.compensation_paid"
+    },
+    {
+      "channel": "ng.sos.lands.title_revoked",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.lands.title_revoked.json",
+      "topic": "ng.sos.lands.title_revoked"
+    },
+    {
+      "channel": "ng.sos.lands.title_transferred",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.lands.title_transferred.json",
+      "topic": "ng.sos.lands.title_transferred"
+    },
+    {
       "channel": "ng.sos.mining.consignment_dispatched",
       "contract": "mining-events.yaml",
       "schema": "schemas/ng.sos.mining.consignment_dispatched.json",
@@ -179,6 +209,12 @@
       "contract": "platform-events.yaml",
       "schema": "schemas/ng.sos.ml.drift_detected.json",
       "topic": "ng.sos.ml.drift_detected"
+    },
+    {
+      "channel": "ng.sos.ml.model_rolled_back",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.ml.model_rolled_back.json",
+      "topic": "ng.sos.ml.model_rolled_back"
     },
     {
       "channel": "ng.sos.mortgage.application_received",
@@ -227,6 +263,30 @@
       "contract": "platform-events.yaml",
       "schema": "schemas/ng.sos.mortgage.payment_applied.json",
       "topic": "ng.sos.mortgage.payment_applied"
+    },
+    {
+      "channel": "ng.sos.mortgage.possession_registered",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.mortgage.possession_registered.json",
+      "topic": "ng.sos.mortgage.possession_registered"
+    },
+    {
+      "channel": "ng.sos.mortgage.proceeds_distributed",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.mortgage.proceeds_distributed.json",
+      "topic": "ng.sos.mortgage.proceeds_distributed"
+    },
+    {
+      "channel": "ng.sos.mortgage.sale_authorized",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.mortgage.sale_authorized.json",
+      "topic": "ng.sos.mortgage.sale_authorized"
+    },
+    {
+      "channel": "ng.sos.mortgage.sold",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.mortgage.sold.json",
+      "topic": "ng.sos.mortgage.sold"
     },
     {
       "channel": "ng.sos.payments.settlement_completed",

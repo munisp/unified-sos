@@ -288,9 +288,22 @@ func TestSettlementExecutesStatutorySplit(t *testing.T) {
 		t.Fatalf("month-end leg must not settle instantly, balance %d", acct.Balance())
 	}
 
-	// Double settlement is rejected (no double split).
-	if rec := settle(t, srv, "nasarawa", a.BillReference, a.AmountDueKobo); rec.Code != http.StatusConflict {
-		t.Fatalf("re-settle: want 409 got %d", rec.Code)
+	// Double settlement replays the stored response — no second split.
+	batches := len(ledger.Batches())
+	rec2 := settle(t, srv, "nasarawa", a.BillReference, a.AmountDueKobo)
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("re-settle replay: want 200 got %d (%s)", rec2.Code, rec2.Body.String())
+	}
+	var replay SettlementResponse
+	if err := json.Unmarshal(rec2.Body.Bytes(), &replay); err != nil {
+		t.Fatal(err)
+	}
+	if replay.Status != StatusPaid || replay.AssessmentID != resp.AssessmentID ||
+		len(replay.SplitLegs) != len(resp.SplitLegs) {
+		t.Fatalf("replay must return the stored settlement: %+v", replay)
+	}
+	if got := len(ledger.Batches()); got != batches {
+		t.Fatalf("replay must not submit a new ledger batch: %d → %d", batches, got)
 	}
 }
 
@@ -298,9 +311,19 @@ func TestSettlementValidation(t *testing.T) {
 	srv, _ := newTestServer(t)
 	_, a := createContractAssessment(t, srv, "")
 
-	if rec := settle(t, srv, "nasarawa", a.BillReference, a.AmountDueKobo-1); rec.Code != http.StatusBadRequest {
-		t.Fatalf("underpayment: want 400 got %d (%s)", rec.Code, rec.Body.String())
+	// Underpayment is accepted as a partial payment (PARTIALLY_PAID).
+	rec := settle(t, srv, "nasarawa", a.BillReference, a.AmountDueKobo-1)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("underpayment: want 200 got %d (%s)", rec.Code, rec.Body.String())
 	}
+	var partial SettlementResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &partial); err != nil {
+		t.Fatal(err)
+	}
+	if partial.Status != StatusPartiallyPaid || partial.AmountPaidKobo != a.AmountDueKobo-1 {
+		t.Fatalf("partial payment: %+v", partial)
+	}
+
 	if rec := settle(t, srv, "nasarawa", "BILL-0000-0000-0000", 100); rec.Code != http.StatusNotFound {
 		t.Fatalf("unknown bill: want 404 got %d", rec.Code)
 	}

@@ -15,6 +15,7 @@ from .models import (
     AuditEntry,
     ConsentGrant,
     Credential,
+    GuardianLink,
     Resident,
     SettlementRecord,
     UsageRecord,
@@ -32,6 +33,8 @@ class IdentityRepository(Protocol):
     def find_consent(
         self, state_id: str, resident_id: str, consumer_id: str, purpose: str
     ) -> List[ConsentGrant]: ...
+    def save_guardian_link(self, link: GuardianLink) -> GuardianLink: ...
+    def find_guardian_links(self, state_id: str, resident_id: str) -> List[GuardianLink]: ...
     def save_usage(self, usage: UsageRecord) -> UsageRecord: ...
     def list_usage(self, state_id: str, consumer_id: str, unsettled_only: bool = False) -> List[UsageRecord]: ...
     def save_settlement(self, settlement: SettlementRecord) -> SettlementRecord: ...
@@ -48,6 +51,7 @@ class InMemoryIdentityRepository:
         self._credentials: Dict[str, Credential] = {}
         self._consumers: Dict[str, ApiConsumer] = {}
         self._consents: Dict[str, ConsentGrant] = {}
+        self._guardian_links: List[GuardianLink] = []
         self._usage: Dict[str, UsageRecord] = {}
         self._settlements: Dict[str, SettlementRecord] = {}
         self._audit: List[AuditEntry] = []
@@ -85,6 +89,17 @@ class InMemoryIdentityRepository:
             and g.resident_id == resident_id
             and g.consumer_id == consumer_id
             and g.purpose.value == purpose
+        ]
+
+    def save_guardian_link(self, link: GuardianLink) -> GuardianLink:
+        self._guardian_links.append(link)
+        return link
+
+    def find_guardian_links(self, state_id: str, resident_id: str) -> List[GuardianLink]:
+        return [
+            l
+            for l in self._guardian_links
+            if l.state_id == state_id and l.resident_id == resident_id
         ]
 
     def save_usage(self, usage: UsageRecord) -> UsageRecord:

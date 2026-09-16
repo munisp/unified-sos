@@ -314,3 +314,92 @@ def test_openapi_generation(client):
         "/healthz",
     ):
         assert path in paths, path
+
+
+# -- account recovery: wallet rebind (KYC-gated) --------------------------------
+
+from app.domain import BindingStatus, hash_msisdn  # noqa: E402
+from app.kyc_seam import (  # noqa: E402
+    FixturePortalKycClient,
+    PortalKycUnavailableError,
+    build_portal_kyc_client,
+)
+from app.service import NotFoundError, WalletSuspendedError  # noqa: E402
+
+OLD_MSISDN = "+2348012345678"
+NEW_MSISDN = "+2348099999999"
+
+
+@pytest.fixture()
+def channel_wallet(svc):
+    wallet = svc.create_wallet("lagos", RAW_NIN)
+    svc.bind_wallet_msisdn("lagos", wallet.wallet_id, hash_msisdn(OLD_MSISDN))
+    return wallet
+
+
+def test_rebind_wallet_happy_path(svc, channel_wallet):
+    rebound = svc.rebind_wallet("lagos", channel_wallet.wallet_id, NEW_MSISDN, "KYC-VERIFIED-FIXTURE")
+    assert rebound.nin_hash == hash_msisdn(NEW_MSISDN)
+    # Old binding suspended, new binding active.
+    old = svc.repo.get_binding("lagos", hash_msisdn(OLD_MSISDN))
+    new = svc.repo.get_binding("lagos", hash_msisdn(NEW_MSISDN))
+    assert old.status is BindingStatus.SUSPENDED
+    assert new.status is BindingStatus.ACTIVE and new.wallet_id == channel_wallet.wallet_id
+    # Both transitions hash-chain audited.
+    actions = [e.action for e in svc.repo.list_audit()]
+    assert "WALLET_BINDING_SUSPENDED" in actions and "WALLET_REBOUND" in actions
+
+
+def test_rebind_wallet_unverified_kyc_denied(svc, channel_wallet):
+    with pytest.raises(InvalidTransitionError):
+        svc.rebind_wallet("lagos", channel_wallet.wallet_id, NEW_MSISDN, "KYC-UNKNOWN")
+    # Wallet and binding untouched; denial audited.
+    assert svc.repo.get_binding("lagos", hash_msisdn(OLD_MSISDN)).status is BindingStatus.ACTIVE
+    assert any(e.action == "WALLET_REBIND_DENIED" for e in svc.repo.list_audit())
+
+
+def test_old_msisdn_rejected_after_rebind(svc, channel_wallet):
+    svc.rebind_wallet("lagos", channel_wallet.wallet_id, NEW_MSISDN, "KYC-VERIFIED-FIXTURE")
+    with pytest.raises(WalletSuspendedError):
+        svc.wallet_for_msisdn("lagos", hash_msisdn(OLD_MSISDN))
+    migrated = svc.wallet_for_msisdn("lagos", hash_msisdn(NEW_MSISDN))
+    assert migrated.wallet_id == channel_wallet.wallet_id
+
+
+def test_rebind_wallet_kyc_unavailable_fail_closed(channel_wallet):
+    class _Down:
+        def is_verified(self, ref):
+            raise PortalKycUnavailableError("down")
+
+    svc = CitizenPortalService(channel_wallet_repo := InMemoryCitizenPortalRepository(), kyc_client=_Down())
+    wallet = svc.create_wallet("lagos", RAW_NIN)
+    with pytest.raises(PortalKycUnavailableError):
+        svc.rebind_wallet("lagos", wallet.wallet_id, NEW_MSISDN, "KYC-VERIFIED-FIXTURE")
+
+
+def test_wallet_for_msisdn_unknown_binding(svc):
+    with pytest.raises(NotFoundError):
+        svc.wallet_for_msisdn("lagos", hash_msisdn(OLD_MSISDN))
+
+
+def test_rebind_endpoint(client, svc):
+    wallet = svc.create_wallet("lagos", RAW_NIN)
+    svc.bind_wallet_msisdn("lagos", wallet.wallet_id, hash_msisdn(OLD_MSISDN))
+    resp = client.post(
+        f"/citizen/v1/wallets/{wallet.wallet_id}/rebind",
+        json={"state_id": "lagos", "new_msisdn": NEW_MSISDN, "kyc_case_ref": "KYC-VERIFIED-FIXTURE"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["wallet_id"] == wallet.wallet_id
+    resp = client.post(
+        f"/citizen/v1/wallets/{wallet.wallet_id}/rebind",
+        json={"state_id": "lagos", "new_msisdn": NEW_MSISDN, "kyc_case_ref": "KYC-BOGUS"},
+    )
+    assert resp.status_code == 409
+
+
+def test_kyc_client_fixture_default():
+    client_ = build_portal_kyc_client({})
+    assert isinstance(client_, FixturePortalKycClient)
+    assert client_.is_verified("KYC-VERIFIED-FIXTURE")
+    assert not client_.is_verified("KYC-ANYTHING-ELSE")

@@ -7,6 +7,8 @@ only, consistent with the zero-PII data boundary.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import os
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
@@ -123,28 +125,53 @@ except ImportError:
         _instrument_fastapi = None
 
 
+def _token_hash(token: str) -> str:
+    """SHA-256 of a presented admin token — the audit log never sees raw tokens."""
+    return hashlib.sha256(token.encode()).hexdigest() if token else ""
+
+
+def _audit_admin_access(request: Request, outcome: str, presented: str) -> None:
+    """Append an ADMIN_ACCESS audit entry for every admin call (incl. 403s)."""
+    store = getattr(request.app.state, "store", None)
+    if store is None:
+        return
+    store.record_admin_access(
+        endpoint=request.url.path,
+        asserted_actor=actor(request),
+        outcome=outcome,
+        token_sha256=_token_hash(presented),
+    )
+
+
 def require_admin(request: Request) -> str:
     """Admin gate for mutating branding endpoints.
 
     The token comes from ``SOS_CP_ADMIN_TOKEN`` and is presented in the
-    ``X-Admin-Token`` header. Fail-closed: when the production profile is
-    active (``SOS_PROFILE=production``) and the token is unset, every admin
-    call is rejected with 403 rather than silently open.
+    ``X-Admin-Token`` header; comparison is timing-safe
+    (``hmac.compare_digest``). Every call — allowed or denied — lands in the
+    hash-chained audit log via :func:`_audit_admin_access`. Fail-closed:
+    when the production profile is active (``SOS_PROFILE=production``) and
+    the token is unset, every admin call is rejected with 403.
     """
     expected = os.environ.get("SOS_CP_ADMIN_TOKEN", "")
     profile = os.environ.get("SOS_PROFILE", "dev")
+    presented = request.headers.get("x-admin-token", "")
     if not expected:
         if profile == "production":
+            _audit_admin_access(request, "denied_unconfigured", presented)
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="SOS_CP_ADMIN_TOKEN is not configured (fail-closed in production)",
             )
+        _audit_admin_access(request, "allowed_dev_no_token", presented)
         return "dev-admin"  # local/dev profile: no token configured, allow
-    presented = request.headers.get("x-admin-token", "")
-    if presented != expected:
+    if not presented or not hmac.compare_digest(presented, expected):
+        _audit_admin_access(request, "denied_bad_token", presented)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="invalid or missing X-Admin-Token")
-    return presented
+    _audit_admin_access(request, "allowed", presented)
+    # Return a non-sensitive verified-actor handle, not the raw token.
+    return f"admin:{_token_hash(presented)[:12]}"
 
 
 def get_branding(request: Request) -> BrandingRegistry:
@@ -250,15 +277,16 @@ def create_app(store: MetadataStore | None = None,
     @app.put("/cp/v1/tenants/{state}/branding", response_model=Branding)
     def put_tenant_branding(state: str, record: Branding,
                             registry: BrandingRegistry = Depends(get_branding),
-                            _admin: str = Depends(require_admin),
-                            actor_name: str = Depends(actor)) -> Branding:
+                            verified_admin: str = Depends(require_admin)) -> Branding:
         """Admin update: runtime override over the GitOps-seeded record.
 
-        Every update is appended to the hash-chained branding audit log and
+        The audit actor is the *verified* admin handle returned by
+        ``require_admin`` — never the unverified bearer-token prefix. Every
+        update is appended to the hash-chained branding audit log and
         published as ``ng.sos.tenant.branding_updated``.
         """
         try:
-            registry.update(state, record, actor=f"{actor_name}")
+            registry.update(state, record, actor=verified_admin)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc))
         return record
@@ -279,6 +307,23 @@ def create_app(store: MetadataStore | None = None,
                 detail=f"custom_domain '{req.custom_domain}' is not registered to any tenant",
             )
         return {"custom_domain": req.custom_domain.strip().lower(), "tenant_state_id": state_id}
+
+    @app.get("/cp/v1/domains/allowed")
+    def domain_allowed(domain: str = "",
+                       registry: BrandingRegistry = Depends(get_branding)) -> dict:
+        """Caddy on-demand TLS ``ask`` gate (deploy/caddy/Caddyfile).
+
+        Local issuance gate only — no admin token. 200 when the host is a
+        registered tenant custom_domain (same set as POST domains/verify),
+        404 otherwise so Caddy refuses to issue a certificate for it.
+        """
+        host = domain.strip().lower()
+        if not host or registry.verify_domain(host) is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"domain '{domain}' is not allowed for on-demand TLS",
+            )
+        return {"domain": host, "allowed": True}
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:

@@ -126,6 +126,7 @@ class KycKybService:
             required_documents=required_documents
             or list(SUBJECT_REQUIRED_DOCS.get(subject_type, [DocumentType.NATIONAL_ID])),
             liveness_required=liveness_required,
+            created_by=actor,
         )
         self.repo.save_kyc_case(case)
         self._audit(tenant, actor, "KYC_CASE_CREATED", "kyc_case", case.case_id,
@@ -360,6 +361,18 @@ class KycKybService:
             case = self.repo.get_kyb_case(case_id, tenant)
         if case.status not in (VerificationStatus.IN_REVIEW, VerificationStatus.PROCESSING):
             raise ConflictError(f"case not in reviewable state: {case.status.value}")
+        # Segregation of duties: the case creator and anyone who uploaded
+        # evidence to the case may not review it (fail-closed, audited).
+        uploaders = {a.uploaded_by for a in self.repo.artifacts_for_case(case_id)}
+        if reviewer == getattr(case, "created_by", "") or reviewer in uploaders:
+            self._audit(tenant, reviewer, f"{case_type}_REVIEW_DENIED_SOD",
+                        f"{case_type.lower()}_case", case_id,
+                        {"reviewer": reviewer,
+                         "created_by": getattr(case, "created_by", ""),
+                         "uploaded_by": sorted(uploaders)})
+            raise ConflictError(
+                "segregation of duties: reviewer created the case or uploaded its evidence"
+            )
         case.status = (
             VerificationStatus.APPROVED
             if decision == ReviewDecision.APPROVE
@@ -406,6 +419,7 @@ class KycKybService:
             business_type=business_type,
             address_hash=sha256_hex(f"{tenant}:{address.strip().lower()}"),
             status=VerificationStatus.EVIDENCE_PENDING,
+            created_by=actor,
         )
         # Keep raw values out of the case; service-level lookup key is hashed.
         self._kyb_lookup = getattr(self, "_kyb_lookup", {})

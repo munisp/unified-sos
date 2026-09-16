@@ -354,3 +354,82 @@ def test_healthz_and_metrics(client: TestClient) -> None:
     metrics = client.get("/metrics")
     assert metrics.status_code == 200
     assert "http_requests_total" in metrics.text
+
+
+# --- retention: enrolments bound to warrant expiry, matches capped -------------
+
+from datetime import datetime as _dt, timedelta as _td, timezone as _tz  # noqa: E402
+
+from app.domain import VisionStore  # noqa: E402
+
+
+def _ts(dt: _dt) -> str:
+    return dt.isoformat(timespec="seconds")
+
+
+def test_enroll_binds_retention_to_warrant_expiry(authorized_client: TestClient) -> None:
+    resp = authorized_client.post(
+        "/vision/v1/faces/enroll",
+        json={"subject_ref": "SUBJ-RET-1", "image_ref": "img-001"},
+        headers={"X-State-Tenant": "lagos"},
+    )
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["retention_until"] is not None
+    assert body["retention_until"] > body["enrolled_at"]
+
+
+def test_sweep_purges_enrolment_and_embedding_at_expiry() -> None:
+    store = VisionStore()
+    expiry = _dt.now(_tz.utc) + _td(hours=1)
+    enr = store.enroll_face(
+        "lagos", "SUBJ-1", "img-001", "WRT-1", retention_until=_ts(expiry)
+    )
+    assert store._scope("lagos").enrolments[enr.enrolment_id].embedding
+    counts = store.sweep_retention(now=expiry + _td(seconds=1))
+    assert counts == {"lagos": {"enrolments": 1, "matches": 0}}
+    assert enr.enrolment_id not in store._scope("lagos").enrolments
+    assert enr.embedding == []  # biometric purged with the record
+
+
+def test_sweep_appends_retention_purge_audit_event() -> None:
+    store = VisionStore()
+    expiry = _dt.now(_tz.utc) - _td(minutes=1)
+    store.enroll_face("lagos", "SUBJ-2", "img-002", "WRT-2", retention_until=_ts(expiry))
+    store.sweep_retention()
+    feed = store.face_audit_feed("lagos")
+    purges = [r for r in feed["records"] if r.get("event_type") == "RETENTION_PURGE"]
+    assert len(purges) == 1
+    assert purges[0]["authorization_ref"] == "WRT-2"
+    assert feed["chain_intact"]
+
+
+def test_no_purge_before_expiry() -> None:
+    store = VisionStore()
+    expiry = _dt.now(_tz.utc) + _td(days=1)
+    enr = store.enroll_face(
+        "lagos", "SUBJ-3", "img-003", "WRT-3", retention_until=_ts(expiry)
+    )
+    counts = store.sweep_retention(now=_dt.now(_tz.utc))
+    assert counts == {}
+    assert enr.enrolment_id in store._scope("lagos").enrolments
+    assert store.face_audit_feed("lagos")["records"] == []
+
+
+def test_match_records_purged_beyond_cap() -> None:
+    store = VisionStore(match_retention_days=90)
+    store.enroll_face("lagos", "SUBJ-4", "img-004", "WRT-4")
+    recent = store.match_face("lagos", "img-004")
+    old = store.match_face("lagos", "img-004")
+    # Backdate one match beyond the 90-day cap.
+    old.matched_at = _ts(_dt.now(_tz.utc) - _td(days=91))
+    counts = store.sweep_retention()
+    assert counts == {"lagos": {"enrolments": 0, "matches": 1}}
+    remaining = store._scope("lagos").matches
+    assert [m.match_event_id for m in remaining] == [recent.match_event_id]
+    # Cap is injectable: a 30-day cap purges a 31-day-old match too.
+    store2 = VisionStore(match_retention_days=30)
+    store2.enroll_face("lagos", "SUBJ-5", "img-005", "WRT-5")
+    m = store2.match_face("lagos", "img-005")
+    m.matched_at = _ts(_dt.now(_tz.utc) - _td(days=31))
+    assert store2.sweep_retention()["lagos"]["matches"] == 1

@@ -314,6 +314,78 @@ def hash_msisdn(msisdn: str) -> str:
     return hashlib.sha256(f"msisdn:{msisdn}".encode()).hexdigest()
 
 
+def hash_pin(pin: str, msisdn_hash: str) -> str:
+    """One-way channel PIN hash, salted with the caller's MSISDN hash.
+
+    Same idiom as :func:`hash_nin`: raw PINs are never persisted, and the
+    salt binds the credential to one caller so a leaked hash cannot be
+    replayed for another MSISDN.
+    """
+    return hashlib.sha256(f"pin:{msisdn_hash}:{pin}".encode()).hexdigest()
+
+
+def hash_gateway_token(token: str) -> str:
+    """One-way hash of the gateway-provided session token (never stored raw)."""
+    return hashlib.sha256(f"gwtoken:{token}".encode()).hexdigest()
+
+
+class BindingStatus(str, enum.Enum):
+    ACTIVE = "ACTIVE"
+    SUSPENDED = "SUSPENDED"
+
+
+class ChannelAuth(BaseModel):
+    """Per-caller USSD/IVR credential record (SIM-swap defence).
+
+    Keyed by (state_id, msisdn_hash); survives individual channel sessions.
+    Three consecutive PIN failures lock the credential (fail-closed).
+    """
+
+    state_id: str
+    msisdn_hash: str
+    pin_hash: str
+    failed_attempts: int = 0
+    locked: bool = False
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
+class WalletBinding(BaseModel):
+    """Binds a wallet to a channel identifier (hashed MSISDN).
+
+    Account recovery (wallet rebind) suspends the old binding and creates a
+    new one; a suspended binding can never authenticate the wallet again.
+    """
+
+    state_id: str
+    wallet_id: str
+    msisdn_hash: str
+    status: BindingStatus = BindingStatus.ACTIVE
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
+class PortalAuditEvent(BaseModel):
+    """Append-only, hash-chained audit record (mod-identity idiom).
+
+    ``entry_hash`` = sha256(prev_hash + canonical payload). The repository
+    exposes no update or delete path.
+    """
+
+    seq: int
+    action: str
+    state_id: str
+    actor_id: str
+    subject_id: str
+    details: str = ""
+    prev_hash: str
+    entry_hash: str
+    at: datetime = Field(default_factory=utcnow)
+
+    @staticmethod
+    def compute_hash(prev_hash: str, payload: str) -> str:
+        return hashlib.sha256((prev_hash + "|" + payload).encode()).hexdigest()
+
+
 class ChannelKind(str, enum.Enum):
     USSD = "USSD"
     IVR = "IVR"
@@ -331,9 +403,12 @@ class ChannelSession(BaseModel):
     state_id: str
     msisdn_hash: str
     channel: ChannelKind = ChannelKind.USSD
-    node: str = Field(default="root", description="root | category | service | confirm | done")
+    node: str = Field(default="root", description="root | category | service | confirm | pin_set | pin_confirm | pin_verify | done")
     depth: int = 0
     selections: List[str] = Field(default_factory=list)
+    pin_verified: bool = Field(default=False, description="PIN verified this session (sensitive nodes gate on it)")
+    pending_pin_hash: Optional[str] = Field(default=None, description="first leg of PIN registration, hash-only")
+    gateway_token_hash: Optional[str] = Field(default=None, description="hash of the gateway session token this session is bound to")
     created_at: datetime = Field(default_factory=utcnow)
     last_activity: datetime = Field(default_factory=utcnow)
 

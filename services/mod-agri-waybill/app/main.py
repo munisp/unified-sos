@@ -6,6 +6,7 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 
+from .audit import AuditLog
 from .models import (
     EWaybill,
     TrackingEvent,
@@ -38,9 +39,19 @@ except ImportError:
 def create_app(service: Optional[AgriWaybillService] = None) -> FastAPI:
     app = FastAPI(title="mod-agri-waybill — Agribusiness Supply Chain & E-Waybill")
     app.state.service = service or AgriWaybillService()
+    app.state.audit = AuditLog()
 
     def svc(request: Request) -> AgriWaybillService:
         return request.app.state.service
+
+    @app.get("/api/v1/states/{state_id}/audit/verify")
+    def verify_audit(state_id: str, request: Request):
+        """Hash-chain integrity check; entries scoped to the tenant."""
+        audit: AuditLog = request.app.state.audit
+        return {
+            "valid": audit.verify() == [],
+            "entries": len(audit.events(tenant_state_id=state_id)),
+        }
 
     def _map(exc: Exception):
         if isinstance(exc, NotFoundError):
@@ -50,9 +61,13 @@ def create_app(service: Optional[AgriWaybillService] = None) -> FastAPI:
     @app.post("/waybills", response_model=EWaybill, status_code=201)
     def issue_waybill(waybill: EWaybill, request: Request):
         try:
-            return svc(request).issue_waybill(waybill)
+            created = svc(request).issue_waybill(waybill)
         except InvalidTransition as exc:
             raise _map(exc)
+        request.app.state.audit.record(
+            "waybill.issued", created.state_id,
+            detail={"waybill_number": created.waybill_number})
+        return created
 
     @app.get("/waybills/{waybill_number}", response_model=EWaybill)
     def get_waybill(waybill_number: str, request: Request):

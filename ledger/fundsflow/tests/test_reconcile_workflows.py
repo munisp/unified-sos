@@ -41,6 +41,7 @@ def test_ledger_mismatch_alerts_and_holds_account():
 
 def test_unacked_outbox_rows_raise_alert():
     tb, store, bus, rec = make_reconciler()
+    store._clock = lambda: 0.0  # row created far in the past → beyond grace window
     OutboxWriter(store).write(domain_record={}, topic="t", event_payload={},
                               idempotency_key="k")
     report = rec.reconcile(expected_by_account={})
