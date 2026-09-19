@@ -1,0 +1,26 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.audit.genesis.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.audit.genesis' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "chain": {
+      "description": "e.g. sha256/canonical-json",
+      "type": "string"
+    },
+    "tenant_id": {
+      "nullable": true,
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "tenant_id",
+    "chain",
+    "timestamp"
+  ],
+  "title": "ng.sos.audit.genesis",
+  "type": "object"
+}

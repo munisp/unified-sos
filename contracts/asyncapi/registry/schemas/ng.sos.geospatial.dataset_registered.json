@@ -11,11 +11,13 @@
     },
     "dataset_type": {
       "enum": [
-        "PARCEL",
-        "RASTER",
-        "VECTOR",
-        "H3_INDEX",
-        "GEOPARQUET"
+        "CADASTRE",
+        "BUILDING_FOOTPRINTS",
+        "NDVI_ALERTS",
+        "FOREST_RESERVES",
+        "TRANSPORT_CORRIDORS",
+        "MARKET_BOUNDARIES",
+        "MINING_SITES"
       ],
       "type": "string"
     },

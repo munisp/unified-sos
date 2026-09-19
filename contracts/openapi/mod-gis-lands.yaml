@@ -1,0 +1,2330 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-gis-lands/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS Cadastre & Land Registry API
+  version: 1.0.0
+  description: 'Tenant-isolated cadastre and land registry: parcel registry, systematic titling, governor-consent transfer
+    workflow with signed transfer JWS chained to previous title hash, Land Use Act s.28 revocations with two-phase compensation
+    ledger, court orders, succession assents, and a hash-chained append-only cadastre event log. Deploys: all 6 states.'
+paths:
+  /api/v1/states/{state_id}/cadastre/parcels:
+    post:
+      summary: Register Parcel
+      operationId: register_parcel_api_v1_states__state_id__cadastre_parcels_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParcelRegistration'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Parcel'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+    get:
+      summary: Search Parcels
+      operationId: search_parcels_api_v1_states__state_id__cadastre_parcels_get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: lga_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Lga Id
+      - name: within
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: WKT polygon (EPSG:4326)
+          title: Within
+        description: WKT polygon (EPSG:4326)
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Parcel'
+                title: Response Search Parcels Api V1 States  State Id  Cadastre Parcels Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/parcels/{parcel_id}:
+    get:
+      summary: Get Parcel
+      operationId: get_parcel_api_v1_states__state_id__cadastre_parcels__parcel_id__get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: parcel_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Parcel Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Parcel'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/deeds/verify:
+    post:
+      summary: Verify Deed
+      operationId: verify_deed_api_v1_states__state_id__cadastre_deeds_verify_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeedVerificationRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeedVerificationResult'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/titling/{workflow_id}:
+    get:
+      summary: Titling Status
+      operationId: titling_status_api_v1_states__state_id__cadastre_titling__workflow_id__get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: workflow_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workflow Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TitlingStatusOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/titling/{workflow_id}/decisions:
+    post:
+      summary: Titling Decide
+      operationId: titling_decide_api_v1_states__state_id__cadastre_titling__workflow_id__decisions_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: workflow_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workflow Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TitlingDecisionIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TitlingStatusOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/parcels/{parcel_id}/subdivide:
+    post:
+      summary: Subdivide Parcel
+      operationId: subdivide_parcel_api_v1_states__state_id__cadastre_parcels__parcel_id__subdivide_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: parcel_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Parcel Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubdivideIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Subdivide Parcel Api V1 States  State Id  Cadastre Parcels  Parcel Id  Subdivide Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/parcels/merge:
+    post:
+      summary: Merge Parcels
+      operationId: merge_parcels_api_v1_states__state_id__cadastre_parcels_merge_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MergeIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Merge Parcels Api V1 States  State Id  Cadastre Parcels Merge Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/parcels/{parcel_id}/history:
+    get:
+      summary: Parcel History
+      operationId: parcel_history_api_v1_states__state_id__cadastre_parcels__parcel_id__history_get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: parcel_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Parcel Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Parcel History Api V1 States  State Id  Cadastre Parcels  Parcel Id  History Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/parcels/{parcel_id}/disputes:
+    post:
+      summary: Open Dispute
+      operationId: open_dispute_api_v1_states__state_id__cadastre_parcels__parcel_id__disputes_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: parcel_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Parcel Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisputeIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Open Dispute Api V1 States  State Id  Cadastre Parcels  Parcel Id  Disputes Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+    get:
+      summary: List Disputes
+      operationId: list_disputes_api_v1_states__state_id__cadastre_parcels__parcel_id__disputes_get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: parcel_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Parcel Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+                title: Response List Disputes Api V1 States  State Id  Cadastre Parcels  Parcel Id  Disputes Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/disputes/{dispute_id}/review:
+    post:
+      summary: Review Dispute
+      operationId: review_dispute_api_v1_states__state_id__cadastre_disputes__dispute_id__review_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: dispute_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dispute Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisputeDecisionIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Review Dispute Api V1 States  State Id  Cadastre Disputes  Dispute Id  Review Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/disputes/{dispute_id}/resolve:
+    post:
+      summary: Resolve Dispute
+      operationId: resolve_dispute_api_v1_states__state_id__cadastre_disputes__dispute_id__resolve_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: dispute_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dispute Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisputeDecisionIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Resolve Dispute Api V1 States  State Id  Cadastre Disputes  Dispute Id  Resolve Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/disputes/{dispute_id}/dismiss:
+    post:
+      summary: Dismiss Dispute
+      operationId: dismiss_dispute_api_v1_states__state_id__cadastre_disputes__dispute_id__dismiss_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: dispute_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dispute Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisputeDecisionIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Dismiss Dispute Api V1 States  State Id  Cadastre Disputes  Dispute Id  Dismiss Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/parcels/{parcel_id}/risk:
+    get:
+      summary: Parcel Risk
+      operationId: parcel_risk_api_v1_states__state_id__cadastre_parcels__parcel_id__risk_get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: parcel_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Parcel Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Parcel Risk Api V1 States  State Id  Cadastre Parcels  Parcel Id  Risk Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/parcels/{parcel_id}/anchor:
+    post:
+      summary: Anchor Title
+      operationId: anchor_title_api_v1_states__state_id__cadastre_parcels__parcel_id__anchor_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: parcel_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Parcel Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Anchor Title Api V1 States  State Id  Cadastre Parcels  Parcel Id  Anchor Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/anchors/{anchor_id}/verify:
+    get:
+      summary: Verify Anchor
+      operationId: verify_anchor_api_v1_states__state_id__cadastre_anchors__anchor_id__verify_get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: anchor_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Anchor Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Verify Anchor Api V1 States  State Id  Cadastre Anchors  Anchor Id  Verify Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/parcels/{parcel_id}/encumbrances:
+    post:
+      summary: Register Encumbrance
+      operationId: register_encumbrance_api_v1_states__state_id__cadastre_parcels__parcel_id__encumbrances_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: parcel_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Parcel Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EncumbranceIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Register Encumbrance Api V1 States  State Id  Cadastre Parcels  Parcel Id  Encumbrances Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+    get:
+      summary: List Encumbrances
+      operationId: list_encumbrances_api_v1_states__state_id__cadastre_parcels__parcel_id__encumbrances_get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: parcel_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Parcel Id
+      - name: include_closed
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Include Closed
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+                title: Response List Encumbrances Api V1 States  State Id  Cadastre Parcels  Parcel Id  Encumbrances Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/encumbrances/{encumbrance_id}/release:
+    post:
+      summary: Release Encumbrance
+      operationId: release_encumbrance_api_v1_states__state_id__cadastre_encumbrances__encumbrance_id__release_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: encumbrance_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Encumbrance Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EncumbranceCloseIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Release Encumbrance Api V1 States  State Id  Cadastre Encumbrances  Encumbrance Id  Release
+                  Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/encumbrances/{encumbrance_id}/withdraw:
+    post:
+      summary: Withdraw Encumbrance
+      operationId: withdraw_encumbrance_api_v1_states__state_id__cadastre_encumbrances__encumbrance_id__withdraw_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: encumbrance_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Encumbrance Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EncumbranceCloseIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Withdraw Encumbrance Api V1 States  State Id  Cadastre Encumbrances  Encumbrance Id  Withdraw
+                  Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/parcels/{parcel_id}/transfers:
+    post:
+      summary: Apply Transfer
+      operationId: apply_transfer_api_v1_states__state_id__cadastre_parcels__parcel_id__transfers_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: parcel_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Parcel Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Apply Transfer Api V1 States  State Id  Cadastre Parcels  Parcel Id  Transfers Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/transfers/{transfer_id}:
+    get:
+      summary: Get Transfer
+      operationId: get_transfer_api_v1_states__state_id__cadastre_transfers__transfer_id__get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: transfer_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Transfer Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Transfer Api V1 States  State Id  Cadastre Transfers  Transfer Id  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/transfers/{transfer_id}/advance:
+    post:
+      summary: Advance Transfer
+      operationId: advance_transfer_api_v1_states__state_id__cadastre_transfers__transfer_id__advance_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: transfer_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Transfer Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferAdvanceIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Advance Transfer Api V1 States  State Id  Cadastre Transfers  Transfer Id  Advance Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/consents:
+    post:
+      summary: Issue Consent
+      operationId: issue_consent_api_v1_states__state_id__cadastre_consents_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsentIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Issue Consent Api V1 States  State Id  Cadastre Consents Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/consents/{consent_id}:
+    get:
+      summary: Get Consent
+      operationId: get_consent_api_v1_states__state_id__cadastre_consents__consent_id__get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: consent_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Consent Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Consent Api V1 States  State Id  Cadastre Consents  Consent Id  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/parcels/{parcel_id}/transmissions:
+    post:
+      summary: Report Death
+      operationId: report_death_api_v1_states__state_id__cadastre_parcels__parcel_id__transmissions_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: parcel_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Parcel Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransmissionIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Report Death Api V1 States  State Id  Cadastre Parcels  Parcel Id  Transmissions Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/transmissions/{transmission_id}:
+    get:
+      summary: Get Transmission
+      operationId: get_transmission_api_v1_states__state_id__cadastre_transmissions__transmission_id__get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: transmission_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Transmission Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Transmission Api V1 States  State Id  Cadastre Transmissions  Transmission Id  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/transmissions/{transmission_id}/advance:
+    post:
+      summary: Advance Transmission
+      operationId: advance_transmission_api_v1_states__state_id__cadastre_transmissions__transmission_id__advance_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: transmission_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Transmission Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransmissionAdvanceIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Advance Transmission Api V1 States  State Id  Cadastre Transmissions  Transmission Id  Advance
+                  Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/court-orders:
+    post:
+      summary: File Court Order
+      operationId: file_court_order_api_v1_states__state_id__cadastre_court_orders_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CourtOrderIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response File Court Order Api V1 States  State Id  Cadastre Court Orders Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/court-orders/{order_id}:
+    get:
+      summary: Get Court Order
+      operationId: get_court_order_api_v1_states__state_id__cadastre_court_orders__order_id__get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Order Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Court Order Api V1 States  State Id  Cadastre Court Orders  Order Id  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/court-orders/{order_id}/approve:
+    post:
+      summary: Approve Court Order
+      operationId: approve_court_order_api_v1_states__state_id__cadastre_court_orders__order_id__approve_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Order Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CourtOrderApproveIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Approve Court Order Api V1 States  State Id  Cadastre Court Orders  Order Id  Approve Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/court-orders/{order_id}/apply:
+    post:
+      summary: Apply Court Order
+      operationId: apply_court_order_api_v1_states__state_id__cadastre_court_orders__order_id__apply_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Order Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CourtOrderApplyIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Apply Court Order Api V1 States  State Id  Cadastre Court Orders  Order Id  Apply Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/parcels/{parcel_id}/revocations:
+    post:
+      summary: Issue Revocation Notice
+      operationId: issue_revocation_notice_api_v1_states__state_id__cadastre_parcels__parcel_id__revocations_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: parcel_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Parcel Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevocationIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Issue Revocation Notice Api V1 States  State Id  Cadastre Parcels  Parcel Id  Revocations
+                  Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/revocations/{revocation_id}:
+    get:
+      summary: Get Revocation
+      operationId: get_revocation_api_v1_states__state_id__cadastre_revocations__revocation_id__get
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: revocation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Revocation Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Revocation Api V1 States  State Id  Cadastre Revocations  Revocation Id  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+  /api/v1/states/{state_id}/cadastre/revocations/{revocation_id}/advance:
+    post:
+      summary: Advance Revocation
+      operationId: advance_revocation_api_v1_states__state_id__cadastre_revocations__revocation_id__advance_post
+      parameters:
+      - name: state_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StateId'
+      - name: revocation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Revocation Id
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevocationAdvanceIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Advance Revocation Api V1 States  State Id  Cadastre Revocations  Revocation Id  Advance Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - lands
+      security:
+      - bearerAuth: []
+components:
+  schemas:
+    ChildParcelSpec:
+      properties:
+        parcel_uin:
+          type: string
+          title: Parcel Uin
+          description: Unique Identification Number for the child parcel
+        boundary_geojson:
+          additionalProperties: true
+          type: object
+          title: Boundary Geojson
+          description: GeoJSON Polygon, WGS84 (EPSG:4326)
+        owner_stin:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner Stin
+          description: 'DEPRECATED: ownership changes via subdivision/merger are forbidden — children inherit the parent owner.
+            Supplying a value different from the parent''s owner is rejected with 422.'
+        survey_plan_no:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Survey Plan No
+      type: object
+      required:
+      - parcel_uin
+      - boundary_geojson
+      title: ChildParcelSpec
+      description: Boundary + identity of one child parcel produced by subdivision/merger.
+    CompensationCategory:
+      type: string
+      enum:
+      - LAND
+      - IMPROVEMENTS
+      - CROPS
+      - DISTURBANCE
+      title: CompensationCategory
+    CompensationItemIn:
+      properties:
+        category:
+          $ref: '#/components/schemas/CompensationCategory'
+        amount_kobo:
+          type: integer
+          minimum: 0.0
+          title: Amount Kobo
+      type: object
+      required:
+      - category
+      - amount_kobo
+      title: CompensationItemIn
+    ConsentIn:
+      properties:
+        parcel_id:
+          type: string
+          format: uuid
+          title: Parcel Id
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+        actor:
+          type: string
+          title: Actor
+          default: governor
+      type: object
+      required:
+      - parcel_id
+      - expires_at
+      title: ConsentIn
+      description: Governor consent instrument issuance body.
+    CourtOrderApplyIn:
+      properties:
+        actor:
+          type: string
+          title: Actor
+          default: registrar:filings
+      type: object
+      title: CourtOrderApplyIn
+    CourtOrderApproveIn:
+      properties:
+        actor:
+          type: string
+          title: Actor
+        role:
+          type: string
+          title: Role
+      type: object
+      required:
+      - actor
+      - role
+      title: CourtOrderApproveIn
+    CourtOrderIn:
+      properties:
+        parcel_id:
+          type: string
+          format: uuid
+          title: Parcel Id
+        order_type:
+          $ref: '#/components/schemas/CourtOrderType'
+        order_number:
+          type: string
+          title: Order Number
+        court:
+          type: string
+          title: Court
+        instrument_hash:
+          type: string
+          title: Instrument Hash
+        effective_date:
+          type: string
+          title: Effective Date
+        new_owner_stin:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: New Owner Stin
+        new_boundary_geojson:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: New Boundary Geojson
+        actor:
+          type: string
+          title: Actor
+          default: registrar:filings
+      type: object
+      required:
+      - parcel_id
+      - order_type
+      - order_number
+      - court
+      - instrument_hash
+      - effective_date
+      title: CourtOrderIn
+      description: Court-order filing body.
+    CourtOrderType:
+      type: string
+      enum:
+      - VEST_TITLE
+      - RECTIFY_OWNER
+      - RECTIFY_BOUNDARY
+      title: CourtOrderType
+    DeedVerificationRequest:
+      properties:
+        c_of_o_number:
+          type: string
+          title: C Of O Number
+        parcel_uin:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parcel Uin
+      type: object
+      required:
+      - c_of_o_number
+      title: DeedVerificationRequest
+      description: 'Contract schema: verifyDeed request body.'
+    DeedVerificationResult:
+      properties:
+        valid:
+          type: boolean
+          title: Valid
+        c_of_o_number:
+          type: string
+          title: C Of O Number
+        parcel_uin:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parcel Uin
+        tenant_state_id:
+          type: string
+          title: Tenant State Id
+        title_type:
+          anyOf:
+          - $ref: '#/components/schemas/TitleType'
+          - type: 'null'
+        parcel_status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parcel Status
+          description: Lifecycle status of the parcel (invalid results include it)
+        reference:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reference
+          description: Replacement C-of-O number or revocation reference for superseded/replaced/revoked titles
+        signature_chain:
+          items:
+            type: string
+          type: array
+          title: Signature Chain
+          description: 'Ordered JWS (Ed25519/EdDSA) tokens: registry issuance signature, governor consent countersignature'
+        detail:
+          type: string
+          title: Detail
+          default: ''
+      type: object
+      required:
+      - valid
+      - c_of_o_number
+      - tenant_state_id
+      title: DeedVerificationResult
+      description: 'Deed verification result with signature chain (contract: verifyDeed 200).'
+    DisputeDecisionIn:
+      properties:
+        actor:
+          type: string
+          title: Actor
+        resolution_note:
+          type: string
+          title: Resolution Note
+          default: ''
+      type: object
+      required:
+      - actor
+      title: DisputeDecisionIn
+      description: Dispute review/resolve/dismiss body.
+    DisputeGrounds:
+      type: string
+      enum:
+      - BOUNDARY
+      - OWNERSHIP
+      - FRAUD
+      - INHERITANCE
+      - OTHER
+      title: DisputeGrounds
+      description: Legal grounds for lodging a cadastral dispute.
+    DisputeIn:
+      properties:
+        complainant:
+          type: string
+          title: Complainant
+        grounds:
+          $ref: '#/components/schemas/DisputeGrounds'
+        description:
+          type: string
+          title: Description
+          default: ''
+      type: object
+      required:
+      - complainant
+      - grounds
+      title: DisputeIn
+      description: Dispute lodgement body.
+    EncumbranceCloseIn:
+      properties:
+        actor:
+          type: string
+          title: Actor
+        reason:
+          type: string
+          title: Reason
+          default: ''
+      type: object
+      required:
+      - actor
+      title: EncumbranceCloseIn
+      description: Encumbrance release/withdrawal body.
+    EncumbranceIn:
+      properties:
+        type:
+          $ref: '#/components/schemas/EncumbranceType'
+        instrument_hash:
+          type: string
+          title: Instrument Hash
+        priority:
+          type: integer
+          title: Priority
+          default: 0
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+        actor:
+          type: string
+          title: Actor
+          default: lands-registry
+      type: object
+      required:
+      - type
+      - instrument_hash
+      title: EncumbranceIn
+      description: Encumbrance registration body.
+    EncumbranceType:
+      type: string
+      enum:
+      - MORTGAGE
+      - CAVEAT
+      - CAUTION
+      - LIS_PENDENS
+      - COURT_ORDER
+      - LEASE
+      title: EncumbranceType
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    LandUseType:
+      type: string
+      enum:
+      - RESIDENTIAL
+      - COMMERCIAL
+      - INDUSTRIAL
+      - AGRI
+      title: LandUseType
+    MergeIn:
+      properties:
+        parent_parcel_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+          title: Parent Parcel Ids
+        child:
+          $ref: '#/components/schemas/ChildParcelSpec'
+        actor:
+          type: string
+          title: Actor
+          default: lands-registry
+      type: object
+      required:
+      - parent_parcel_ids
+      - child
+      title: MergeIn
+      description: 'Merger request: 2+ adjacent parents folded into one child parcel.'
+    Parcel:
+      properties:
+        parcel_id:
+          type: string
+          format: uuid
+          title: Parcel Id
+        parcel_uin:
+          type: string
+          title: Parcel Uin
+        title_type:
+          $ref: '#/components/schemas/TitleType'
+          default: UNREGISTERED
+        c_of_o_number:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: C Of O Number
+        status:
+          type: string
+          title: Status
+          default: ACTIVE
+        titling_workflow_id:
+          type: string
+          title: Titling Workflow Id
+          description: Temporal CadastralTitlingWorkflow ID (Surveyor → Town Planning → AG → Governor signature)
+      type: object
+      required:
+      - parcel_id
+      - parcel_uin
+      - titling_workflow_id
+      title: Parcel
+      description: 'Contract schema: Parcel (response).'
+    ParcelRegistration:
+      properties:
+        lga_id:
+          type: string
+          title: Lga Id
+        parcel_uin:
+          type: string
+          title: Parcel Uin
+          description: Unique Identification Number
+        owner_stin:
+          type: string
+          title: Owner Stin
+        land_use_type:
+          $ref: '#/components/schemas/LandUseType'
+        survey_plan_no:
+          type: string
+          title: Survey Plan No
+        beacon_count:
+          type: integer
+          minimum: 3.0
+          title: Beacon Count
+        area_sqm:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Area Sqm
+        boundary_geojson:
+          additionalProperties: true
+          type: object
+          title: Boundary Geojson
+          description: GeoJSON Polygon, WGS84 (EPSG:4326)
+      type: object
+      required:
+      - lga_id
+      - parcel_uin
+      - owner_stin
+      - land_use_type
+      - survey_plan_no
+      - beacon_count
+      - area_sqm
+      - boundary_geojson
+      title: ParcelRegistration
+      description: 'Contract schema: ParcelRegistration (boundary_geojson is an EPSG:4326 GeoJSON Polygon).'
+    RevocationAdvanceIn:
+      properties:
+        actor:
+          type: string
+          title: Actor
+        line_items:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/CompensationItemIn'
+            type: array
+          - type: 'null'
+          title: Line Items
+        valuer:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Valuer
+        override_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Override Reason
+        note:
+          type: string
+          title: Note
+          default: ''
+      type: object
+      required:
+      - actor
+      title: RevocationAdvanceIn
+    RevocationIn:
+      properties:
+        public_purpose:
+          type: string
+          title: Public Purpose
+        actor:
+          type: string
+          title: Actor
+          default: ministry:lands
+      type: object
+      required:
+      - public_purpose
+      title: RevocationIn
+      description: Revocation notice body.
+    StateId:
+      type: string
+      enum:
+      - lagos
+      - ogun
+      - osun
+      - benue
+      - nasarawa
+      - taraba
+      title: StateId
+      description: Tenancy enum — must match components.parameters.StateId in the contract.
+    SubdivideIn:
+      properties:
+        children:
+          items:
+            $ref: '#/components/schemas/ChildParcelSpec'
+          type: array
+          title: Children
+        actor:
+          type: string
+          title: Actor
+          default: lands-registry
+      type: object
+      required:
+      - children
+      title: SubdivideIn
+      description: 'Subdivision request: the child parcels tiling the parent.'
+    TitleType:
+      type: string
+      enum:
+      - UNREGISTERED
+      - C_OF_O
+      - GOV_CONSENT
+      - R_OF_O
+      title: TitleType
+    TitlingDecisionIn:
+      properties:
+        approved:
+          type: boolean
+          title: Approved
+        actor:
+          type: string
+          title: Actor
+        note:
+          type: string
+          title: Note
+          default: ''
+      type: object
+      required:
+      - approved
+      - actor
+      title: TitlingDecisionIn
+      description: Approval-signal body for the internal titling endpoint.
+    TitlingStatusOut:
+      properties:
+        workflow_id:
+          type: string
+          title: Workflow Id
+        parcel_id:
+          type: string
+          format: uuid
+          title: Parcel Id
+        stage:
+          type: string
+          title: Stage
+        status:
+          type: string
+          title: Status
+        pending_stage:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pending Stage
+        c_of_o_number:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: C Of O Number
+        signed_title_jws:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Signed Title Jws
+        rejection_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Rejection Reason
+        sla:
+          additionalProperties: true
+          type: object
+          title: Sla
+      type: object
+      required:
+      - workflow_id
+      - parcel_id
+      - stage
+      - status
+      - pending_stage
+      - c_of_o_number
+      - signed_title_jws
+      - rejection_reason
+      - sla
+      title: TitlingStatusOut
+      description: Internal workflow status projection, incl. SLA evaluation.
+    TransferAdvanceIn:
+      properties:
+        actor:
+          type: string
+          title: Actor
+        consent_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Consent Id
+        note:
+          type: string
+          title: Note
+          default: ''
+      type: object
+      required:
+      - actor
+      title: TransferAdvanceIn
+      description: Transfer stage-advance body.
+    TransferIn:
+      properties:
+        instrument_type:
+          $ref: '#/components/schemas/TransferInstrumentType'
+        transferor_stin:
+          type: string
+          title: Transferor Stin
+        transferee_stin:
+          type: string
+          title: Transferee Stin
+        evidence_document_id:
+          type: string
+          title: Evidence Document Id
+        actor:
+          type: string
+          title: Actor
+          default: lands-registry
+      type: object
+      required:
+      - instrument_type
+      - transferor_stin
+      - transferee_stin
+      - evidence_document_id
+      title: TransferIn
+      description: Transfer application body.
+    TransferInstrumentType:
+      type: string
+      enum:
+      - SALE
+      - GIFT
+      - ASSENT
+      - COURT_ORDER
+      - FORECLOSURE_SALE
+      - PARTITION
+      title: TransferInstrumentType
+    TransmissionAdvanceIn:
+      properties:
+        actor:
+          type: string
+          title: Actor
+        note:
+          type: string
+          title: Note
+          default: ''
+      type: object
+      required:
+      - actor
+      title: TransmissionAdvanceIn
+    TransmissionIn:
+      properties:
+        deceased_stin:
+          type: string
+          title: Deceased Stin
+        death_certificate_doc_id:
+          type: string
+          title: Death Certificate Doc Id
+        beneficiaries:
+          items:
+            type: string
+          type: array
+          title: Beneficiaries
+        actor:
+          type: string
+          title: Actor
+          default: lands-registry
+      type: object
+      required:
+      - deceased_stin
+      - death_certificate_doc_id
+      - beneficiaries
+      title: TransmissionIn
+      description: Transmission (probate) death-report body.
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: lands
+- name: cadastre
+- name: titles

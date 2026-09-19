@@ -177,3 +177,103 @@ KYC, trader tiered KYC, artisanal-miner biometrics, and automated corporate KYB 
 preserving the sovereignty constraints (object-reference document storage, minimized results,
 tenant-scoped hash-audited access). Production bindings to PaddleOCR/Docling/VLM endpoints and
 live CAC/NIMC/tax/sanctions registries remain ADAPTER-SEAM (fail-closed by design).
+
+---
+
+## 14. Officer provisioning & full stakeholder role census (implemented)
+
+**Update (this change).** The two blocking gaps are closed:
+
+1. **Realms were created EMPTY and no user-provisioning API existed.** Keycloak realm
+   import deliberately strips dev-template users (`operators/keycloak_realm.py`), so no
+   officer, agent, or auditor could ever be onboarded. The control plane now exposes
+   **officer provisioning** (`services/control-plane/app/officers.py`):
+
+   | Endpoint | Effect |
+   |---|---|
+   | `POST /cp/v1/tenants/{state}/officers` `{email, display_name, role}` | Creates the Keycloak user with a **temporary credential**, joins the role's realm groups → status `INVITED` |
+   | `POST .../officers/{id}/activate` | First-login/activation confirmation: `INVITED → ACTIVE` |
+   | `POST .../officers/{id}/suspend` | `ACTIVE → SUSPENDED` (re-activatable) |
+   | `POST .../officers/{id}/offboard` | Any non-terminal state `→ OFFBOARDED`: **user disabled + all sessions revoked** (logout-all) |
+   | `GET /cp/v1/tenants/{state}/officers?role=&officer_status=` | List with filters |
+
+   Every endpoint is gated by the existing `require_admin` token; **every transition is
+   hash-chain audited** on the tenant's chain as `ng.sos.tenant.officer_*` events
+   (same `MetadataStore` pattern as tenant lifecycle). The `KeycloakAdmin` seam is the
+   deterministic in-memory `FixtureKeycloakAdmin` by default and a live admin-REST seam
+   in production; **`SOS_CP_PROFILE=production` without Keycloak admin config fails
+   closed at boot**.
+
+2. **Data-plane writes were unauthenticated** (role = caller-supplied `"governor:x"`
+   strings). The shared OIDC middleware (`services/_shared/auth.py`,
+   `require_role(role)`) now verifies Bearer JWTs against the state-realm JWKS
+   (`SOS_AUTH_JWKS_URL`, RS256, `exp`/`iss`/signature via PyJWT[crypto]) and returns the
+   actor as `{role}:{sub}` so the legacy SoD role checkers keep working. Fail-closed:
+   `SOS_AUTH_PROFILE=production` without JWKS is a **boot error**. Dev/test default is
+   the legacy passthrough (with an `X-Auth-Deprecation` response header) so existing
+   clients are unaffected. Wired enforcement:
+
+   * **mod-gis-lands** — titling decisions (per-stage role: registry → surveyor →
+     ministry → ag → governor), encumbrance register/release/withdraw (registry),
+     transfers apply/advance (registry), governor-consent issuance (governor),
+     probate transmissions (registry), court-order file/apply (registry) and approve
+     (ag), revocation notice/advance (ministry), title-hash anchoring (registry).
+   * **mod-kyc-kyb** — KYC/KYB review decisions (`kyc-reviewer`).
+
+### 14.1 Role catalog (provisionable via the officers API)
+
+`STAKEHOLDER_ROLES` in `app/officers.py` — each maps to realm groups
+(`sos-tenant-admins|operators|auditors` + `sos-role-<role>`):
+
+`registry`, `surveyor`, `ministry`, `ag`, `governor`, `valuer`, `resolver`,
+`kyc-reviewer`, `auditor`, `dispatch`, `revenue-officer`, `mda-officer`,
+`agent-supervisor`.
+
+### 14.2 Full stakeholder census — where each role lives and how it onboards now
+
+| # | Role | Modeled in code | Onboarding path after this change |
+|---|---|---|---|
+| 1 | Control-plane platform admin | `SOS_CP_ADMIN_TOKEN` gate, `require_admin` (control-plane `main.py`) | Bootstrap token (GitOps-managed), all calls audit-logged |
+| 2 | Tenant operator | Realm group `sos-tenant-operators` | Officers API (`mda-officer`/operator-class roles) |
+| 3 | Tenant auditor | Realm group `sos-tenant-auditors`; officers `auditor` | Officers API → invite → activate |
+| 4 | Land registry officer | `registry` (titling `STAGE_ROLES`, transfers/encumbrances/court orders) | Officers API |
+| 5 | Surveyor | `surveyor` (SURVEYOR_VALIDATION) | Officers API |
+| 6 | Ministry / town-planning reviewer | `ministry` (MINISTRY_REVIEW, revocation) | Officers API |
+| 7 | Attorney-General | `ag` (AG_REVIEW, court-order approval) | Officers API |
+| 8 | Governor signatory | `governor` (GOVERNOR_CONSENT, consent instruments) | Officers API (group `sos-tenant-admins`) |
+| 9 | Valuer | `valuer` (revocation compensation line-items) | Officers API |
+| 10 | Dispute resolver | `resolver` (cadastre dispute review/resolve) | Officers API |
+| 11 | KYC/KYB reviewer | `kyc-reviewer` (mod-kyc-kyb review endpoints, JWT-enforced) | Officers API |
+| 12 | Auditor (read-only) | `auditor` (audit feeds, `sos-audit-read` scope) | Officers API |
+| 13 | Dispatch officer | `dispatch` (mod-police-cad) | Officers API |
+| 14 | Revenue officer | `revenue-officer` (mod-rev-core assessments/refunds; FIDO2 per policy) | Officers API |
+| 15 | MDA officer | `mda-officer` (citizen-portal service requests) | Officers API |
+| 16 | Agent supervisor | `agent-supervisor` (POS/field agent fleet oversight) | Officers API |
+| 17 | Citizen wallet holder | mod-citizen-portal wallet + NIN hash | Self-service wallet creation + KYC case |
+| 18 | Resident (identity subject) | mod-identity identity records, consent grants | Wallet onboarding, NIN hash-at-rest |
+| 19 | Guardian / dependant proxy | mod-identity dependant consent scopes | Resident-linked consent grant |
+| 20 | POS/field agent | edge-daemon `DeviceSigner`, mod-kyc-kyb AGENT subject | Agent-supervisor enrollment + device key issuance + KYC |
+| 21 | Market trader | mod-market trader registry, stall binding | Stall assignment + tiered KYC |
+| 22 | Market revenue vendor | mod-market concession lease | Concession award + KYB |
+| 23 | Licensed miner | mod-mining site/permit registry | Site registration + KYB |
+| 24 | Artisanal miner | mod-mining biometric registry scope | Biometric KYC case |
+| 25 | Haulage operator | mod-transport-wim e-manifests | Operator registration + KYB |
+| 26 | Truck driver | mod-mobility-switch driver manifests | Manifest KYC |
+| 27 | Agri-produce merchant | mod-agri-waybill waybills (`SOSWB1.*` HMAC) | Waybill issuer onboarding + KYC |
+| 28 | Industrial facility operator | mod-environment permits/telemetry | Facility registration + KYB + EIA |
+| 29 | Health facility (provider) | mod-health billing accounts | Facility registration + SHIA/NHIS standing |
+| 30 | Education institution | mod-education billing/invoices | Institution registration + accreditation |
+| 31 | PPP vendor / concessionaire | mod-ppp-investment pipeline, DOC-01…08 | Proposal intake + QCBS + KYB |
+| 32 | Verification-API consumer | mod-identity product subscriptions (consent-gated) | Product subscription + NDPA consent |
+| 33 | ERP integrator (state MDAs) | mod-erp-bridge adapters | Tenant-scoped service account |
+| 34 | API consumer (general) | Gateway (APISIX) consumer credentials | Gateway onboarding + KYB where billing |
+| 35 | FSP / scheme peer (payments) | mod-mobility-switch / ledger settlement peers | Bilateral agreement + mTLS peer credential |
+| 36 | Civil servant (payroll) | mod-citizen-portal civil-servant registry, PayrollAudit | HR import + biometric re-verification |
+| 37 | Transit/border operator | mod-border-transit manifests | Operator registration + KYB |
+| 38 | Waterways operator | mod-waterways permits | Operator registration + KYB |
+| 39 | Forestry concession | mod-forestry provenance permits | Concession award + KYB |
+| 40 | Transparency/data user (public) | mod-transparency public datasets | None (public read) |
+
+Roles 1–16 are Keycloak-realm principals; 2–16 are provisionable through the officers
+API today. Roles 17–40 onboard through their sector module flows (above), with
+KYC/KYB verification via mod-kyc-kyb where required.

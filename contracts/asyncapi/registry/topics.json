@@ -1,6 +1,12 @@
 {
   "channels": [
     {
+      "channel": "ng.sos.admin.access",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.admin.access.json",
+      "topic": "ng.sos.admin.access"
+    },
+    {
       "channel": "ng.sos.agri.lot_traced_hop",
       "contract": "platform-events.yaml",
       "schema": "schemas/ng.sos.agri.lot_traced_hop.json",
@@ -25,6 +31,12 @@
       "topic": "ng.sos.agri.warehouse_receipt_issued"
     },
     {
+      "channel": "ng.sos.audit.genesis",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.audit.genesis.json",
+      "topic": "ng.sos.audit.genesis"
+    },
+    {
       "channel": "ng.sos.border.levy_assessed",
       "contract": "platform-events.yaml",
       "schema": "schemas/ng.sos.border.levy_assessed.json",
@@ -41,12 +53,6 @@
       "contract": "platform-events.yaml",
       "schema": "schemas/ng.sos.border.transit_crossing_recorded.json",
       "topic": "ng.sos.border.transit_crossing_recorded"
-    },
-    {
-      "channel": "ng.sos.citizen.payroll_audit_completed",
-      "contract": "platform-events.yaml",
-      "schema": "schemas/ng.sos.citizen.payroll_audit_completed.json",
-      "topic": "ng.sos.citizen.payroll_audit_completed"
     },
     {
       "channel": "ng.sos.environment.compliance_violation_raised",
@@ -81,6 +87,12 @@
     {
       "channel": "ng.sos.forestry.untagged_timber_alert",
       "contract": "mining-events.yaml",
+      "schema": "schemas/ng.sos.forestry.untagged_timber_alert.json",
+      "topic": "ng.sos.forestry.untagged_timber_alert"
+    },
+    {
+      "channel": "ng.sos.forestry.untagged_timber_alert",
+      "contract": "platform-events.yaml",
       "schema": "schemas/ng.sos.forestry.untagged_timber_alert.json",
       "topic": "ng.sos.forestry.untagged_timber_alert"
     },
@@ -199,8 +211,20 @@
       "topic": "ng.sos.mining.consignment_dispatched"
     },
     {
+      "channel": "ng.sos.mining.consignment_dispatched",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.mining.consignment_dispatched.json",
+      "topic": "ng.sos.mining.consignment_dispatched"
+    },
+    {
       "channel": "ng.sos.mining.weighbridge_reading",
       "contract": "mining-events.yaml",
+      "schema": "schemas/ng.sos.mining.weighbridge_reading.json",
+      "topic": "ng.sos.mining.weighbridge_reading"
+    },
+    {
+      "channel": "ng.sos.mining.weighbridge_reading",
+      "contract": "platform-events.yaml",
       "schema": "schemas/ng.sos.mining.weighbridge_reading.json",
       "topic": "ng.sos.mining.weighbridge_reading"
     },
@@ -223,10 +247,28 @@
       "topic": "ng.sos.mortgage.application_received"
     },
     {
+      "channel": "ng.sos.mortgage.approved",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.mortgage.approved.json",
+      "topic": "ng.sos.mortgage.approved"
+    },
+    {
+      "channel": "ng.sos.mortgage.closed",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.mortgage.closed.json",
+      "topic": "ng.sos.mortgage.closed"
+    },
+    {
       "channel": "ng.sos.mortgage.credit_scored",
       "contract": "platform-events.yaml",
       "schema": "schemas/ng.sos.mortgage.credit_scored.json",
       "topic": "ng.sos.mortgage.credit_scored"
+    },
+    {
+      "channel": "ng.sos.mortgage.declined",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.mortgage.declined.json",
+      "topic": "ng.sos.mortgage.declined"
     },
     {
       "channel": "ng.sos.mortgage.defaulted",
@@ -295,6 +337,12 @@
       "topic": "ng.sos.payments.settlement_completed"
     },
     {
+      "channel": "ng.sos.policy_pack.activated",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.policy_pack.activated.json",
+      "topic": "ng.sos.policy_pack.activated"
+    },
+    {
       "channel": "ng.sos.safecity.anomaly_detected",
       "contract": "platform-events.yaml",
       "schema": "schemas/ng.sos.safecity.anomaly_detected.json",
@@ -319,10 +367,40 @@
       "topic": "ng.sos.tenant.branding_updated"
     },
     {
+      "channel": "ng.sos.tenant.provision_failed",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.tenant.provision_failed.json",
+      "topic": "ng.sos.tenant.provision_failed"
+    },
+    {
+      "channel": "ng.sos.tenant.provision_rollback",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.tenant.provision_rollback.json",
+      "topic": "ng.sos.tenant.provision_rollback"
+    },
+    {
+      "channel": "ng.sos.tenant.provision_step",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.tenant.provision_step.json",
+      "topic": "ng.sos.tenant.provision_step"
+    },
+    {
       "channel": "ng.sos.tenant.provisioned",
       "contract": "platform-events.yaml",
       "schema": "schemas/ng.sos.tenant.provisioned.json",
       "topic": "ng.sos.tenant.provisioned"
+    },
+    {
+      "channel": "ng.sos.tenant.provisioning_requested",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.tenant.provisioning_requested.json",
+      "topic": "ng.sos.tenant.provisioning_requested"
+    },
+    {
+      "channel": "ng.sos.tenant.suspended",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.tenant.suspended.json",
+      "topic": "ng.sos.tenant.suspended"
     },
     {
       "channel": "ng.sos.waterways.dredging_volume_alert",

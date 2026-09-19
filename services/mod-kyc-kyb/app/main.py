@@ -5,7 +5,7 @@ import os
 from datetime import date, datetime
 from typing import List, Optional
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from .adapters import (
@@ -229,8 +229,35 @@ except ImportError:
     except ImportError:  # minimal container images ship only the app package
         _instrument_fastapi = None
 
+# --- Shared OIDC JWT authorization (services/_shared/auth.py) ---------------
+try:
+    from _shared.auth import assert_auth_bootable as _assert_auth_bootable
+    from _shared.auth import require_role as _require_role
+except ImportError:
+    import sys as _sys3
+    from pathlib import Path as _Path3
+
+    _sr3 = _Path3(__file__).resolve().parents[2]
+    if str(_sr3) not in _sys3.path:
+        _sys3.path.insert(0, str(_sr3))
+    try:
+        from _shared.auth import assert_auth_bootable as _assert_auth_bootable
+        from _shared.auth import require_role as _require_role
+    except ImportError:  # minimal container images ship only the app package
+        def _assert_auth_bootable() -> None:  # type: ignore[misc]
+            return None
+
+        def _require_role(role: str):  # type: ignore[misc]
+            def _dep(request: Request) -> str:
+                return f"{role}:anonymous"
+
+            return _dep
+
 
 def create_app(service: Optional[KycKybService] = None) -> FastAPI:
+    # Fail-closed: SOS_AUTH_PROFILE=production without SOS_AUTH_JWKS_URL is a
+    # boot error (services/_shared/auth.py).
+    _assert_auth_bootable()
     app = FastAPI(title="mod-kyc-kyb — KYC/KYB, Document AI & Liveness")
     app.state.service = service or build_service()
 
@@ -322,7 +349,8 @@ def create_app(service: Optional[KycKybService] = None) -> FastAPI:
             raise _map(exc)
 
     @app.post("/kyc/v1/cases/{case_id}/review", response_model=KycCase)
-    def review_kyc_case(case_id: str, body: ReviewRequest, request: Request):
+    def review_kyc_case(case_id: str, body: ReviewRequest, request: Request,
+                        _actor: str = Depends(_require_role("kyc-reviewer"))):
         try:
             return svc(request).review_case(
                 body.state_id, case_id, body.decision, body.reviewer, body.reason, "KYC"
@@ -386,7 +414,8 @@ def create_app(service: Optional[KycKybService] = None) -> FastAPI:
             raise _map(exc)
 
     @app.post("/kyb/v1/cases/{case_id}/review", response_model=KybCase)
-    def review_kyb_case(case_id: str, body: ReviewRequest, request: Request):
+    def review_kyb_case(case_id: str, body: ReviewRequest, request: Request,
+                        _actor: str = Depends(_require_role("kyc-reviewer"))):
         try:
             return svc(request).review_case(
                 body.state_id, case_id, body.decision, body.reviewer, body.reason, "KYB"

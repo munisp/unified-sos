@@ -5,7 +5,7 @@ scorer (mod-ml-inference fraud model) sits behind the
 :class:`TitleRiskAdapter` protocol and is selected via environment::
 
     SOS_LANDS_PROFILE=dev|production   (default: dev)
-    SOS_LANDS_RISK_URL=http://mod-ml-inference:8021/ml/v1/fraud/score
+    SOS_LANDS_RISK_URL=http://mod-ml-inference:8000/ml/v1/fraud/score
 
 Fail-closed: when ``SOS_LANDS_PROFILE=production`` and ``SOS_LANDS_RISK_URL``
 is unset, :func:`risk_scorer_from_env` raises
@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Protocol
 
 #: Default in-cluster URL of the ML fraud-scoring endpoint (deployment config).
-DEFAULT_RISK_URL = "http://mod-ml-inference:8021/ml/v1/fraud/score"
+DEFAULT_RISK_URL = "http://mod-ml-inference:8000/ml/v1/fraud/score"
 
 
 class AdapterUnavailableError(RuntimeError):

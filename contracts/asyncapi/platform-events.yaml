@@ -105,26 +105,10 @@ channels:
             value: { type: number }
             fine_estimate_kobo: { type: integer }
             timestamp: { type: string, format: date-time }
-  ng.sos.citizen.payroll_audit_completed:
-    publish:
-      operationId: payrollAuditCompleted
-      description: >-
-        Emitted by mod-citizen-portal (CIT-11) when a civil-service biometric
-        payroll audit completes, summarising ghost-worker findings and
-        recoverable savings in kobo.
-      message:
-        payload:
-          type: object
-          required: [state_id, audit_id, period, staff_scanned, findings_count, recoverable_kobo, timestamp]
-          properties:
-            state_id: { type: string }
-            audit_id: { type: string }
-            period: { type: string }
-            staff_scanned: { type: integer }
-            findings_count: { type: integer }
-            recoverable_kobo: { type: integer }
-            workflow_ref: { type: string, nullable: true, description: Temporal durable cleanup workflow reference }
-            timestamp: { type: string, format: date-time }
+  # ng.sos.citizen.payroll_audit_completed: REMOVED — the payroll-audit
+  # completion point lives in mod-citizen-portal/app/service.py, which was
+  # outside the scope of the drift-remediation change, and no publisher
+  # exists. Re-add the channel together with its publisher (CIT-11).
   ng.sos.kyc.case_decision_made:
     publish:
       operationId: kycCaseDecisionMade
@@ -231,7 +215,7 @@ channels:
           properties:
             state_id: { type: string, enum: [lagos, ogun, osun, benue, nasarawa, taraba] }
             dataset_id: { type: string }
-            dataset_type: { type: string, enum: [PARCEL, RASTER, VECTOR, H3_INDEX, GEOPARQUET] }
+            dataset_type: { type: string, enum: [CADASTRE, BUILDING_FOOTPRINTS, NDVI_ALERTS, FOREST_RESERVES, TRANSPORT_CORRIDORS, MARKET_BOUNDARIES, MINING_SITES] }
             source_uri: { type: string }
             crs: { type: string }
             h3_resolution: { type: integer, nullable: true }
@@ -249,8 +233,8 @@ channels:
           properties:
             state_id: { type: string, enum: [lagos, ogun, osun, benue, nasarawa, taraba] }
             job_id: { type: string }
-            job_type: { type: string, enum: [H3_INDEX, SPATIAL_JOIN, NDVI, GEOLIBRE_PROJECT, AGENCY_SYNC] }
-            status: { type: string, enum: [COMPLETED, FAILED] }
+            job_type: { type: string, enum: [UNASSESSED_PROPERTY_JOIN, NDVI_CHANGE_DETECTION, H3_AGGREGATION, GEOPARQUET_EXPORT, GEOLIBRE_PROJECT_BUILD] }
+            status: { type: string, enum: [SUCCEEDED, FAILED] }
             output_uri: { type: string, nullable: true }
             result_hash: { type: string, nullable: true }
             metrics: { type: object, additionalProperties: true }
@@ -272,7 +256,7 @@ channels:
             name: { type: string }
             project_uri: { type: string }
             project_hash: { type: string }
-            redaction_level: { type: string, enum: [FULL, PARTIAL, NONE] }
+            redaction_level: { type: string, enum: [NONE, SENSITIVE] }
             source_job_id: { type: string, nullable: true }
             timestamp: { type: string, format: date-time }
   ng.sos.geospatial.agency_sync_completed:
@@ -866,16 +850,16 @@ channels:
       description: >-
         Emitted by mod-gis-lands when a governor revocation (Land Use Act s.28)
         becomes effective after the signed instrument. Carries the public-purpose
-        code and gazette reference.
+        code; the gazette reference is attached when available.
       message:
         payload:
           type: object
-          required: [state_id, parcel_id, public_purpose, gazette_reference, audit_hash, timestamp]
+          required: [state_id, parcel_id, public_purpose, audit_hash, timestamp]
           properties:
             state_id: { type: string }
             parcel_id: { type: string }
             public_purpose: { type: string }
-            gazette_reference: { type: string }
+            gazette_reference: { type: string, nullable: true }
             audit_hash: { type: string }
             timestamp: { type: string, format: date-time }
   ng.sos.lands.compensation_paid:
@@ -894,4 +878,223 @@ channels:
             claimant_id: { type: string }
             amount_kobo: { type: integer, format: int64 }
             transfer_id: { type: string }
+            timestamp: { type: string, format: date-time }
+  ng.sos.admin.access:
+    publish:
+      operationId: adminAccessRecorded
+      description: >-
+        Emitted by the control plane for every admin-gated call (success AND
+        failure). Hash-chained; only the SHA-256 of the presented token is
+        recorded — never the token itself.
+      message:
+        payload:
+          type: object
+          required: [endpoint, asserted_actor, outcome, token_sha256, timestamp]
+          properties:
+            endpoint: { type: string }
+            asserted_actor: { type: string }
+            outcome: { type: string, description: e.g. allowed | denied }
+            token_sha256: { type: string, description: SHA-256 of the presented admin token }
+            timestamp: { type: string, format: date-time }
+  ng.sos.audit.genesis:
+    publish:
+      operationId: auditGenesis
+      description: >-
+        Emitted by the control plane exactly once per tenant (and the global
+        chain) to anchor the SHA-256 hash chain over canonical JSON.
+      message:
+        payload:
+          type: object
+          required: [tenant_id, chain, timestamp]
+          properties:
+            tenant_id: { type: string, nullable: true }
+            chain: { type: string, description: e.g. sha256/canonical-json }
+            timestamp: { type: string, format: date-time }
+  ng.sos.tenant.provisioning_requested:
+    publish:
+      operationId: tenantProvisioningRequested
+      description: >-
+        Emitted by the control plane when a tenant provisioning request is
+        accepted and enqueued (WP-01; precedes ng.sos.tenant.provisioned).
+      message:
+        payload:
+          type: object
+          required: [state, tier, timestamp]
+          properties:
+            state: { type: string, enum: [lagos, ogun, osun, benue, nasarawa, taraba] }
+            tier: { type: string, enum: [dedicated, hybrid, shared] }
+            timestamp: { type: string, format: date-time }
+  ng.sos.tenant.provision_step:
+    publish:
+      operationId: tenantProvisionStep
+      description: >-
+        Emitted by the control-plane provisioning workflow for each operator
+        step transition (started / completed / failed).
+      message:
+        payload:
+          type: object
+          required: [step, operator, status, timestamp]
+          properties:
+            step: { type: string, description: operator key in OPERATOR_ORDER }
+            operator: { type: string }
+            status: { type: string, enum: [started, completed, failed] }
+            error: { type: string, nullable: true, description: sanitised error, present on failed }
+            timestamp: { type: string, format: date-time }
+  ng.sos.tenant.provision_failed:
+    publish:
+      operationId: tenantProvisionFailed
+      description: >-
+        Emitted by the control plane when the provisioning workflow raises
+        after rollback; the tenant is left in FAILED status.
+      message:
+        payload:
+          type: object
+          required: [state, error, timestamp]
+          properties:
+            state: { type: string, enum: [lagos, ogun, osun, benue, nasarawa, taraba] }
+            error: { type: string, description: sanitised failure message }
+            timestamp: { type: string, format: date-time }
+  ng.sos.tenant.provision_rollback:
+    publish:
+      operationId: tenantProvisionRollback
+      description: >-
+        Emitted by the control-plane provisioning workflow during compensating
+        teardown of completed steps, in reverse order (best-effort).
+      message:
+        payload:
+          type: object
+          required: [operator, status, timestamp]
+          properties:
+            operator: { type: string }
+            status: { type: string, enum: [rolled-back, rollback-failed] }
+            error: { type: string, nullable: true }
+            timestamp: { type: string, format: date-time }
+  ng.sos.tenant.suspended:
+    publish:
+      operationId: tenantSuspended
+      description: Emitted by the control plane when an active tenant is suspended.
+      message:
+        payload:
+          type: object
+          required: [reason, timestamp]
+          properties:
+            reason: { type: string }
+            timestamp: { type: string, format: date-time }
+  ng.sos.policy_pack.activated:
+    publish:
+      operationId: policyPackActivated
+      description: >-
+        Emitted by the control plane when a signed state policy pack
+        (config/states pack) is activated for a tenant.
+      message:
+        payload:
+          type: object
+          required: [policy_id, timestamp]
+          properties:
+            policy_id: { type: string }
+            timestamp: { type: string, format: date-time }
+  ng.sos.mortgage.approved:
+    publish:
+      operationId: mortgageApproved
+      description: >-
+        Emitted by mod-mortgage when a credit-scored application is approved
+        by the credit officer.
+      message:
+        payload:
+          type: object
+          required: [tenant_state_id, mortgage_id, occurred_at]
+          properties:
+            tenant_state_id: { type: string }
+            mortgage_id: { type: string }
+            officer: { type: string }
+            reason: { type: string }
+            occurred_at: { type: string, format: date-time }
+  ng.sos.mortgage.declined:
+    publish:
+      operationId: mortgageDeclined
+      description: Emitted by mod-mortgage when an application is declined after scoring.
+      message:
+        payload:
+          type: object
+          required: [tenant_state_id, mortgage_id, score, occurred_at]
+          properties:
+            tenant_state_id: { type: string }
+            mortgage_id: { type: string }
+            score: { type: integer }
+            occurred_at: { type: string, format: date-time }
+  ng.sos.mortgage.closed:
+    publish:
+      operationId: mortgageClosed
+      description: >-
+        Emitted by mod-mortgage when a mortgage file is closed and all liens
+        are released.
+      message:
+        payload:
+          type: object
+          required: [tenant_state_id, mortgage_id, lien_ids, occurred_at]
+          properties:
+            tenant_state_id: { type: string }
+            mortgage_id: { type: string }
+            lien_ids: { type: string, description: comma-separated released lien ids }
+            occurred_at: { type: string, format: date-time }
+  ng.sos.mining.consignment_dispatched:
+    publish:
+      operationId: miningConsignmentDispatched
+      description: >-
+        Emitted by mod-mining when a consignment clears site weighbridge and
+        assay and is dispatched with an RFID seal; carries the state levy
+        (NOT federal royalty) due.
+      message:
+        payload:
+          type: object
+          required: [state_id, consignment_id, mine_lease_id, mineral_type, net_weight_kg, truck_registration, rfid_seal_id, royalty_due_kobo, destination_corridor, timestamp]
+          properties:
+            state_id: { type: string }
+            consignment_id: { type: string }
+            mine_lease_id: { type: string }
+            mineral_type: { type: string }
+            gross_weight_kg: { type: number }
+            tare_weight_kg: { type: number }
+            net_weight_kg: { type: number }
+            lithium_oxide_grade_pct: { type: number, nullable: true }
+            truck_registration: { type: string }
+            rfid_seal_id: { type: string }
+            royalty_due_kobo: { type: integer, format: int64 }
+            destination_corridor: { type: string }
+            timestamp: { type: string, format: date-time }
+  ng.sos.mining.weighbridge_reading:
+    publish:
+      operationId: miningWeighbridgeReading
+      description: >-
+        Shared weighbridge envelope emitted by mod-transport-wim WIM stations
+        (and site weighbridges) for each axle-weighed vehicle crossing.
+      message:
+        payload:
+          type: object
+          required: [state_id, station_id, axle_weights_kg, gross_weight_kg, overload_detected, timestamp]
+          properties:
+            state_id: { type: string }
+            station_id: { type: string }
+            axle_weights_kg:
+              type: array
+              items: { type: number }
+            gross_weight_kg: { type: number }
+            anpr_plate: { type: string, nullable: true }
+            overload_detected: { type: boolean }
+            timestamp: { type: string, format: date-time }
+  ng.sos.forestry.untagged_timber_alert:
+    publish:
+      operationId: forestryUntaggedTimberAlert
+      description: >-
+        Emitted by mod-forestry when a checkpoint detects a timber load
+        without a valid RFID tag / e-waybill.
+      message:
+        payload:
+          type: object
+          required: [state_id, checkpoint_id, vehicle_plate, gps, timestamp]
+          properties:
+            state_id: { type: string }
+            checkpoint_id: { type: string }
+            vehicle_plate: { type: string }
+            gps: { type: object, description: '{lat, lon} fix at the checkpoint' }
             timestamp: { type: string, format: date-time }

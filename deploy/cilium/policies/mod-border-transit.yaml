@@ -1,0 +1,68 @@
+# Per-module network policy for mod-border-transit (tenant data plane).
+# API traffic enters only from the APISIX gateway (:8000) or the same tenant
+# namespace; egress is limited to cluster DNS, Kafka, and Postgres in the
+# sos-data plane (further constrained by data-plane-access.yaml).
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: mod-border-transit-module-access
+spec:
+  description: >-
+    mod-border-transit: ingress only from the API gateway (:8000) or the same tenant
+    namespace; egress only to cluster DNS, Kafka (:9092), and Postgres
+    (:5432).
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/component: mod-border-transit
+  namespaceSelector:
+    matchExpressions:
+      - key: sos.gov.ng/tenant-state
+        operator: Exists
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/component: api-gateway
+      fromNamespaces:
+        - matchLabels:
+            kubernetes.io/metadata.name: sos-gateway
+      toPorts:
+        - ports:
+            - port: "8000"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels: {}
+      fromNamespaces:
+        - matchExpressions:
+            - key: sos.gov.ng/tenant-state
+              operator: Exists
+  egress:
+    # cluster DNS only (see dns-visibility.yaml; Hubble records lookups)
+    - toEndpoints:
+        - matchLabels:
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+          rules:
+            dns:
+              - matchPattern: "*"
+    # event backbone
+    - toEndpoints:
+        - matchLabels:
+            app.kubernetes.io/component: kafka
+      toPorts:
+        - ports:
+            - port: "9092"
+              protocol: TCP
+    # relational store
+    - toEndpoints:
+        - matchLabels:
+            app.kubernetes.io/component: postgres
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP

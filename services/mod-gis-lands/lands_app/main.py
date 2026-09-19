@@ -21,7 +21,7 @@ from __future__ import annotations
 from typing import Optional
 from uuid import UUID, uuid4
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, Field
 from datetime import datetime
 
@@ -104,6 +104,7 @@ from .schemas import (
 from .signing import SignatureError, verify_payload
 from .titling import (
     LocalTitlingRunner,
+    STAGE_ROLES,
     TitlingWorkflowInstance,
     WorkflowError,
     WorkflowStatus,
@@ -311,6 +312,32 @@ except ImportError:
     except ImportError:  # minimal container images ship only the app package
         _instrument_fastapi = None
 
+# --- Shared OIDC JWT authorization (services/_shared/auth.py) ---------------
+try:
+    from _shared.auth import assert_auth_bootable as _assert_auth_bootable
+    from _shared.auth import require_role as _require_role
+except ImportError:  # minimal container images ship only the app package
+    import sys as _sys2
+    from pathlib import Path as _Path2
+
+    _sr = _Path2(__file__).resolve().parents[2]
+    if str(_sr) not in _sys2.path:
+        _sys2.path.insert(0, str(_sr))
+    try:
+        from _shared.auth import assert_auth_bootable as _assert_auth_bootable
+        from _shared.auth import require_role as _require_role
+    except ImportError:
+        def _assert_auth_bootable() -> None:  # type: ignore[misc]
+            return None
+
+        def _require_role(role: str):  # type: ignore[misc]
+            from fastapi import Request
+
+            def _dep(request: Request) -> str:
+                return f"{role}:anonymous"
+
+            return _dep
+
 
 def create_app(
     repository: ParcelRepository | None = None,
@@ -328,9 +355,12 @@ def create_app(
 
     Production fail-closed boot: when ``SOS_LANDS_PROFILE=production`` and the
     risk/anchor/docs/tax/ledger seams are not injected *and* their env URLs are
-    unset, ``*_from_env`` raises ``AdapterUnavailableError`` here.
+    unset, ``*_from_env`` raises ``AdapterUnavailableError`` here. With
+    ``SOS_AUTH_PROFILE=production`` a missing ``SOS_AUTH_JWKS_URL`` is a boot
+    error (fail-closed OIDC enforcement, services/_shared/auth.py).
     """
 
+    _assert_auth_bootable()
     app = FastAPI(title="SOS Cadastral Land Administration API", version="1.0.0")
     repo: ParcelRepository = repository or InMemoryParcelRepository()
     runner = titling_runner or LocalTitlingRunner()
@@ -631,11 +661,17 @@ def create_app(
     )
     def titling_decide(
         state_id: StateId, workflow_id: str, body: TitlingDecisionIn,
+        request: Request, response: Response,
         repo: ParcelRepository = Depends(get_repo),
         runner: LocalTitlingRunner = Depends(get_runner),
     ) -> TitlingStatusOut:
         try:
             instance, record = _resolve(state_id, workflow_id, repo, runner)
+            # OIDC role gate (fail-closed in production, dev passthrough):
+            # the caller must hold the role mapped to the pending stage.
+            pending = next_pending_stage(instance)
+            stage_role = STAGE_ROLES.get(pending, "registry")
+            _require_role(stage_role)(request, response)
             # DisputeGuard: an open/under-review dispute freezes titling approvals.
             guard.assert_clear(state_id.value, record.parcel_id)
             # EncumbranceGuard: active encumbrances freeze titling approvals.
@@ -882,6 +918,7 @@ def create_app(
     def anchor_title(
         state_id: StateId, parcel_id: UUID,
         tenant: str = Depends(tenant_from_header),
+        _actor: str = Depends(_require_role("registry")),
     ) -> dict:
         record = _get_parcel_or_404(state_id, parcel_id)
         anchor = anchors.anchor(
@@ -933,6 +970,7 @@ def create_app(
     def register_encumbrance(
         state_id: StateId, parcel_id: UUID, body: EncumbranceIn,
         tenant: str = Depends(tenant_from_header),
+        _actor: str = Depends(_require_role("registry")),
     ) -> dict:
         _get_parcel_or_404(state_id, parcel_id)
         enc = encumbrances.register(
@@ -977,6 +1015,7 @@ def create_app(
     def release_encumbrance(
         state_id: StateId, encumbrance_id: str, body: EncumbranceCloseIn,
         tenant: str = Depends(tenant_from_header),
+        _actor: str = Depends(_require_role("registry")),
     ) -> dict:
         return _close_encumbrance(state_id, encumbrance_id, body, tenant, "release")
 
@@ -984,6 +1023,7 @@ def create_app(
     def withdraw_encumbrance(
         state_id: StateId, encumbrance_id: str, body: EncumbranceCloseIn,
         tenant: str = Depends(tenant_from_header),
+        _actor: str = Depends(_require_role("registry")),
     ) -> dict:
         return _close_encumbrance(state_id, encumbrance_id, body, tenant, "withdraw")
 
@@ -995,6 +1035,7 @@ def create_app(
     def apply_transfer(
         state_id: StateId, parcel_id: UUID, body: TransferIn,
         tenant: str = Depends(tenant_from_header),
+        _actor: str = Depends(_require_role("registry")),
     ) -> dict:
         _get_parcel_or_404(state_id, parcel_id)
         try:
@@ -1028,6 +1069,7 @@ def create_app(
     def advance_transfer(
         state_id: StateId, transfer_id: str, body: TransferAdvanceIn,
         tenant: str = Depends(tenant_from_header),
+        _actor: str = Depends(_require_role("registry")),
     ) -> dict:
         try:
             application = transfers.advance(
@@ -1050,6 +1092,7 @@ def create_app(
     def issue_consent(
         state_id: StateId, body: ConsentIn,
         tenant: str = Depends(tenant_from_header),
+        _actor: str = Depends(_require_role("governor")),
     ) -> dict:
         _get_parcel_or_404(state_id, body.parcel_id)
         try:
@@ -1079,6 +1122,7 @@ def create_app(
     def report_death(
         state_id: StateId, parcel_id: UUID, body: TransmissionIn,
         tenant: str = Depends(tenant_from_header),
+        _actor: str = Depends(_require_role("registry")),
     ) -> dict:
         _get_parcel_or_404(state_id, parcel_id)
         try:
@@ -1111,6 +1155,7 @@ def create_app(
     def advance_transmission(
         state_id: StateId, transmission_id: str, body: TransmissionAdvanceIn,
         tenant: str = Depends(tenant_from_header),
+        _actor: str = Depends(_require_role("registry")),
     ) -> dict:
         try:
             case = transmissions.advance(
@@ -1133,6 +1178,7 @@ def create_app(
     def file_court_order(
         state_id: StateId, body: CourtOrderIn,
         tenant: str = Depends(tenant_from_header),
+        _actor: str = Depends(_require_role("registry")),
     ) -> dict:
         _get_parcel_or_404(state_id, body.parcel_id)
         try:
@@ -1165,6 +1211,7 @@ def create_app(
     def approve_court_order(
         state_id: StateId, order_id: str, body: CourtOrderApproveIn,
         tenant: str = Depends(tenant_from_header),
+        _actor: str = Depends(_require_role("ag")),
     ) -> dict:
         try:
             order = court_orders.approve(
@@ -1181,6 +1228,7 @@ def create_app(
     def apply_court_order(
         state_id: StateId, order_id: str, body: CourtOrderApplyIn,
         tenant: str = Depends(tenant_from_header),
+        _actor: str = Depends(_require_role("registry")),
     ) -> dict:
         try:
             order = court_orders.apply(tenant, order_id, actor=body.actor)
@@ -1200,6 +1248,7 @@ def create_app(
     def issue_revocation_notice(
         state_id: StateId, parcel_id: UUID, body: RevocationIn,
         tenant: str = Depends(tenant_from_header),
+        _actor: str = Depends(_require_role("ministry")),
     ) -> dict:
         _get_parcel_or_404(state_id, parcel_id)
         try:
@@ -1227,6 +1276,7 @@ def create_app(
     def advance_revocation(
         state_id: StateId, revocation_id: str, body: RevocationAdvanceIn,
         tenant: str = Depends(tenant_from_header),
+        _actor: str = Depends(_require_role("ministry")),
     ) -> dict:
         items = None
         if body.line_items is not None:

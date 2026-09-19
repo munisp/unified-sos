@@ -1,0 +1,40 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.tenant.provision_step.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.tenant.provision_step' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "error": {
+      "description": "sanitised error",
+      "nullable": true,
+      "present on failed": null,
+      "type": "string"
+    },
+    "operator": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "started",
+        "completed",
+        "failed"
+      ],
+      "type": "string"
+    },
+    "step": {
+      "description": "operator key in OPERATOR_ORDER",
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "step",
+    "operator",
+    "status",
+    "timestamp"
+  ],
+  "title": "ng.sos.tenant.provision_step",
+  "type": "object"
+}

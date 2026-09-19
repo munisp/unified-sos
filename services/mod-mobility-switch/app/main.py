@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI, HTTPException, Request, status
-from pydantic import BaseModel
+import hashlib
+from datetime import datetime, timedelta, timezone
+
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
+from pydantic import BaseModel, Field
 
 from .adapters.base import AdapterUnavailableError
 from .domain import (
@@ -54,6 +57,26 @@ class NibssBillNotification(BaseModel):
     provider_reference: str = ""
 
 
+class PaymentQuoteRequest(BaseModel):
+    """Citizen-PWA payment quote request.
+
+    ``bill_reference`` is the canonical field; ``ticket_ref`` is accepted as
+    an alias for the PWA's fare-ticket flow.
+    """
+
+    bill_reference: str | None = None
+    ticket_ref: str | None = None
+    amount_kobo: int = Field(..., gt=0)
+    payer: str = "payer"
+
+    @property
+    def reference(self) -> str:
+        ref = self.bill_reference or self.ticket_ref
+        if not ref:
+            raise ValueError("bill_reference (or ticket_ref) is required")
+        return ref
+
+
 def get_store(request: Request) -> MobilityStore:
     return request.app.state.store
 
@@ -82,6 +105,8 @@ def create_app(store: MobilityStore | None = None, fspiop=None, nibss=None) -> F
     app.state.store = store or MobilityStore()
     app.state.fspiop = fspiop
     app.state.nibss = nibss
+    # tenant_state_id -> quote_id -> quote record (payment quotes seam)
+    app.state.payment_quotes = {}
 
     @app.put("/mobility/v1/fares/{tenant_state_id}", response_model=FareTable)
     def put_fare_table(tenant_state_id: str, req: FareTableRequest,
@@ -239,6 +264,121 @@ def create_app(store: MobilityStore | None = None, fspiop=None, nibss=None) -> F
     def cowry_authorization(req: CowryAuthRequest):
         """Cowry-compatible card bridge interface stub (offline-capable)."""
         return cowry_authorize(req.card_ref, req.fare_kobo)
+
+    # --- citizen payment quotes (/payments/v1/*) -----------------------------
+    # Serves the citizen-PWA payment flow (apps/citizen-pwa/src/lib/api.ts):
+    # quote → confirm. Fees come from the FSPIOP adapter seam when one is
+    # wired; otherwise the deterministic fixture fee (1% + ₦10.00, the same
+    # formula as FixtureFspiopAdapter.quote) is used. Confirm executes the
+    # settlement through the existing FSPIOP prepare → fulfil path (fixture
+    # in-memory when no scheme adapter is wired), idempotent on
+    # Idempotency-Key; expired quotes return 410. All quotes are
+    # tenant-scoped via the required X-State-Tenant header.
+
+    QUOTE_TTL_SECONDS = 600
+
+    def _payments_tenant(x_state_tenant: str | None = Header(default=None)) -> str:
+        if not x_state_tenant:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="X-State-Tenant header is required for payment endpoints")
+        return x_state_tenant
+
+    def _quote_fee(request: Request, quote_id: str, amount_kobo: int,
+                   payer: str, tenant: str) -> int:
+        fspiop = request.app.state.fspiop
+        if fspiop is not None:
+            try:
+                body = fspiop.quote(quote_id, amount_kobo, payer, tenant)
+            except AdapterUnavailableError as exc:
+                raise HTTPException(status_code=503, detail=str(exc))
+            return int(body.get("payeeFspFeeMinor") or 0)
+        return amount_kobo // 100 + 1000  # deterministic fixture fee
+
+    def _quote_expired(quote: dict) -> bool:
+        return (datetime.now(timezone.utc)
+                > datetime.fromisoformat(quote["expires_at"]))
+
+    @app.post("/payments/v1/quotes", status_code=status.HTTP_201_CREATED)
+    def create_payment_quote(req: PaymentQuoteRequest, request: Request,
+                             tenant: str = Depends(_payments_tenant)):
+        try:
+            reference = req.reference
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=exc.args[0])
+        digest = hashlib.sha256(
+            f"payment-quote:{tenant}:{reference}:{req.amount_kobo}:{req.payer}"
+            .encode("utf-8")).hexdigest()[:12].upper()
+        quote_id = f"QTE-{digest}"
+        tenant_quotes = request.app.state.payment_quotes.setdefault(tenant, {})
+        existing = tenant_quotes.get(quote_id)
+        if existing is not None and not _quote_expired(existing):
+            return existing  # idempotent replay of the same quote inputs
+        expires_at = (datetime.now(timezone.utc)
+                      + timedelta(seconds=QUOTE_TTL_SECONDS)).isoformat(timespec="seconds")
+        quote = {
+            "quote_id": quote_id,
+            "bill_reference": reference,
+            "amount_kobo": req.amount_kobo,
+            "fees_kobo": _quote_fee(request, quote_id, req.amount_kobo,
+                                    req.payer, tenant),
+            "payer": req.payer,
+            "tenant_state_id": tenant,
+            "status": "PENDING",
+            "expires_at": expires_at,
+        }
+        tenant_quotes[quote_id] = quote
+        return quote
+
+    @app.post("/payments/v1/quotes/{quote_id}/confirm")
+    def confirm_payment_quote(quote_id: str, request: Request,
+                              idempotency_key: str | None = Header(
+                                  default=None, alias="Idempotency-Key"),
+                              tenant: str = Depends(_payments_tenant)):
+        tenant_quotes = request.app.state.payment_quotes.get(tenant, {})
+        quote = tenant_quotes.get(quote_id)
+        if quote is None:
+            raise HTTPException(status_code=404,
+                                detail=f"quote '{quote_id}' not found")
+        if quote["status"] == "COMPLETED":
+            # Idempotent replay only with the same Idempotency-Key.
+            if idempotency_key and idempotency_key == quote.get("idempotency_key"):
+                return quote
+            raise HTTPException(
+                status_code=409,
+                detail=f"quote '{quote_id}' already settled "
+                       "(Idempotency-Key required for replay)")
+        if _quote_expired(quote):
+            raise HTTPException(status_code=410,
+                                detail=f"quote '{quote_id}' expired at "
+                                       f"{quote['expires_at']}")
+        # Execute settlement through the FSPIOP prepare → fulfil seam (the
+        # existing escrow settle path); fixture in-memory when unconfigured.
+        fspiop = request.app.state.fspiop
+        total_kobo = quote["amount_kobo"] + quote["fees_kobo"]
+        if fspiop is not None:
+            try:
+                fspiop.transfer_prepare(quote_id, total_kobo, "",
+                                        quote["expires_at"])
+                fulfilment = fspiop.transfer_fulfil(quote_id, "")["fulfilment"]
+            except AdapterUnavailableError as exc:
+                raise HTTPException(status_code=503, detail=str(exc))
+            except KeyError as exc:
+                raise HTTPException(status_code=502, detail=exc.args[0])
+            except Exception as exc:
+                raise HTTPException(status_code=502,
+                                    detail=f"scheme settlement failed: {exc}")
+        else:
+            fulfilment = hashlib.sha256(
+                f"fixture-fulfil:{quote_id}".encode("utf-8")).hexdigest()
+        quote.update({
+            "status": "COMPLETED",
+            "settled_amount_kobo": total_kobo,
+            "fulfilment": fulfilment,
+            "idempotency_key": idempotency_key,
+            "settled_at": _now(),
+        })
+        return quote
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:

@@ -29,8 +29,10 @@ from typing import Any, Callable, Dict, Optional, Protocol
 
 from .risk import AdapterUnavailableError
 
-#: Default in-cluster URL of the anchoring service (deployment config).
-DEFAULT_ANCHOR_URL = "http://mod-anchor-notary:8031/v1/anchors"
+# NOTE: no DEFAULT_ANCHOR_URL — the anchor/notary service is an
+# external-system seam (no in-cluster implementation ships with the
+# platform), so production requires an explicit ``SOS_LANDS_ANCHOR_URL``
+# (fail-closed); the in-memory FixtureAnchor remains the dev/test default.
 
 #: prev-anchor hash of the genesis anchor in every tenant chain.
 GENESIS_PREV_HASH = "0" * 64
@@ -167,7 +169,13 @@ class HttpAnchorAdapter:
         timeout_s: float = 5.0,
     ) -> None:
         env = environ if environ is not None else dict(os.environ)
-        self.base_url = base_url or env.get("SOS_LANDS_ANCHOR_URL") or DEFAULT_ANCHOR_URL
+        self.base_url = base_url or env.get("SOS_LANDS_ANCHOR_URL")
+        if not self.base_url:
+            raise AdapterUnavailableError(
+                "SOS_LANDS_ANCHOR_URL is required for HttpAnchorAdapter "
+                "(external-system seam; fail-closed: refusing to boot with "
+                "an unconfigured anchor/notary endpoint)"
+            )
         self.timeout_s = timeout_s
 
     def anchor(self, *, tenant_state_id: str, parcel_id: str, payload):  # pragma: no cover

@@ -1,8 +1,79 @@
 """Service layer: KYC/KYB flows, extraction pipeline, deterministic risk scoring."""
 from __future__ import annotations
 
+import logging
 import uuid
+from datetime import datetime
 from typing import Dict, List, Optional
+
+from pydantic import BaseModel, Field
+
+from .domain import utcnow
+
+log = logging.getLogger(__name__)
+
+# --- AsyncAPI channels (contracts/asyncapi/platform-events.yaml) -------------
+TOPIC_KYC_CASE_DECISION_MADE = "ng.sos.kyc.case_decision_made"
+TOPIC_KYB_CASE_DECISION_MADE = "ng.sos.kyb.case_decision_made"
+TOPIC_KYC_LIVENESS_FAILED = "ng.sos.kyc.liveness_failed"
+TOPIC_KYB_REGISTRY_VERIFICATION_COMPLETED = "ng.sos.kyb.registry_verification_completed"
+
+
+class KycCaseDecisionMadeEvent(BaseModel):
+    """Payload for ``ng.sos.kyc.case_decision_made`` (hashes/metadata only)."""
+
+    state_id: str
+    case_id: str
+    subject_type: str = ""
+    subject_ref_hash: str = ""
+    decision: str
+    risk_score: int = 0
+    risk_band: str
+    decided_by: str = "SYSTEM"
+    audit_entry_hash: str = ""
+    timestamp: datetime = Field(default_factory=utcnow)
+
+
+class KybCaseDecisionMadeEvent(BaseModel):
+    """Payload for ``ng.sos.kyb.case_decision_made`` (hashes/metadata only)."""
+
+    state_id: str
+    case_id: str
+    rc_number_hash: str = ""
+    legal_name: str = ""
+    decision: str
+    risk_score: int = 0
+    risk_band: str
+    registry_status: Optional[str] = None
+    decided_by: str = "SYSTEM"
+    audit_entry_hash: str = ""
+    timestamp: datetime = Field(default_factory=utcnow)
+
+
+class KycLivenessFailedEvent(BaseModel):
+    """Payload for ``ng.sos.kyc.liveness_failed`` (scores/hashes only)."""
+
+    state_id: str
+    case_id: str
+    challenge_id: str
+    score: float = 0.0
+    anti_spoof_flags: List[str] = Field(default_factory=list)
+    reasons: List[str] = Field(default_factory=list)
+    evidence_hash: str = ""
+    timestamp: datetime = Field(default_factory=utcnow)
+
+
+class KybRegistryVerificationCompletedEvent(BaseModel):
+    """Payload for ``ng.sos.kyb.registry_verification_completed``."""
+
+    state_id: str
+    case_id: str
+    registry: str
+    status: str
+    fields_checked: List[str] = Field(default_factory=list)
+    confidence: float = 0.0
+    response_hash: str = ""
+    timestamp: datetime = Field(default_factory=utcnow)
 
 from .adapters.base import AdapterUnavailableError
 from .adapters.liveness import LivenessEngine
@@ -85,6 +156,7 @@ class KycKybService:
         identity_registry=None,
         sanctions=None,
         liveness_engine: Optional[LivenessEngine] = None,
+        bus=None,
         auto_approve_low: bool = True,
         reject_prohibited: bool = True,
     ) -> None:
@@ -96,6 +168,7 @@ class KycKybService:
         self.identity_registry = identity_registry
         self.sanctions = sanctions
         self.liveness = liveness_engine or LivenessEngine()
+        self.bus = bus  # optional _shared.eventbus bus; fail-soft publish
         self.auto_approve_low = auto_approve_low
         self.reject_prohibited = reject_prohibited
 
@@ -104,6 +177,16 @@ class KycKybService:
 
     def _audit(self, tenant: str, actor: str, action: str, etype: str, eid: str, detail: dict) -> AuditEntry:
         return self.repo.append_audit(tenant, actor, action, etype, eid, detail)
+
+    def _publish(self, topic: str, payload: BaseModel) -> None:
+        """Fail-soft event publish: the bus is optional and a broker outage
+        must never break a KYC/KYB flow (mirrors other modules' idiom)."""
+        if self.bus is None:
+            return
+        try:
+            self.bus.publish(topic, payload)
+        except Exception:  # noqa: BLE001 - fail-soft by contract
+            log.warning("event publish failed for %s", topic, exc_info=True)
 
     # ------------------------------------------------------------------
     # KYC
@@ -248,10 +331,22 @@ class KycKybService:
         result = self.liveness.evaluate(challenge, evidence)
         self.repo.save_challenge(challenge)
         self.repo.save_liveness_result(challenge_id, result)
-        self._audit(tenant, actor, "LIVENESS_EVALUATED", "liveness_challenge",
-                    challenge_id,
-                    {"passed": result.passed, "score": result.score,
-                     "flags": result.anti_spoof_flags})
+        entry = self._audit(tenant, actor, "LIVENESS_EVALUATED", "liveness_challenge",
+                            challenge_id,
+                            {"passed": result.passed, "score": result.score,
+                             "flags": result.anti_spoof_flags})
+        if not result.passed:
+            self._publish(TOPIC_KYC_LIVENESS_FAILED, KycLivenessFailedEvent(
+                state_id=str(tenant),
+                case_id=challenge.case_id,
+                challenge_id=challenge_id,
+                score=result.score,
+                anti_spoof_flags=list(result.anti_spoof_flags),
+                reasons=list(result.reasons),
+                evidence_hash=sha256_hex(
+                    "liveness:" + "|".join(evidence.artifact_hashes)
+                ) if evidence.artifact_hashes else entry.detail_hash,
+            ))
         return result
 
     # ---------------- KYC submit & risk ----------------
@@ -326,11 +421,48 @@ class KycKybService:
             case.decision_reason = "review:" + ",".join(signals or ["medium_risk"])
             self._open_review(tenant, "KYC", case_id, signals or ["medium_risk"])
         self.repo.save_kyc_case(case)
-        self._audit(tenant, actor, "KYC_CASE_SUBMITTED", "kyc_case", case_id,
-                    {"risk_score": case.risk_score,
-                     "risk_band": case.risk_band.value,
-                     "status": case.status.value, "signals": signals})
+        entry = self._audit(tenant, actor, "KYC_CASE_SUBMITTED", "kyc_case", case_id,
+                            {"risk_score": case.risk_score,
+                             "risk_band": case.risk_band.value,
+                             "status": case.status.value, "signals": signals})
+        if case.status in (VerificationStatus.APPROVED, VerificationStatus.REJECTED):
+            self._publish_kyc_decision(tenant, case, decided_by="SYSTEM",
+                                       audit_entry_hash=entry.entry_hash)
         return case
+
+    def _publish_kyc_decision(self, tenant: str, case: KycCase, decided_by: str,
+                              audit_entry_hash: str = "") -> None:
+        self._publish(TOPIC_KYC_CASE_DECISION_MADE, KycCaseDecisionMadeEvent(
+            state_id=str(tenant),
+            case_id=case.case_id,
+            subject_type=case.subject_type.value,
+            subject_ref_hash=case.subject_ref,
+            decision=case.status.value,
+            risk_score=case.risk_score or 0,
+            risk_band=case.risk_band.value,
+            decided_by=decided_by,
+            audit_entry_hash=audit_entry_hash,
+        ))
+
+    def _publish_kyb_decision(self, tenant: str, case: KybCase, decided_by: str,
+                              audit_entry_hash: str = "") -> None:
+        registry_status = next(
+            (v.status.value for v in reversed(case.registry_verifications)
+             if v.registry == RegistryName.CAC),
+            None,
+        )
+        self._publish(TOPIC_KYB_CASE_DECISION_MADE, KybCaseDecisionMadeEvent(
+            state_id=str(tenant),
+            case_id=case.case_id,
+            rc_number_hash=case.rc_number_hash,
+            legal_name=case.legal_name_label,
+            decision=case.status.value,
+            risk_score=case.risk_score or 0,
+            risk_band=case.risk_band.value,
+            registry_status=registry_status,
+            decided_by=decided_by,
+            audit_entry_hash=audit_entry_hash,
+        ))
 
     def _open_review(self, tenant: str, case_type: str, case_id: str, reasons: List[str]) -> ReviewTask:
         existing = self.repo.open_task_for_case(case_id)
@@ -392,8 +524,14 @@ class KycKybService:
             task.decision_reason = reason
             task.resolved_at = utcnow()
             self.repo.save_review_task(task)
-        self._audit(tenant, reviewer, f"{case_type}_REVIEW_{decision.value}",
-                    f"{case_type.lower()}_case", case_id, {"reason": reason})
+        entry = self._audit(tenant, reviewer, f"{case_type}_REVIEW_{decision.value}",
+                            f"{case_type.lower()}_case", case_id, {"reason": reason})
+        if case_type == "KYC":
+            self._publish_kyc_decision(tenant, case, decided_by=reviewer,
+                                       audit_entry_hash=entry.entry_hash)
+        else:
+            self._publish_kyb_decision(tenant, case, decided_by=reviewer,
+                                       audit_entry_hash=entry.entry_hash)
         return case
 
     # ------------------------------------------------------------------
@@ -467,6 +605,17 @@ class KycKybService:
         self._audit(tenant, actor, "KYB_REGISTRY_VERIFIED", "kyb_case", case_id,
                     {"registries": [r.registry.value for r in results],
                      "statuses": [r.status.value for r in results]})
+        for res in results:
+            self._publish(TOPIC_KYB_REGISTRY_VERIFICATION_COMPLETED,
+                          KybRegistryVerificationCompletedEvent(
+                              state_id=str(tenant),
+                              case_id=case_id,
+                              registry=res.registry.value,
+                              status=res.status.value,
+                              fields_checked=list(res.fields_checked),
+                              confidence=res.confidence,
+                              response_hash=res.response_hash,
+                          ))
         return results
 
     def add_beneficial_owner(
@@ -549,10 +698,13 @@ class KycKybService:
             self._open_review(tenant, "KYB", case_id, signals or ["medium_risk"])
         case.updated_at = utcnow()
         self.repo.save_kyb_case(case)
-        self._audit(tenant, actor, "KYB_CASE_SUBMITTED", "kyb_case", case_id,
-                    {"risk_score": case.risk_score,
-                     "risk_band": case.risk_band.value,
-                     "status": case.status.value, "signals": signals})
+        entry = self._audit(tenant, actor, "KYB_CASE_SUBMITTED", "kyb_case", case_id,
+                            {"risk_score": case.risk_score,
+                             "risk_band": case.risk_band.value,
+                             "status": case.status.value, "signals": signals})
+        if case.status in (VerificationStatus.APPROVED, VerificationStatus.REJECTED):
+            self._publish_kyb_decision(tenant, case, decided_by="SYSTEM",
+                                       audit_entry_hash=entry.entry_hash)
         return case
 
     # ------------------------------------------------------------------

@@ -1,0 +1,1168 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-ppp-investment/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS PPP Investment & Concession Management API (mod-ppp-investment)
+  version: 0.1.0
+  description: 'PPP/concession lifecycle: project pipeline, concession agreements, escrow settlement statements, milestone
+    tracking, and the hash-chained procurement audit log (public projection via mod-transparency). Deploys: all 6 states.'
+paths:
+  /projects:
+    post:
+      summary: Create Project
+      operationId: create_project_projects_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Project'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - ppp
+      security:
+      - bearerAuth: []
+    get:
+      summary: List Projects
+      operationId: list_projects_projects_get
+      parameters:
+      - name: state_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Project'
+                title: Response List Projects Projects Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - ppp
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/stage:
+    post:
+      summary: Advance
+      operationId: advance_projects__project_id__stage_post
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StageAdvanceRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - ppp
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/publish:
+    post:
+      summary: Publish
+      operationId: publish_projects__project_id__publish_post
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - ppp
+      security:
+      - bearerAuth: []
+  /disclosure:
+    get:
+      summary: Disclosure
+      description: Public disclosure view — publishable subset only.
+      operationId: disclosure_disclosure_get
+      parameters:
+      - name: state_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - ppp
+      security:
+      - bearerAuth: []
+  /proposals:
+    post:
+      summary: Submit Proposal
+      operationId: submit_proposal_proposals_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Proposal'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proposal'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - ppp
+      security:
+      - bearerAuth: []
+  /proposals/{proposal_id}/screen:
+    post:
+      summary: Screen
+      operationId: screen_proposals__proposal_id__screen_post
+      parameters:
+      - name: proposal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Proposal Id
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proposal'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - ppp
+      security:
+      - bearerAuth: []
+  /proposals/{proposal_id}/technical:
+    post:
+      summary: Technical
+      operationId: technical_proposals__proposal_id__technical_post
+      parameters:
+      - name: proposal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Proposal Id
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: State Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TechnicalScore'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Evaluation'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - ppp
+      security:
+      - bearerAuth: []
+  /proposals/{proposal_id}/commercial:
+    post:
+      summary: Commercial
+      operationId: commercial_proposals__proposal_id__commercial_post
+      parameters:
+      - name: proposal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Proposal Id
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: State Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommercialScore'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Evaluation'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - ppp
+      security:
+      - bearerAuth: []
+  /proposals/{proposal_id}/award:
+    post:
+      summary: Award
+      operationId: award_proposals__proposal_id__award_post
+      parameters:
+      - name: proposal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Proposal Id
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proposal'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - ppp
+      security:
+      - bearerAuth: []
+  /documentsets:
+    post:
+      summary: Documentset
+      operationId: documentset_documentsets_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentSet'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentSet'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - ppp
+      security:
+      - bearerAuth: []
+  /contracts:
+    post:
+      summary: Sign
+      operationId: sign_contracts_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConcessionContract'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConcessionContract'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - ppp
+      security:
+      - bearerAuth: []
+  /contracts/{contract_id}/milestones/{name}/complete:
+    post:
+      summary: Milestone
+      operationId: milestone_contracts__contract_id__milestones__name__complete_post
+      parameters:
+      - name: contract_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Contract Id
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConcessionContract'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - ppp
+      security:
+      - bearerAuth: []
+  /kpis:
+    post:
+      summary: Kpi
+      operationId: kpi_kpis_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KPIRecord'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KPIRecord'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - ppp
+      security:
+      - bearerAuth: []
+  /contracts/{contract_id}/reconcile:
+    post:
+      summary: Reconcile
+      operationId: reconcile_contracts__contract_id__reconcile_post
+      parameters:
+      - name: contract_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Contract Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReconcileRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettlementStatement'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - ppp
+      security:
+      - bearerAuth: []
+  /audit:
+    get:
+      summary: Audit
+      operationId: audit_audit_get
+      parameters:
+      - name: state_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditEntry'
+                title: Response Audit Audit Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - ppp
+      security:
+      - bearerAuth: []
+  /audit/verify:
+    get:
+      summary: Audit Integrity
+      operationId: audit_integrity_audit_verify_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+      tags:
+      - ppp
+      security:
+      - bearerAuth: []
+  /health:
+    get:
+      summary: Health
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+      tags:
+      - ppp
+components:
+  schemas:
+    AuditEntry:
+      properties:
+        seq:
+          type: integer
+          title: Seq
+        action:
+          type: string
+          title: Action
+        state_id:
+          type: string
+          title: State Id
+        actor_id:
+          type: string
+          title: Actor Id
+        subject_id:
+          type: string
+          title: Subject Id
+        details:
+          type: string
+          title: Details
+          default: ''
+        prev_hash:
+          type: string
+          title: Prev Hash
+        entry_hash:
+          type: string
+          title: Entry Hash
+        at:
+          type: string
+          format: date-time
+          title: At
+      type: object
+      required:
+      - seq
+      - action
+      - state_id
+      - actor_id
+      - subject_id
+      - prev_hash
+      - entry_hash
+      title: AuditEntry
+      description: 'Procurement-integrity append-only, hash-chained audit record
+
+        (ICRC-compliant documentation from day one).'
+    CommercialScore:
+      properties:
+        lowest_fee_bps:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Lowest Fee Bps
+        bid_fee_bps:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Bid Fee Bps
+        capex_commitment:
+          type: integer
+          maximum: 80.0
+          minimum: 0.0
+          title: Capex Commitment
+        stepdown_schedule:
+          type: integer
+          maximum: 40.0
+          minimum: 0.0
+          title: Stepdown Schedule
+        performance_bond:
+          type: integer
+          maximum: 30.0
+          minimum: 0.0
+          title: Performance Bond
+        fee_weight:
+          type: integer
+          maximum: 300.0
+          minimum: 1.0
+          title: Fee Weight
+          default: 150
+      type: object
+      required:
+      - lowest_fee_bps
+      - bid_fee_bps
+      - capex_commitment
+      - stepdown_schedule
+      - performance_bond
+      title: CommercialScore
+      description: 'Commercial envelope, max 300.
+
+
+        S_comm = (lowest acceptable concession fee % / bid fee %) × fee weight.
+
+        Per the scorecard breakdown the fee component carries 150 of 300; the
+
+        remaining 150 split as CapEx 80 / step-down 40 / performance bond 30.'
+    ConcessionContract:
+      properties:
+        contract_id:
+          type: string
+          title: Contract Id
+        state_id:
+          type: string
+          title: State Id
+        project_id:
+          type: string
+          title: Project Id
+        proposal_id:
+          type: string
+          title: Proposal Id
+        concessionaire:
+          type: string
+          title: Concessionaire
+        signed_at:
+          type: string
+          format: date-time
+          title: Signed At
+        term_months:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Term Months
+        revenue_share_state_bps:
+          type: integer
+          maximum: 10000.0
+          minimum: 0.0
+          title: Revenue Share State Bps
+        milestones:
+          items:
+            $ref: '#/components/schemas/Milestone'
+          type: array
+          title: Milestones
+        active:
+          type: boolean
+          title: Active
+          default: true
+      type: object
+      required:
+      - contract_id
+      - state_id
+      - project_id
+      - proposal_id
+      - concessionaire
+      - term_months
+      - revenue_share_state_bps
+      title: ConcessionContract
+    DocumentSet:
+      properties:
+        documentset_id:
+          type: string
+          title: Documentset Id
+        state_id:
+          type: string
+          title: State Id
+        project_id:
+          type: string
+          title: Project Id
+        stage:
+          $ref: '#/components/schemas/ProjectStage'
+          description: OBC or FBC
+        documents:
+          additionalProperties:
+            type: string
+          type: object
+          title: Documents
+          description: doc name -> status (SUBMITTED/APPROVED/MISSING)
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - documentset_id
+      - state_id
+      - project_id
+      - stage
+      title: DocumentSet
+      description: OBC/FBC document-set tracking for a project stage.
+    Evaluation:
+      properties:
+        evaluation_id:
+          type: string
+          title: Evaluation Id
+        state_id:
+          type: string
+          title: State Id
+        proposal_id:
+          type: string
+          title: Proposal Id
+        technical:
+          $ref: '#/components/schemas/TechnicalScore'
+        commercial:
+          anyOf:
+          - $ref: '#/components/schemas/CommercialScore'
+          - type: 'null'
+        evaluated_at:
+          type: string
+          format: date-time
+          title: Evaluated At
+      type: object
+      required:
+      - evaluation_id
+      - state_id
+      - proposal_id
+      - technical
+      title: Evaluation
+      description: 'QCBS evaluation record. The commercial envelope may only be attached
+
+        when the technical envelope passes 560 — enforced by the service layer.'
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    KPIRecord:
+      properties:
+        kpi_id:
+          type: string
+          title: Kpi Id
+        state_id:
+          type: string
+          title: State Id
+        contract_id:
+          type: string
+          title: Contract Id
+        period:
+          type: string
+          title: Period
+          description: YYYY-MM
+        collections_kobo:
+          type: integer
+          minimum: 0.0
+          title: Collections Kobo
+        uptime_pct:
+          type: number
+          maximum: 100.0
+          minimum: 0.0
+          title: Uptime Pct
+        sla_breaches:
+          type: integer
+          minimum: 0.0
+          title: Sla Breaches
+        recorded_at:
+          type: string
+          format: date-time
+          title: Recorded At
+      type: object
+      required:
+      - kpi_id
+      - state_id
+      - contract_id
+      - period
+      - collections_kobo
+      - uptime_pct
+      - sla_breaches
+      title: KPIRecord
+      description: Monthly performance KPI monitoring record per concession.
+    Milestone:
+      properties:
+        name:
+          type: string
+          title: Name
+        due:
+          type: string
+          format: date-time
+          title: Due
+        completed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Completed At
+        verified:
+          type: boolean
+          title: Verified
+          default: false
+      type: object
+      required:
+      - name
+      - due
+      title: Milestone
+    Project:
+      properties:
+        project_id:
+          type: string
+          title: Project Id
+        state_id:
+          type: string
+          title: State Id
+        title:
+          type: string
+          title: Title
+        sector:
+          type: string
+          title: Sector
+          description: e.g. LAND, TRANSPORT, ENERGY, WATER
+        description_public:
+          type: string
+          title: Description Public
+        estimated_value_ngn:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Estimated Value Ngn
+        stage:
+          $ref: '#/components/schemas/ProjectStage'
+          default: PIPELINE
+        sponsoring_agency:
+          type: string
+          title: Sponsoring Agency
+          description: e.g. TARIPA, NASIDA, Ogun PPP Office
+        published:
+          type: boolean
+          title: Published
+          default: false
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        internal_notes:
+          type: string
+          title: Internal Notes
+          default: ''
+        internal_financial_model:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Internal Financial Model
+      type: object
+      required:
+      - project_id
+      - state_id
+      - title
+      - sector
+      - description_public
+      - sponsoring_agency
+      title: Project
+      description: 'Pipeline registry entry. ``public_view()`` returns the publishable
+
+        subset (TARIPA published pipeline [LIVE]); internal fields never leave.'
+    ProjectStage:
+      type: string
+      enum:
+      - PIPELINE
+      - OBC
+      - FBC
+      - PROCUREMENT
+      - AWARDED
+      - IN_CONCESSION
+      - CLOSED
+      title: ProjectStage
+    Proposal:
+      properties:
+        proposal_id:
+          type: string
+          title: Proposal Id
+        state_id:
+          type: string
+          title: State Id
+        project_id:
+          type: string
+          title: Project Id
+        bidder_name:
+          type: string
+          title: Bidder Name
+        unsolicited:
+          type: boolean
+          title: Unsolicited
+          default: false
+        status:
+          $ref: '#/components/schemas/ProposalStatus'
+          default: RECEIVED
+        submitted_at:
+          type: string
+          format: date-time
+          title: Submitted At
+        compliance_docs:
+          items:
+            type: string
+          type: array
+          title: Compliance Docs
+        concession_fee_bps:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Concession Fee Bps
+          description: bid revenue-share / concession fee, basis points
+      type: object
+      required:
+      - proposal_id
+      - state_id
+      - project_id
+      - bidder_name
+      title: Proposal
+      description: Solicited or unsolicited (TARIPA-style published guide flow) proposal.
+    ProposalStatus:
+      type: string
+      enum:
+      - RECEIVED
+      - SCREENING
+      - EVALUATED
+      - AWARDED
+      - REJECTED
+      title: ProposalStatus
+    ReconcileRequest:
+      properties:
+        state_id:
+          type: string
+          title: State Id
+        period:
+          type: string
+          title: Period
+        bands:
+          items:
+            $ref: '#/components/schemas/StepDownBand'
+          type: array
+          title: Bands
+          default: []
+      type: object
+      required:
+      - state_id
+      - period
+      title: ReconcileRequest
+    SettlementStatement:
+      properties:
+        statement_id:
+          type: string
+          title: Statement Id
+        state_id:
+          type: string
+          title: State Id
+        contract_id:
+          type: string
+          title: Contract Id
+        period:
+          type: string
+          title: Period
+        gross_collections_kobo:
+          type: integer
+          minimum: 0.0
+          title: Gross Collections Kobo
+        state_share_kobo:
+          type: integer
+          minimum: 0.0
+          title: State Share Kobo
+        concessionaire_share_kobo:
+          type: integer
+          minimum: 0.0
+          title: Concessionaire Share Kobo
+        applied_state_share_bps:
+          type: integer
+          maximum: 10000.0
+          minimum: 0.0
+          title: Applied State Share Bps
+        reconciled:
+          type: boolean
+          title: Reconciled
+          default: false
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - statement_id
+      - state_id
+      - contract_id
+      - period
+      - gross_collections_kobo
+      - state_share_kobo
+      - concessionaire_share_kobo
+      - applied_state_share_bps
+      title: SettlementStatement
+      description: 'Monthly revenue-share reconciliation per concession (double-entry legs
+
+        wired to TigerBeetle: state share → 3001 TSA code 101; concessionaire
+
+        share → 2099 escrow code 103).'
+    StageAdvanceRequest:
+      properties:
+        state_id:
+          type: string
+          title: State Id
+        stage:
+          $ref: '#/components/schemas/ProjectStage'
+      type: object
+      required:
+      - state_id
+      - stage
+      title: StageAdvanceRequest
+    StepDownBand:
+      properties:
+        threshold_kobo:
+          type: integer
+          minimum: 0.0
+          title: Threshold Kobo
+        state_share_bps:
+          type: integer
+          maximum: 10000.0
+          minimum: 0.0
+          title: State Share Bps
+      type: object
+      required:
+      - threshold_kobo
+      - state_share_bps
+      title: StepDownBand
+      description: 'Step-down schedule band [policy-pack guardrail]: once cumulative
+
+        reconciled collections exceed ``threshold_kobo``, the state revenue share
+
+        steps UP to ``state_share_bps`` (concession fee tapers as IGR baseline is
+
+        exceeded — docs/procurement/evaluation-scorecards.md, ''Tapering'').'
+    TechnicalScore:
+      properties:
+        architecture:
+          type: integer
+          maximum: 100.0
+          minimum: 0.0
+          title: Architecture
+        tenancy_ndpa:
+          type: integer
+          maximum: 80.0
+          minimum: 0.0
+          title: Tenancy Ndpa
+        ha_dr_performance:
+          type: integer
+          maximum: 70.0
+          minimum: 0.0
+          title: Ha Dr Performance
+        wbs_milestones:
+          type: integer
+          maximum: 80.0
+          minimum: 0.0
+          title: Wbs Milestones
+        field_logistics:
+          type: integer
+          maximum: 60.0
+          minimum: 0.0
+          title: Field Logistics
+        qa_security_testing:
+          type: integer
+          maximum: 60.0
+          minimum: 0.0
+          title: Qa Security Testing
+        key_personnel:
+          type: integer
+          maximum: 80.0
+          minimum: 0.0
+          title: Key Personnel
+        local_content:
+          type: integer
+          maximum: 70.0
+          minimum: 0.0
+          title: Local Content
+        past_performance:
+          type: integer
+          maximum: 100.0
+          minimum: 0.0
+          title: Past Performance
+      type: object
+      required:
+      - architecture
+      - tenancy_ndpa
+      - ha_dr_performance
+      - wbs_milestones
+      - field_logistics
+      - qa_security_testing
+      - key_personnel
+      - local_content
+      - past_performance
+      title: TechnicalScore
+      description: Technical envelope, max 700; passing threshold 560 (80%) [LIVE].
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: ppp
+- name: concessions
+- name: procurement

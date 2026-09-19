@@ -1,0 +1,28 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.mortgage.declined.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.mortgage.declined' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "mortgage_id": {
+      "type": "string"
+    },
+    "occurred_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "score": {
+      "type": "integer"
+    },
+    "tenant_state_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "tenant_state_id",
+    "mortgage_id",
+    "score",
+    "occurred_at"
+  ],
+  "title": "ng.sos.mortgage.declined",
+  "type": "object"
+}

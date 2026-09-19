@@ -359,3 +359,16 @@ dispatch 53). Weighted readiness ≈ 96%.
 - F7 ops: Caddy GET /cp/v1/domains/allowed (on-demand TLS unblocked) + alerts, drift-remediation worker w/ auto-rollback + ng.sos.ml.model_rolled_back, APISIX per-tenant rate-limit generator (37 routes), hash-chain audit in 11 modules (incl. Go geospatial-gateway).
 - Contracts: +11 AsyncAPI channels (registry 59 artifacts OK), mod-mortgage OpenAPI 17 ops, gates PASSED.
 - Deferred with rationale (documented, non-blocking): per-subject DEK crypto-shredding (needs KMS envelope redesign — runbook noted), cross-region active-active DR (terraform replication flag exists), Argo Rollouts canary, co-ownership shares model (needs schema migration), ODM photogrammetry.
+
+## 18. Stage 15 — Stakeholder onboarding audit + orphan-code closure (15 findings)
+- Stakeholder census: ~40 distinct actor roles across 7 classes (platform/tenant actors, land/legal workflow actors, identity/KYC actors, revenue beneficiaries, sector-module actors, external integrators, channel users) — full catalog in docs/governance/stakeholder-onboarding.md §14.
+- Onboarding robustness (before → after):
+  - Tenant/state onboarding: ROBUST → extended VALID_STATES 6 → 37 (all 36 states + FCT).
+  - Government officers: ABSENT → implemented — control-plane OfficerRegistry (13 realm-mapped STAKEHOLDER_ROLES, lifecycle INVITED→ACTIVE→SUSPENDED→OFFBOARDED, KeycloakAdmin seam Fixture/Real, hash-chained audit).
+  - Citizens/residents: PARTIAL → hardened (USSD PIN, wallet rebind KYC-gate, guardian links — Stage 14), onboarding doc unified.
+  - External integrators (fintech/ERP): PARTIAL → quotes+confirm API (FSPIOP seam, idempotent, 410-expiry) + _shared/auth.py OIDC require_role middleware (RS256 JWKS per state realm, fail-closed production, dev passthrough).
+- G1 auth/officers: services/_shared/auth.py require_role dependency + officer provisioning endpoints + realm role map.
+- G2 wiring/orphans: compose fixes (geospatial build context/ports, 15 new services, 42 valid), ML scoring routes (/ml/v1/credit/score, /ml/v1/fraud/score), phantom-URL cleanup, mod-mobility-switch POST /payments/v1/quotes + /quotes/{id}/confirm.
+- G3 contracts/parity: AsyncAPI +14 channels with publisher parity (registry 69 artifacts OK; payroll_audit_completed schema removed — no publisher), OpenAPI generator now 27 services, validate_packs +2 checks, 17 per-module CiliumNetworkPolicy manifests (103 policy tests), cache purge, docs/operations/edge-and-ocr-deployment.md.
+- Verification: full integration sweep green — control-plane 135, _shared 48, gis-lands 145, kyc-kyb 75, ml-inference 60, mobility-switch 44, mortgage 98, geospatial 87, citizen-portal 58, identity 39, safecity-vision 33, erp-bridge 36, waterways 42, land-docs 39, fundsflow 85 (~1,200+ tests repo-wide); AsyncAPI registry + policy packs + cilium validators PASSED.
+- Known pre-existing residual: compose port 8080 double-published (mod-rev-core + caddy) — documented for ops remap.

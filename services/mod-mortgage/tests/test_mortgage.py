@@ -13,6 +13,7 @@ from mortgage_app.adapters import (
     FixtureLedgerAdapter,
     FixtureLandRegistry,
     HttpCreditScorer,
+    HttpTitleTransfer,
     HttpLandRegistry,
     TigerBeetleLedgerAdapter,
     credit_scorer_from_env,
@@ -53,9 +54,10 @@ class TestAdapters:
             assert 300 <= a <= 850
             assert a == s.score(f"applicant-{i}")
 
-    def test_http_scorer_fail_closed_without_url(self):
-        with pytest.raises(AdapterUnavailableError):
-            HttpCreditScorer(environ={})
+    def test_http_scorer_default_url_fallback(self):
+        scorer = HttpCreditScorer(environ={})
+        assert scorer.url == HttpCreditScorer.DEFAULT_URL
+        assert scorer.url == "http://mod-ml-inference:8000/ml/v1/credit/score"
 
     def test_http_scorer_unknown_engine_fail_closed(self):
         with pytest.raises(AdapterUnavailableError):
@@ -69,9 +71,13 @@ class TestAdapters:
         with pytest.raises(AdapterUnavailableError):
             ledger_from_env({"SOS_MORTGAGE_LEDGER": "excel"})
 
-    def test_lands_http_fail_closed_without_url(self):
-        with pytest.raises(AdapterUnavailableError):
-            HttpLandRegistry(environ={})
+    def test_lands_http_default_url_fallback(self):
+        registry = HttpLandRegistry(environ={})
+        assert registry.url == HttpLandRegistry.DEFAULT_URL
+        assert registry.url == "http://mod-gis-lands:8000"
+        transfer = HttpTitleTransfer(environ={})
+        assert transfer.url == HttpTitleTransfer.DEFAULT_URL
+        assert transfer.url == "http://mod-gis-lands:8000"
 
     def test_lands_unknown_engine_fail_closed(self):
         with pytest.raises(AdapterUnavailableError):

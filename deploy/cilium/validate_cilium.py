@@ -117,3 +117,55 @@ def test_policies_reference_existing_services(path):
             f"{doc['metadata'].get('name')}: unknown components {sorted(unknown)} "
             f"(not in helm values modules/platform inventory)"
         )
+
+
+# Modules with a dedicated per-module policy file under policies/<module>.yaml
+# (tenant label selector, apisix ingress :8000, same-namespace, egress
+# dns + kafka + postgres). Modules not listed here are covered by the
+# platform-wide policies (L7 rules, egress allowlist, data-plane access).
+PER_MODULE_POLICY_MODULES = {
+    "mod-mortgage", "mod-land-docs", "mod-ml-inference", "mod-erp-bridge",
+    "mod-waterways", "mod-agri-trace", "mod-border-transit",
+    "mod-ppp-investment", "mod-identity", "mod-market", "mod-mining",
+    "mod-forestry", "mod-education", "mod-health", "mod-gis-luc",
+    "mod-agri-waybill", "mod-transport-wim",
+}
+
+
+def _ports(rule_list, direction):
+    ports = set()
+    for rule in rule_list or []:
+        for tp in rule.get("toPorts", []):
+            for p in tp.get("ports", []):
+                ports.add(p.get("port"))
+    return ports
+
+
+@pytest.mark.parametrize("module", sorted(PER_MODULE_POLICY_MODULES))
+def test_per_module_policy_file(module):
+    """Each uncovered deployed module has its own CiliumNetworkPolicy file."""
+    path = CILIUM_DIR / "policies" / f"{module}.yaml"
+    assert path.exists(), f"missing per-module policy file {path.name}"
+    docs = [d for d in _load_docs(path) if d.get("kind") in POLICY_KINDS]
+    assert docs, f"{path.name}: no network policy document"
+    doc = docs[0]
+    spec = doc["spec"]
+    selector = spec["endpointSelector"].get("matchLabels", {})
+    assert selector.get("app.kubernetes.io/component") == module, (
+        f"{path.name}: endpointSelector must select component {module}"
+    )
+    # tenant label selector
+    ns_exprs = (spec.get("namespaceSelector") or {}).get("matchExpressions", [])
+    assert any(e.get("key") == "sos.gov.ng/tenant-state" for e in ns_exprs), (
+        f"{path.name}: missing tenant namespace selector"
+    )
+    # apisix gateway ingress on :8000
+    assert "8000" in _ports(spec.get("ingress"), "ingress"), (
+        f"{path.name}: ingress must allow gateway traffic on :8000"
+    )
+    egress_ports = _ports(spec.get("egress"), "egress")
+    # dns + kafka + postgres egress
+    assert {"53", "9092", "5432"} <= egress_ports, (
+        f"{path.name}: egress must allow dns(53), kafka(9092), postgres(5432); "
+        f"got {sorted(egress_ports)}"
+    )

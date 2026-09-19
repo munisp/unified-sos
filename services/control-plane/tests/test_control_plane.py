@@ -59,8 +59,11 @@ def test_create_tenant_idempotent_by_state(client: TestClient) -> None:
 
 
 def test_create_tenant_rejects_bad_enums(client: TestClient) -> None:
-    assert _create(client, "kano", "shared").status_code == 422  # schema enum
+    assert _create(client, "atlantis", "shared").status_code == 422  # schema enum
     assert _create(client, "ogun", "gold").status_code == 422
+    # National Edition: all 36 states + FCT are now valid (config/states).
+    assert _create(client, "kano", "shared").status_code == 202
+    assert _create(client, "fct", "shared").status_code == 202
 
 
 def test_workflow_states_recorded(client: TestClient) -> None:

@@ -24,6 +24,14 @@ from .domain import (
     TenantOperation,
     TenantStatus,
 )
+from .officers import (
+    Officer,
+    OfficerCreate,
+    OfficerError,
+    OfficerRegistry,
+    OfficerStatus,
+    build_keycloak_admin,
+)
 from .operators.base import OperatorUnavailableError
 from .pii_guard import PiiGuardMiddleware
 from .policy import validate_policy_pack
@@ -179,7 +187,8 @@ def get_branding(request: Request) -> BrandingRegistry:
 
 
 def create_app(store: MetadataStore | None = None,
-               branding: BrandingRegistry | None = None) -> FastAPI:
+               branding: BrandingRegistry | None = None,
+               officers: OfficerRegistry | None = None) -> FastAPI:
     app = FastAPI(
         title="SOS Control Plane — Tenant Provisioning API",
         version="1.0.0",
@@ -195,7 +204,14 @@ def create_app(store: MetadataStore | None = None,
         )
     app.state.store = store
     app.state.branding = branding if branding is not None else BrandingRegistry()
+    # Officer provisioning registry — fail-closed (OfficerConfigurationError)
+    # when SOS_CP_PROFILE=production and no Keycloak admin config is present.
+    app.state.officers = officers if officers is not None else OfficerRegistry(
+        store, build_keycloak_admin())
     app.add_middleware(PiiGuardMiddleware)
+
+    def get_officers(request: Request) -> OfficerRegistry:
+        return request.app.state.officers
 
     @app.post(
         "/control/v1/tenants",
@@ -324,6 +340,73 @@ def create_app(store: MetadataStore | None = None,
                 detail=f"domain '{domain}' is not allowed for on-demand TLS",
             )
         return {"domain": host, "allowed": True}
+
+    # --- Officer provisioning (app/officers.py) ----------------------------
+    def _tenant_or_404(state_id: str) -> str:
+        tenant = store.get_tenant_by_state(state_id)
+        if tenant is None:
+            raise HTTPException(status_code=404,
+                                detail=f"tenant for state '{state_id}' not found")
+        return tenant.tenant_id
+
+    @app.post("/cp/v1/tenants/{state_id}/officers", status_code=201)
+    def invite_officer(state_id: str, req: OfficerCreate,
+                       registry: OfficerRegistry = Depends(get_officers),
+                       verified_admin: str = Depends(require_admin)) -> dict:
+        """Invite an officer: Keycloak user + temporary credential, INVITED."""
+        tenant_id = _tenant_or_404(state_id)
+        realm = store.get_tenant(tenant_id).provisioned_resources.keycloak_realm
+        try:
+            officer, temp_password = registry.invite(
+                tenant_id, realm, req, actor=verified_admin)
+        except OfficerError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+        return {**officer.model_dump(mode="json"),
+                "temporary_credential": temp_password}
+
+    @app.get("/cp/v1/tenants/{state_id}/officers", response_model=list[Officer])
+    def list_officers(state_id: str, role: str | None = None,
+                      officer_status: OfficerStatus | None = None,
+                      registry: OfficerRegistry = Depends(get_officers),
+                      verified_admin: str = Depends(require_admin)) -> list[Officer]:
+        tenant_id = _tenant_or_404(state_id)
+        return registry.list(tenant_id, role=role, officer_status=officer_status)
+
+    def _officer_transition(state_id: str, officer_id: str, action: str,
+                            registry: OfficerRegistry, admin: str) -> Officer:
+        tenant_id = _tenant_or_404(state_id)
+        officer = registry.get(officer_id)
+        if officer is None or officer.tenant_id != tenant_id:
+            raise HTTPException(status_code=404,
+                                detail=f"officer '{officer_id}' not found")
+        try:
+            return getattr(registry, action)(officer_id, actor=admin)
+        except OfficerError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+
+    @app.post("/cp/v1/tenants/{state_id}/officers/{officer_id}/activate",
+              response_model=Officer)
+    def activate_officer(state_id: str, officer_id: str,
+                         registry: OfficerRegistry = Depends(get_officers),
+                         verified_admin: str = Depends(require_admin)) -> Officer:
+        return _officer_transition(state_id, officer_id, "activate",
+                                   registry, verified_admin)
+
+    @app.post("/cp/v1/tenants/{state_id}/officers/{officer_id}/suspend",
+              response_model=Officer)
+    def suspend_officer(state_id: str, officer_id: str,
+                        registry: OfficerRegistry = Depends(get_officers),
+                        verified_admin: str = Depends(require_admin)) -> Officer:
+        return _officer_transition(state_id, officer_id, "suspend",
+                                   registry, verified_admin)
+
+    @app.post("/cp/v1/tenants/{state_id}/officers/{officer_id}/offboard",
+              response_model=Officer)
+    def offboard_officer(state_id: str, officer_id: str,
+                         registry: OfficerRegistry = Depends(get_officers),
+                         verified_admin: str = Depends(require_admin)) -> Officer:
+        return _officer_transition(state_id, officer_id, "offboard",
+                                   registry, verified_admin)
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:

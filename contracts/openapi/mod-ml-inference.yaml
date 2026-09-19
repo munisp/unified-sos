@@ -1,0 +1,454 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-ml-inference/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS ML Inference & Model Governance API (mod-ml-inference)
+  version: 0.1.0
+  description: 'Tenant-isolated ML model serving and governance: versioned model registry, deterministic inference, drift
+    detection (ng.sos.ml.drift_detected), and fail-soft remediation (rollback) seams. Deploys: all 6 states.'
+paths:
+  /ml/v1/models:
+    get:
+      tags:
+      - registry
+      summary: List Models
+      operationId: list_models_ml_v1_models_get
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /ml/v1/predict/{model_name}:
+    post:
+      tags:
+      - inference
+      summary: Predict
+      operationId: predict_ml_v1_predict__model_name__post
+      parameters:
+      - name: model_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model Name
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PredictRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /ml/v1/feedback/{model_name}:
+    post:
+      tags:
+      - feedback
+      summary: Submit Feedback
+      operationId: submit_feedback_ml_v1_feedback__model_name__post
+      parameters:
+      - name: model_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model Name
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackRequest'
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - feedback
+      summary: Feedback Rollup
+      operationId: feedback_rollup_ml_v1_feedback__model_name__get
+      parameters:
+      - name: model_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model Name
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /ml/v1/drift/{model_name}:
+    get:
+      tags:
+      - monitoring
+      summary: Drift Report
+      operationId: drift_report_ml_v1_drift__model_name__get
+      parameters:
+      - name: model_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model Name
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /ml/v1/ab/{model_name}:
+    get:
+      tags:
+      - ab
+      summary: Ab Comparison
+      operationId: ab_comparison_ml_v1_ab__model_name__get
+      parameters:
+      - name: model_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model Name
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /ml/v1/credit/score:
+    post:
+      tags:
+      - scoring
+      summary: Credit Score
+      description: 'Credit score in [300, 850] via the credit_mlp model.
+
+
+        Contract seam for mod-mortgage''s HttpCreditScorer. The model''s
+
+        0-1000 output is linearly mapped onto [300, 850]; fixture-profile
+
+        responses are tagged ``model_version: fixture``.'
+      operationId: credit_score_ml_v1_credit_score_post
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreditScoreRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /ml/v1/fraud/score:
+    post:
+      tags:
+      - scoring
+      summary: Fraud Score
+      description: 'Fraud risk score in [0, 100] via the fraud_gnn model.
+
+
+        Contract seam for mod-gis-lands'' HttpTitleRiskScorer. The model''s
+
+        probability output is mapped onto [0, 100]; fixture-profile
+
+        responses are tagged ``model_version: fixture``.'
+      operationId: fraud_score_ml_v1_fraud_score_post
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FraudScoreRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /healthz:
+    get:
+      summary: Healthz
+      operationId: healthz_healthz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Healthz Healthz Get
+      tags:
+      - ml
+components:
+  schemas:
+    CreditScoreRequest:
+      properties:
+        applicant_id:
+          type: string
+          minLength: 1
+          title: Applicant Id
+        features:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Features
+          description: Explicit feature instance; deterministic default derived from applicant_id when omitted
+      type: object
+      required:
+      - applicant_id
+      title: CreditScoreRequest
+    FeedbackRequest:
+      properties:
+        prediction:
+          type: number
+          title: Prediction
+        label:
+          type: number
+          title: Label
+          description: Ground-truth label
+        prediction_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Prediction Id
+      type: object
+      required:
+      - prediction
+      - label
+      title: FeedbackRequest
+    FraudScoreRequest:
+      properties:
+        entity_id:
+          type: string
+          minLength: 1
+          title: Entity Id
+        features:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Features
+          description: Explicit feature instance; deterministic default derived from entity_id when omitted
+      type: object
+      required:
+      - entity_id
+      title: FraudScoreRequest
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    PredictRequest:
+      properties:
+        instances:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          minItems: 1
+          title: Instances
+        version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Version
+          description: Pin a version; default routes via A/B policy
+        key:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Key
+          description: Stable entity key for deterministic A/B assignment
+      type: object
+      required:
+      - instances
+      title: PredictRequest
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: ml
+- name: inference
+- name: governance

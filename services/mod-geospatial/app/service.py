@@ -8,11 +8,73 @@ without modifying them.
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 import uuid
 from pathlib import Path
 from typing import Any, Callable, Optional
+
+from pydantic import BaseModel, Field
+
+log = logging.getLogger(__name__)
+
+# --- AsyncAPI channels (contracts/asyncapi/platform-events.yaml) -------------
+TOPIC_DATASET_REGISTERED = "ng.sos.geospatial.dataset_registered"
+TOPIC_PROCESSING_JOB_COMPLETED = "ng.sos.geospatial.processing_job_completed"
+TOPIC_GEOLIBRE_PROJECT_BUILT = "ng.sos.geospatial.geolibre_project_built"
+TOPIC_AGENCY_SYNC_COMPLETED = "ng.sos.geospatial.agency_sync_completed"
+
+
+class DatasetRegisteredEvent(BaseModel):
+    """Payload for ``ng.sos.geospatial.dataset_registered`` (identifiers only)."""
+
+    state_id: str
+    dataset_id: str
+    dataset_type: str
+    source_uri: str = ""
+    crs: str = "EPSG:4326"
+    h3_resolution: Optional[int] = None
+    timestamp: str
+
+
+class ProcessingJobCompletedEvent(BaseModel):
+    """Payload for ``ng.sos.geospatial.processing_job_completed``."""
+
+    state_id: str
+    job_id: str
+    job_type: str
+    status: str
+    output_uri: Optional[str] = None
+    result_hash: Optional[str] = None
+    metrics: dict[str, Any] = Field(default_factory=dict)
+    timestamp: str
+
+
+class GeolibreProjectBuiltEvent(BaseModel):
+    """Payload for ``ng.sos.geospatial.geolibre_project_built``."""
+
+    state_id: str
+    project_id: str
+    name: str
+    project_uri: str
+    project_hash: str
+    redaction_level: str
+    source_job_id: Optional[str] = None
+    timestamp: str
+
+
+class AgencySyncCompletedEvent(BaseModel):
+    """Payload for ``ng.sos.geospatial.agency_sync_completed``."""
+
+    state_id: str
+    link_id: str
+    agency: str
+    direction: str
+    status: str
+    records_synced: Optional[int] = None
+    content_hash: Optional[str] = None
+    timestamp: str
 
 from .adapters.geolibre_adapter import build_layer, get_geolibre_builder
 from .adapters.h3_adapter import get_h3_adapter
@@ -56,9 +118,11 @@ class GeospatialService:
         output_dir: Optional[str] = None,
         h3_adapter=None,
         geolibre_builder=None,
+        bus=None,
         clock: Callable[[], str] = utc_now_iso,
     ) -> None:
         self.repo = repository
+        self.bus = bus  # optional _shared.eventbus bus; fail-soft publish
         self.clock = clock
         self.output_dir = output_dir or os.environ.get(
             "GEOSPATIAL_OUTPUT_DIR", str(_REPO_ROOT / "services" / "mod-geospatial" / "var")
@@ -111,6 +175,16 @@ class GeospatialService:
         )
         return self.repo.append_audit(entry)
 
+    def _publish(self, topic: str, payload: BaseModel) -> None:
+        """Fail-soft event publish: the bus is optional and a broker outage
+        must never break a geospatial flow (mirrors other modules' idiom)."""
+        if self.bus is None:
+            return
+        try:
+            self.bus.publish(topic, payload)
+        except Exception:  # noqa: BLE001 - fail-soft by contract
+            log.warning("event publish failed for %s", topic, exc_info=True)
+
     # -- datasets -------------------------------------------------------------
     def register_dataset(self, tenant_state_id: str, request: dict[str, Any]) -> Dataset:
         geometry = request.get("geometry")
@@ -156,6 +230,15 @@ class GeospatialService:
             },
             object_uri=dataset.source_uri,
         )
+        self._publish(TOPIC_DATASET_REGISTERED, DatasetRegisteredEvent(
+            state_id=tenant_state_id,
+            dataset_id=dataset.dataset_id,
+            dataset_type=dataset.dataset_type.value,
+            source_uri=dataset.source_uri,
+            crs=dataset.crs,
+            h3_resolution=dataset.h3_resolution,
+            timestamp=self.clock(),
+        ))
         return dataset
 
     # -- jobs -----------------------------------------------------------------
@@ -198,6 +281,14 @@ class GeospatialService:
             self._audit(
                 tenant_state_id, "job_failed", "processing_job", job.job_id, {"error": str(exc)}
             )
+            self._publish(TOPIC_PROCESSING_JOB_COMPLETED, ProcessingJobCompletedEvent(
+                state_id=tenant_state_id,
+                job_id=job.job_id,
+                job_type=job.job_type.value,
+                status=JobStatus.FAILED.value,
+                metrics={"error": str(exc)},
+                timestamp=self.clock(),
+            ))
             return job
         job.output_uri = result.result_uri
         job.transition(JobStatus.SUCCEEDED, self.clock())
@@ -211,6 +302,16 @@ class GeospatialService:
             {"job_type": job.job_type.value, "result_hash": result.result_hash, "metrics": result.metrics},
             object_uri=result.result_uri,
         )
+        self._publish(TOPIC_PROCESSING_JOB_COMPLETED, ProcessingJobCompletedEvent(
+            state_id=tenant_state_id,
+            job_id=job.job_id,
+            job_type=job.job_type.value,
+            status=JobStatus.SUCCEEDED.value,
+            output_uri=result.result_uri,
+            result_hash=result.result_hash,
+            metrics=result.metrics,
+            timestamp=self.clock(),
+        ))
         return job
 
     # -- job implementations (deterministic local) ------------------------------
@@ -409,4 +510,77 @@ class GeospatialService:
             {"name": name, "redaction_level": redaction_level, "project_hash": project.project_hash},
             object_uri=uri,
         )
+        self._publish(TOPIC_GEOLIBRE_PROJECT_BUILT, GeolibreProjectBuiltEvent(
+            state_id=tenant_state_id,
+            project_id=project.project_id,
+            name=name,
+            project_uri=project.project_uri,
+            project_hash=project.project_hash,
+            redaction_level=redaction_level,
+            source_job_id=source_job_id,
+            timestamp=self.clock(),
+        ))
         return project
+
+    # -- inter-agency sync ------------------------------------------------------
+    def run_agency_sync(
+        self,
+        tenant_state_id: str,
+        *,
+        link_id: str,
+        agency: str,
+        direction: str,
+        features: Optional[list[dict[str, Any]]] = None,
+    ) -> dict[str, Any]:
+        """Run one inter-agency geodata sync link (deterministic local twin).
+
+        PUSH exports the given features through the lakehouse adapter and
+        hashes the manifest; PULL acknowledges the link with zero records
+        (the reference build has no external agency endpoint — production
+        wiring swaps in the agency adapter). Only status + content hash are
+        audited/published, never raw geodata.
+        """
+        direction = direction.upper()
+        if direction not in ("PUSH", "PULL"):
+            raise ValueError("direction must be PUSH or PULL")
+        records_synced = 0
+        content_hash: Optional[str] = None
+        status = "COMPLETED"
+        try:
+            if direction == "PUSH" and features:
+                feature_collection_from_parameters(features)  # validate geometries
+                manifest = self.lakehouse.export_features(
+                    features, destination=f"agency-sync-{link_id}"
+                )
+                records_synced = len(features)
+                content_hash = sha256_hex(canonical_json(manifest))
+        except Exception as exc:  # noqa: BLE001 - failure recorded on the link
+            status = "FAILED"
+            self._audit(
+                tenant_state_id, "agency_sync_failed", "agency_sync_link", link_id,
+                {"agency": agency, "direction": direction, "error": str(exc)},
+            )
+        else:
+            self._audit(
+                tenant_state_id, "agency_sync_completed", "agency_sync_link", link_id,
+                {"agency": agency, "direction": direction,
+                 "records_synced": records_synced, "content_hash": content_hash},
+            )
+        self._publish(TOPIC_AGENCY_SYNC_COMPLETED, AgencySyncCompletedEvent(
+            state_id=tenant_state_id,
+            link_id=link_id,
+            agency=agency,
+            direction=direction,
+            status=status,
+            records_synced=records_synced,
+            content_hash=content_hash,
+            timestamp=self.clock(),
+        ))
+        return {
+            "link_id": link_id,
+            "agency": agency,
+            "direction": direction,
+            "status": status,
+            "records_synced": records_synced,
+            "content_hash": content_hash,
+        }

@@ -1,0 +1,884 @@
+# GENERATED + CURATED from the implementation (contract-as-code).
+# Regenerate with: python3 contracts/openapi/generate_from_apps.py
+# Source: services/mod-identity/ (FastAPI app factory).
+openapi: 3.1.0
+info:
+  title: SOS Identity Registry API (mod-identity)
+  version: 0.1.0
+  description: 'Sovereign identity registry: foundational identity records, STIN issuance, and identity lifecycle management
+    for all SOS stakeholders. Complements mod-kyc-kyb (verification) and mod-citizen-portal. Deploys: all 6 states.'
+paths:
+  /residents:
+    post:
+      summary: Register Resident
+      operationId: register_resident_residents_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resident'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResidentRead'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - identity
+      security:
+      - bearerAuth: []
+  /residents/{resident_id}:
+    get:
+      summary: Get Resident
+      description: Registry-operator path only — API consumers NEVER receive records.
+      operationId: get_resident_residents__resident_id__get
+      parameters:
+      - name: resident_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Resident Id
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResidentRead'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - identity
+      security:
+      - bearerAuth: []
+  /residents/{resident_id}/status:
+    post:
+      summary: Set Resident Status
+      description: 'Registrar-only lifecycle change (DECEASED needs a death-certificate
+
+        document reference); hash-chain audited.'
+      operationId: set_resident_status_residents__resident_id__status_post
+      parameters:
+      - name: resident_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Resident Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResidentStatusChange'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResidentRead'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - identity
+      security:
+      - bearerAuth: []
+  /guardian-links:
+    post:
+      summary: Add Guardian Link
+      operationId: add_guardian_link_guardian_links_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuardianLink'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuardianLink'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - identity
+      security:
+      - bearerAuth: []
+  /credentials:
+    post:
+      summary: Issue Credential
+      operationId: issue_credential_credentials_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Credential'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Credential'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - identity
+      security:
+      - bearerAuth: []
+  /consumers:
+    post:
+      summary: Register Consumer
+      operationId: register_consumer_consumers_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiConsumer'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiConsumer'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - identity
+      security:
+      - bearerAuth: []
+  /consents:
+    post:
+      summary: Grant Consent
+      operationId: grant_consent_consents_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsentGrant'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentGrant'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - identity
+      security:
+      - bearerAuth: []
+  /consents/{grant_id}/revoke:
+    post:
+      summary: Revoke Consent
+      operationId: revoke_consent_consents__grant_id__revoke_post
+      parameters:
+      - name: grant_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Grant Id
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentGrant'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - identity
+      security:
+      - bearerAuth: []
+  /verify:
+    post:
+      summary: Verify
+      operationId: verify_verify_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResult'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - identity
+      security:
+      - bearerAuth: []
+  /settlements/{consumer_id}:
+    post:
+      summary: Settle
+      operationId: settle_settlements__consumer_id__post
+      parameters:
+      - name: consumer_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Consumer Id
+      - name: state_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: State Id
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettlementRecord'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - identity
+      security:
+      - bearerAuth: []
+  /audit:
+    get:
+      summary: Audit
+      operationId: audit_audit_get
+      parameters:
+      - name: state_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: State Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditEntry'
+                title: Response Audit Audit Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - identity
+      security:
+      - bearerAuth: []
+  /audit/verify:
+    get:
+      summary: Audit Integrity
+      operationId: audit_integrity_audit_verify_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+      tags:
+      - identity
+      security:
+      - bearerAuth: []
+  /health:
+    get:
+      summary: Health
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+      tags:
+      - identity
+components:
+  schemas:
+    ApiConsumer:
+      properties:
+        consumer_id:
+          type: string
+          title: Consumer Id
+        state_id:
+          type: string
+          title: State Id
+        name:
+          type: string
+          title: Name
+        active:
+          type: boolean
+          title: Active
+          default: true
+        registered_at:
+          type: string
+          format: date-time
+          title: Registered At
+      type: object
+      required:
+      - consumer_id
+      - state_id
+      - name
+      title: ApiConsumer
+      description: Registered API consumer (bank, telco, fintech) buying metered calls.
+    AuditEntry:
+      properties:
+        seq:
+          type: integer
+          title: Seq
+        action:
+          type: string
+          title: Action
+          description: e.g. VERIFY_GRANTED, VERIFY_DENIED_NO_CONSENT
+        state_id:
+          type: string
+          title: State Id
+        actor_id:
+          type: string
+          title: Actor Id
+          description: consumer or operator principal
+        subject_id:
+          type: string
+          title: Subject Id
+          description: resident or record affected
+        details:
+          type: string
+          title: Details
+          default: ''
+        prev_hash:
+          type: string
+          title: Prev Hash
+        entry_hash:
+          type: string
+          title: Entry Hash
+        at:
+          type: string
+          format: date-time
+          title: At
+      type: object
+      required:
+      - seq
+      - action
+      - state_id
+      - actor_id
+      - subject_id
+      - prev_hash
+      - entry_hash
+      title: AuditEntry
+      description: 'Append-only, hash-chained audit record.
+
+
+        ``entry_hash`` = sha256(prev_hash + canonical payload). The chain makes
+
+        retroactive tampering detectable; the repository exposes no update or
+
+        delete path.'
+    ConsentGrant:
+      properties:
+        grant_id:
+          type: string
+          title: Grant Id
+        state_id:
+          type: string
+          title: State Id
+        resident_id:
+          type: string
+          title: Resident Id
+        consumer_id:
+          type: string
+          title: Consumer Id
+        purpose:
+          $ref: '#/components/schemas/VerificationProduct'
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+        revoked_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Revoked At
+      type: object
+      required:
+      - grant_id
+      - state_id
+      - resident_id
+      - consumer_id
+      - purpose
+      - expires_at
+      title: ConsentGrant
+      description: 'NDPA-compliant consent: purpose-scoped, expiring, revocable.
+
+
+        Revocation blocks all future verification calls for the
+
+        (resident, consumer, purpose) tuple; past usage records remain in the
+
+        append-only audit trail.'
+    Credential:
+      properties:
+        credential_id:
+          type: string
+          title: Credential Id
+        state_id:
+          type: string
+          title: State Id
+        resident_id:
+          type: string
+          title: Resident Id
+        credential_type:
+          type: string
+          title: Credential Type
+          description: e.g. RESIDENCY_CARD, LASRRA_ID
+        issued_at:
+          type: string
+          format: date-time
+          title: Issued At
+        revoked_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Revoked At
+      type: object
+      required:
+      - credential_id
+      - state_id
+      - resident_id
+      - credential_type
+      title: Credential
+      description: A verifiable credential issued against a resident record.
+    GuardianLink:
+      properties:
+        state_id:
+          type: string
+          title: State Id
+        resident_id:
+          type: string
+          title: Resident Id
+          description: the minor resident
+        guardian_resident_id:
+          type: string
+          title: Guardian Resident Id
+        kyc_case_ref:
+          type: string
+          title: Kyc Case Ref
+          description: verified mod-kyc-kyb case for the guardianship
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - state_id
+      - resident_id
+      - guardian_resident_id
+      - kyc_case_ref
+      - expires_at
+      title: GuardianLink
+      description: 'Guardianship of a minor resident, backed by a verified KYC case.
+
+
+        Consent grants for a minor (age < 18 at the service''s injected clock)
+
+        require an active link; links auto-expire at the resident''s 18th
+
+        birthday because adults no longer need a guardian to consent.'
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    Resident:
+      properties:
+        resident_id:
+          type: string
+          title: Resident Id
+        state_id:
+          type: string
+          title: State Id
+          description: 'tenant: lagos | ogun | osun | benue | nasarawa | taraba'
+        nin:
+          type: string
+          title: Nin
+          description: 'National Identification Number linkage [LIVE: LASRRA records are NIN-linked]'
+        full_name:
+          type: string
+          title: Full Name
+        address:
+          type: string
+          title: Address
+        registered_at:
+          type: string
+          format: date-time
+          title: Registered At
+        active:
+          type: boolean
+          title: Active
+          default: true
+        status:
+          $ref: '#/components/schemas/ResidentStatus'
+          default: ACTIVE
+        date_of_birth:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Date Of Birth
+          description: optional; drives minor/guardianship consent rules
+      type: object
+      required:
+      - resident_id
+      - state_id
+      - nin
+      - full_name
+      - address
+      title: Resident
+      description: State-scoped, NIN-linked resident record. Never leaves the module.
+    ResidentRead:
+      properties:
+        resident_id:
+          type: string
+          title: Resident Id
+        state_id:
+          type: string
+          title: State Id
+        masked_nin:
+          type: string
+          title: Masked Nin
+        full_name:
+          type: string
+          title: Full Name
+        address:
+          type: string
+          title: Address
+        registered_at:
+          type: string
+          format: date-time
+          title: Registered At
+        active:
+          type: boolean
+          title: Active
+          default: true
+        status:
+          $ref: '#/components/schemas/ResidentStatus'
+          default: ACTIVE
+      type: object
+      required:
+      - resident_id
+      - state_id
+      - masked_nin
+      - full_name
+      - address
+      - registered_at
+      title: ResidentRead
+      description: 'Read model for resident records: masked NIN only.
+
+
+        NDPA gate (tests/security): raw NINs structurally cannot leave the
+
+        module — every resident-serving endpoint uses this response model.'
+    ResidentStatus:
+      type: string
+      enum:
+      - ACTIVE
+      - DECEASED
+      - SUSPENDED
+      title: ResidentStatus
+      description: 'Lifecycle status. ``active == True`` ⟺ ``status == ACTIVE`` (kept in
+
+        sync by the model validator and the service-layer transition endpoint).'
+    ResidentStatusChange:
+      properties:
+        state_id:
+          type: string
+          title: State Id
+        to_status:
+          $ref: '#/components/schemas/ResidentStatus'
+        actor_id:
+          type: string
+          title: Actor Id
+        actor_role:
+          type: string
+          title: Actor Role
+          description: must be 'registrar'
+        document_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Document Ref
+          description: death-certificate reference; required for DECEASED
+      type: object
+      required:
+      - state_id
+      - to_status
+      - actor_id
+      - actor_role
+      title: ResidentStatusChange
+    SettlementLine:
+      properties:
+        beneficiary:
+          type: string
+          title: Beneficiary
+        tigerbeetle_account_code:
+          type: integer
+          title: Tigerbeetle Account Code
+        transfer_code:
+          type: integer
+          title: Transfer Code
+        amount_kobo:
+          type: integer
+          minimum: 0.0
+          title: Amount Kobo
+      type: object
+      required:
+      - beneficiary
+      - tigerbeetle_account_code
+      - transfer_code
+      - amount_kobo
+      title: SettlementLine
+      description: 'One revenue-share leg, wired to TigerBeetle (ADR-002 double-entry).
+
+
+        ``tigerbeetle_account_code`` per ledger/chart-of-accounts.md:
+
+        3001 State Consolidated Revenue Fund (state share), 2099 PPP Tech
+
+        Concessionaire Escrow (platform share, transfer code 103).'
+    SettlementRecord:
+      properties:
+        settlement_id:
+          type: string
+          title: Settlement Id
+        state_id:
+          type: string
+          title: State Id
+        consumer_id:
+          type: string
+          title: Consumer Id
+        usage_ids:
+          items:
+            type: string
+          type: array
+          title: Usage Ids
+        total_kobo:
+          type: integer
+          minimum: 0.0
+          title: Total Kobo
+        lines:
+          items:
+            $ref: '#/components/schemas/SettlementLine'
+          type: array
+          title: Lines
+        settled_at:
+          type: string
+          format: date-time
+          title: Settled At
+      type: object
+      required:
+      - settlement_id
+      - state_id
+      - consumer_id
+      - usage_ids
+      - total_kobo
+      - lines
+      title: SettlementRecord
+      description: Periodic revenue-share settlement for a consumer's metered usage.
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    VerificationProduct:
+      type: string
+      enum:
+      - ADDRESS_VERIFICATION
+      - RESIDENCY_ATTESTATION
+      - KYC_ADJUNCT
+      title: VerificationProduct
+      description: Metered per-call verification API products (LASRRA/QoreID model [LIVE]).
+    VerificationResult:
+      properties:
+        result_id:
+          type: string
+          title: Result Id
+        state_id:
+          type: string
+          title: State Id
+        consumer_id:
+          type: string
+          title: Consumer Id
+        product:
+          $ref: '#/components/schemas/VerificationProduct'
+        attested:
+          type: boolean
+          title: Attested
+          description: boolean outcome of the verification
+        consent_grant_id:
+          type: string
+          title: Consent Grant Id
+        responded_at:
+          type: string
+          format: date-time
+          title: Responded At
+      type: object
+      required:
+      - result_id
+      - state_id
+      - consumer_id
+      - product
+      - attested
+      - consent_grant_id
+      title: VerificationResult
+      description: 'NDPA data-minimization envelope: boolean attestation ONLY.
+
+
+        Structural guarantee — this model has no field capable of carrying the
+
+        resident record (name, NIN, address) back to the caller.'
+    VerifyRequest:
+      properties:
+        state_id:
+          type: string
+          title: State Id
+        consumer_id:
+          type: string
+          title: Consumer Id
+        resident_id:
+          type: string
+          title: Resident Id
+        product:
+          $ref: '#/components/schemas/VerificationProduct'
+        claim:
+          type: string
+          title: Claim
+          default: ''
+      type: object
+      required:
+      - state_id
+      - consumer_id
+      - resident_id
+      - product
+      title: VerifyRequest
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: https://api.{state}.gov.ng/sos
+  description: Per-state sovereign data plane (state = lagos|ogun|osun|benue|nasarawa|taraba)
+tags:
+- name: identity
+- name: registry
+- name: stin

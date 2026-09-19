@@ -241,8 +241,9 @@ services:
 
   mod-geospatial:
     build:
-      context: ../services/mod-geospatial
-      dockerfile: Dockerfile
+      # Dockerfile expects the REPO ROOT context (it COPYs geospatial/local/).
+      context: ..
+      dockerfile: services/mod-geospatial/Dockerfile
     image: ghcr.io/munisp/mod-geospatial:dev
     environment:
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
@@ -251,12 +252,13 @@ services:
       GEOSPATIAL_MODE: local
       DATABASE_URL: postgresql://${POSTGRES_USER:-sos}:${POSTGRES_PASSWORD:-sos-dev-only-not-a-secret}@postgres:5432/${POSTGRES_DB:-sos}
     ports:
-      - "8013:8000"
+      # Container serves :8013 (see services/mod-geospatial/Dockerfile).
+      - "8013:8013"
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8013/healthz', timeout=3).status==200 else 1)\""]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -390,6 +392,254 @@ services:
       retries: 5
 
 
+  # --- Stage 15 wiring: remaining application services ----------------------
+  # Sequential host ports 8024-8036 (8000-8023, 8443, 5000 already in use);
+  # all containers serve :8000 and follow the standard block pattern.
+
+  control-plane:
+    build:
+      context: ../services/control-plane
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/control-plane:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+      # fixture default = deterministic local control plane; production sets
+      # SOS_CP_PROFILE=production + SOS_CP_ADMIN_TOKEN (fail closed otherwise)
+      SOS_CP_PROFILE: ${SOS_CP_PROFILE:-fixture}
+      EVENT_BUS: ${EVENT_BUS:-memory}
+    ports:
+      - "8024:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  mod-identity:
+    build:
+      context: ../services/mod-identity
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-identity:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+      EVENT_BUS: ${EVENT_BUS:-memory}
+    ports:
+      - "8025:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  mod-mobility-switch:
+    build:
+      context: ../services/mod-mobility-switch
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-mobility-switch:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-lagos}
+      # fixture settlement ledger default; production sets
+      # SOS_MOBILITY_LEDGER_URL (TigerBeetle) + FSPIOP/NIBSS scheme config
+      EVENT_BUS: ${EVENT_BUS:-memory}
+    ports:
+      - "8026:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  mod-police-cad:
+    build:
+      context: ../services/mod-police-cad
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-police-cad:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+      # fixture default; production: SOS_CAD_PROFILE=production + external
+      # dispatch/CCTV seams (fail closed otherwise)
+      SOS_CAD_PROFILE: ${SOS_CAD_PROFILE:-fixture}
+      EVENT_BUS: ${EVENT_BUS:-memory}
+    ports:
+      - "8027:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  mod-market:
+    build:
+      context: ../services/mod-market
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-market:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+      EVENT_BUS: ${EVENT_BUS:-memory}
+    ports:
+      - "8028:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  mod-mining:
+    build:
+      context: ../services/mod-mining
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-mining:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+      EVENT_BUS: ${EVENT_BUS:-memory}
+    ports:
+      - "8029:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  mod-forestry:
+    build:
+      context: ../services/mod-forestry
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-forestry:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+      EVENT_BUS: ${EVENT_BUS:-memory}
+    ports:
+      - "8030:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  mod-education:
+    build:
+      context: ../services/mod-education
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-education:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+      EVENT_BUS: ${EVENT_BUS:-memory}
+    ports:
+      - "8031:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  mod-health:
+    build:
+      context: ../services/mod-health
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-health:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+      EVENT_BUS: ${EVENT_BUS:-memory}
+    ports:
+      - "8032:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  mod-gis-luc:
+    build:
+      context: ../services/mod-gis-luc
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-gis-luc:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+      EVENT_BUS: ${EVENT_BUS:-memory}
+    ports:
+      - "8033:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  mod-agri-waybill:
+    build:
+      context: ../services/mod-agri-waybill
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-agri-waybill:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+      EVENT_BUS: ${EVENT_BUS:-memory}
+    ports:
+      - "8034:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  mod-ppp-investment:
+    build:
+      context: ../services/mod-ppp-investment
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-ppp-investment:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+      EVENT_BUS: ${EVENT_BUS:-memory}
+    ports:
+      - "8035:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  mod-transport-wim:
+    build:
+      context: ../services/mod-transport-wim
+      dockerfile: Dockerfile
+    image: ghcr.io/munisp/mod-transport-wim:dev
+    environment:
+      TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+      EVENT_BUS: ${EVENT_BUS:-memory}
+    ports:
+      - "8036:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # --- APISIX API gateway (Layer 1 edge target for Caddy) -------------------
+  # Standalone/quickstart note: deploy/tuning/apisix.yaml is the shared 3.9
+  # tuning config (etcd-driven in production). For a fully standalone local
+  # gateway (config_provider: yaml, no etcd), point APISIX_IMAGE at an image
+  # baked with the standalone deployment block + apisix-routes.generated.yaml
+  # (deploy/tuning/generate_apisix_routes.py); the mounted tuning config is
+  # applied in both modes.
+  apisix:
+    image: ${APISIX_IMAGE:-apache/apisix:3.9.0}
+    volumes:
+      - ../deploy/tuning/apisix.yaml:/usr/local/apisix/conf/config.yaml:ro
+    ports:
+      - "9080:9080"
+
+  # --- Citizen PWA (Layer 1 web target for Caddy) ---------------------------
+  # Build context apps/citizen-pwa (Vite build); the multi-stage Dockerfile
+  # ships with the PWA workstream — until it lands, override with
+  # CITIZEN_PWA_IMAGE pointing at a prebuilt image.
+  citizen-pwa:
+    build:
+      context: ../apps/citizen-pwa
+      dockerfile: Dockerfile
+    image: ${CITIZEN_PWA_IMAGE:-ghcr.io/munisp/citizen-pwa:dev}
+    ports:
+      # Host 3000 is taken by tigerbeetle; the container serves :3000 and the
+      # Caddy edge targets citizen-pwa:3000 over the internal network.
+      - "3001:3000"
+
   # --- Caddy edge: automatic HTTPS + per-state whitelabel domains ----------
 
   caddy:
@@ -487,7 +737,7 @@ services:
     image: ghcr.io/munisp/mod-geospatial-gateway:dev
     environment:
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
-      GEOSPATIAL_UPSTREAM_URL: http://mod-geospatial:8000
+      GEOSPATIAL_UPSTREAM_URL: http://mod-geospatial:8013
     ports:
       - "8014:8014"
     depends_on:

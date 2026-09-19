@@ -27,9 +27,18 @@ from _shared.hashchain import GENESIS_PREV_HASH, event_payload_hash  # noqa: E40
 if TYPE_CHECKING:  # pragma: no cover
     from .audit_archive import AuditArchive
 
-#: Tenant states + tiers per contracts/openapi/control-plane.yaml.
-VALID_STATES = ("lagos", "ogun", "osun", "benue", "nasarawa", "taraba")
+#: Tenant states + tiers. Canonical list mirrors config/states/validate_packs.py
+#: STATES (National Edition: 36 states + FCT); the 6 pilot states come first.
+VALID_STATES = (
+    "lagos", "ogun", "osun", "benue", "nasarawa", "taraba",
+    "abia", "adamawa", "akwa_ibom", "anambra", "bauchi", "bayelsa", "borno",
+    "cross_river", "delta", "ebonyi", "edo", "ekiti", "enugu", "gombe", "imo",
+    "jigawa", "kaduna", "kano", "katsina", "kebbi", "kogi", "kwara", "niger",
+    "ondo", "oyo", "plateau", "rivers", "sokoto", "yobe", "zamfara", "fct",
+)
 VALID_TIERS = ("dedicated", "hybrid", "shared")
+
+_STATES_PATTERN = "^(" + "|".join(VALID_STATES) + ")$"
 
 
 class TenantStatus(str, Enum):
@@ -44,7 +53,7 @@ class TenantStatus(str, Enum):
 class TenantCreate(BaseModel):
     """CreateTenant request body (contract schema)."""
 
-    state: str = Field(..., pattern="^(lagos|ogun|osun|benue|nasarawa|taraba)$")
+    state: str = Field(..., pattern=_STATES_PATTERN)
     tier: str = Field(..., pattern="^(dedicated|hybrid|shared)$")
     realms: list[str] = Field(default_factory=list)
 
@@ -236,6 +245,10 @@ class MetadataStore:
     def get_tenant(self, tenant_id: str) -> Tenant | None:
         return self._tenants.get(tenant_id)
 
+    def get_tenant_by_state(self, state: str) -> Tenant | None:
+        tenant_id = self._tenant_by_state.get(state)
+        return self._tenants.get(tenant_id) if tenant_id else None
+
     def list_tenants(self) -> list[Tenant]:
         return [self._tenants[k] for k in sorted(self._tenants)]
 
@@ -316,6 +329,16 @@ class MetadataStore:
                 {"endpoint": endpoint, "asserted_actor": asserted_actor,
                  "outcome": outcome, "token_sha256": token_sha256},
             )
+
+    def record_officer_event(self, event_type: str, tenant_id: str, actor: str,
+                             detail: dict[str, Any]) -> None:
+        """Hash-chain audit hook for the officer lifecycle (app/officers.py).
+
+        Events land on the tenant's chain exactly like tenant lifecycle
+        events (``ng.sos.tenant.officer_*``).
+        """
+        with self._lock:
+            self._append_locked(event_type, tenant_id, actor, detail)
 
     def audit_events(self) -> list[AuditEvent]:
         """Read-only view of the append-only audit log (no mutation API exists)."""

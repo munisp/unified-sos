@@ -8,11 +8,11 @@
     },
     "job_type": {
       "enum": [
-        "H3_INDEX",
-        "SPATIAL_JOIN",
-        "NDVI",
-        "GEOLIBRE_PROJECT",
-        "AGENCY_SYNC"
+        "UNASSESSED_PROPERTY_JOIN",
+        "NDVI_CHANGE_DETECTION",
+        "H3_AGGREGATION",
+        "GEOPARQUET_EXPORT",
+        "GEOLIBRE_PROJECT_BUILD"
       ],
       "type": "string"
     },
@@ -41,7 +41,7 @@
     },
     "status": {
       "enum": [
-        "COMPLETED",
+        "SUCCEEDED",
         "FAILED"
       ],
       "type": "string"

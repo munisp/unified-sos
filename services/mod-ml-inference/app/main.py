@@ -85,6 +85,20 @@ class PredictRequest(BaseModel):
         None, description="Stable entity key for deterministic A/B assignment")
 
 
+class CreditScoreRequest(BaseModel):
+    applicant_id: str = Field(..., min_length=1)
+    features: Optional[Dict] = Field(
+        None, description="Explicit feature instance; deterministic default "
+                          "derived from applicant_id when omitted")
+
+
+class FraudScoreRequest(BaseModel):
+    entity_id: str = Field(..., min_length=1)
+    features: Optional[Dict] = Field(
+        None, description="Explicit feature instance; deterministic default "
+                          "derived from entity_id when omitted")
+
+
 class FeedbackRequest(BaseModel):
     prediction: float
     label: float = Field(..., description="Ground-truth label")
@@ -284,6 +298,125 @@ def create_app(registry: Optional[ModelRegistry] = None,
                       tenant: str = Depends(_tenant)):
         ab: ABRouter = request.app.state.router
         return {"tenant_state_id": tenant, **ab.comparison(model_name)}
+
+    # --- contract scoring endpoints (mod-mortgage / mod-gis-lands seams) ---
+
+    def _default_features(seed: str, schema: Dict) -> Dict:
+        """Deterministic default instance derived from an entity id, shaped
+        to the model card's feature schema (categorical ids, numerics in
+        [0,1), sequences). The same id always yields the same instance, so
+        scores stay reproducible when callers omit explicit features."""
+        digest = sha256_hex(seed)
+
+        def num(i: int) -> float:
+            return int(digest[(i * 8) % 56:(i * 8) % 56 + 8], 16) % 1000 / 1000.0
+
+        if not schema:  # no card registered — flat numeric fixture instance
+            return {f"f{i}": num(i) for i in range(4)}
+        instance: Dict = {}
+        if "features" in schema:  # generic list-format schema
+            for i, spec in enumerate(schema["features"]):
+                if spec.get("type") == "sequence":
+                    instance[spec["name"]] = [num(i), num(i + 1)]
+                else:
+                    lo = spec.get("min")
+                    hi = spec.get("max")
+                    value = num(i)
+                    if lo is not None and hi is not None:
+                        value = float(lo) + value * (float(hi) - float(lo))
+                    instance[spec["name"]] = value
+            return instance
+        if "node_features" in schema:
+            return {name: num(i)
+                    for i, name in enumerate(schema["node_features"])}
+        for name, vocab in (schema.get("categoricals") or {}).items():
+            instance[name] = int(digest[:8], 16) % max(1, int(vocab))
+        for i, name in enumerate(schema.get("numeric") or []):
+            instance[name] = num(i + 1)
+        if "density" in schema or "density_history" in schema:
+            key = "density" if "density" in schema else "density_history"
+            instance[key] = [num(1), num(2), num(3)]
+        return instance
+
+    def _score_endpoint(*, model_name: str, entity_id: str,
+                        features: Optional[Dict], request: Request,
+                        tenant: str, map_score) -> Dict:
+        eng: InferenceEngine = request.app.state.engine
+        reg: ModelRegistry = request.app.state.registry
+        if features is not None:
+            instance = dict(features)
+        else:
+            try:
+                schema = reg.card(model_name).feature_schema
+            except ModelNotFoundError:
+                schema = {}
+            instance = _default_features(f"{model_name}:{entity_id}", schema)
+        prediction_id = f"pred-{uuid.uuid4().hex[:16]}"
+        start = time.perf_counter()
+        try:
+            result = eng.predict(model_name, [instance])
+        except ModelNotFoundError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"model {model_name!r} not found in registry")
+        except InputValidationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(exc))
+        except AdapterUnavailableError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=str(exc))
+        elapsed = time.perf_counter() - start
+        raw = float(result["predictions"][0])
+        request.app.state.audit.append(
+            event_id=prediction_id,
+            tenant_state_id=tenant,
+            model_name=model_name,
+            model_version=result["model_version"],
+            variant="scoring",
+            inputs_hash=sha256_hex(repr(sorted(
+                (k, repr(v)) for k, v in instance.items()))),
+            batch_size=1,
+            latency_seconds=round(elapsed, 6),
+        )
+        return {
+            "prediction_id": prediction_id,
+            "tenant_state_id": tenant,
+            "score": map_score(raw),
+            "raw_prediction": raw,
+            "model_version": result["model_version"],
+        }
+
+    @app.post("/ml/v1/credit/score", tags=["scoring"])
+    def credit_score(req: CreditScoreRequest, request: Request,
+                     tenant: str = Depends(_tenant)):
+        """Credit score in [300, 850] via the credit_mlp model.
+
+        Contract seam for mod-mortgage's HttpCreditScorer. The model's
+        0-1000 output is linearly mapped onto [300, 850]; fixture-profile
+        responses are tagged ``model_version: fixture``.
+        """
+        return _score_endpoint(
+            model_name="credit_mlp", entity_id=req.applicant_id,
+            features=req.features, request=request, tenant=tenant,
+            map_score=lambda raw: max(300, min(850, int(round(
+                300.0 + max(0.0, min(1000.0, raw)) / 1000.0 * 550.0)))))
+
+    @app.post("/ml/v1/fraud/score", tags=["scoring"])
+    def fraud_score(req: FraudScoreRequest, request: Request,
+                    tenant: str = Depends(_tenant)):
+        """Fraud risk score in [0, 100] via the fraud_gnn model.
+
+        Contract seam for mod-gis-lands' HttpTitleRiskScorer. The model's
+        probability output is mapped onto [0, 100]; fixture-profile
+        responses are tagged ``model_version: fixture``.
+        """
+        return _score_endpoint(
+            model_name="fraud_gnn", entity_id=req.entity_id,
+            features=req.features, request=request, tenant=tenant,
+            map_score=lambda raw: max(0, min(100, int(round(
+                max(0.0, min(1.0, raw)) * 100.0)))))
 
     @app.get("/healthz")
     def healthz() -> Dict[str, str]:

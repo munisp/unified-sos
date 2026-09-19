@@ -59,6 +59,7 @@ KNOWN_MODULES = {
     "mod-agri-trace", "mod-border-transit", "mod-waterways",
     "mod-ppp-investment",
     "mod-land-docs", "mod-mortgage",
+    "mod-ml-inference", "mod-identity",
     "lakehouse", "control-plane",
 }
 

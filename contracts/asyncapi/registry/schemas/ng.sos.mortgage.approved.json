@@ -1,0 +1,30 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.mortgage.approved.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.mortgage.approved' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "mortgage_id": {
+      "type": "string"
+    },
+    "occurred_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "officer": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "tenant_state_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "tenant_state_id",
+    "mortgage_id",
+    "occurred_at"
+  ],
+  "title": "ng.sos.mortgage.approved",
+  "type": "object"
+}

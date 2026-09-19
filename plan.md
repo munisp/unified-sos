@@ -48,3 +48,8 @@ Per-service pytest, validate_packs (37 packs), validate_infra, registry --check,
   A3 identity/citizen/security (deceased persons, minors, guardianship, account recovery, agent/assisted channels, NDPA erasure vs WORM, key rotation/compromise, offline USSD replay)
   A4 ops/cross-cutting (DR/backup-restore drills, out-of-order/duplicate events, clock skew, schema migrations, tenant offboarding/export, audit-chain gaps across modules, event versioning)
 - Stage B: triage → fix waves by coder agents; full gates; commit; push.
+
+## Stage 15 — Stakeholder onboarding + orphan-code closure
+- G1: officer/user provisioning into Keycloak realms (invite→approve→credential→role bind→offboard), VALID_STATES→37, shared OIDC JWT middleware (_shared, fail-closed), wire auth into sensitive write endpoints (gis-lands mutations, kyc review, control-plane).
+- G2: compose wiring (geospatial context/ports, missing 14 services, apisix+citizen-pwa so caddy edge works), integration URL fixes (mortgage→ml credit scoring, lands risk/fraud + phantom constants, land-docs port/path, mortgage lands port), /ml/v1/credit/score + /ml/v1/fraud/score routes, PWA /payments/v1/quotes+confirm in mobility-switch.
+- G3: contracts parity (AsyncAPI: add missing channels for published topics; implement publishers for declared channels in lands/kyc/fundsflow), OpenAPI generator +5 services, validate_packs KNOWN_MODULES +2, Cilium policies for remaining modules, repo hygiene (purge .pytest_cache/__pycache__, gitignore), document edge-daemon/document-ai deployment decisions.

@@ -45,8 +45,10 @@ from .transfers import (
     TransferNotFoundError,
 )
 
-#: Default in-cluster URL of the compensation ledger (deployment config).
-DEFAULT_LEDGER_URL = "http://mod-finance-ledger:8024/ledger/v1/compensation"
+# NOTE: no DEFAULT_LEDGER_URL — the compensation ledger is an
+# external-system seam (no in-cluster finance-ledger service ships with the
+# platform), so production requires an explicit ``SOS_LANDS_LEDGER_URL``
+# (fail-closed); the fixture ledger remains the dev/test default.
 
 
 class RevocationStage(str, enum.Enum):
@@ -152,7 +154,13 @@ class HttpCompensationLedger:
         timeout_s: float = 5.0,
     ) -> None:
         env = environ if environ is not None else dict(os.environ)
-        self.base_url = base_url or env.get("SOS_LANDS_LEDGER_URL") or DEFAULT_LEDGER_URL
+        self.base_url = base_url or env.get("SOS_LANDS_LEDGER_URL")
+        if not self.base_url:
+            raise AdapterUnavailableError(
+                "SOS_LANDS_LEDGER_URL is required for HttpCompensationLedger "
+                "(external-system seam; fail-closed: refusing to boot with "
+                "an unconfigured compensation-ledger endpoint)"
+            )
         self.timeout_s = timeout_s
 
     def _call(self, path: str, payload: dict) -> None:  # pragma: no cover

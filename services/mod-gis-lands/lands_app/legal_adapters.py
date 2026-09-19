@@ -24,9 +24,13 @@ from typing import Dict, Optional, Protocol
 
 from .risk import AdapterUnavailableError
 
-#: Default in-cluster URLs (deployment config).
-DEFAULT_DOCS_URL = "http://mod-land-docs:8022/docs/v1/verify"
-DEFAULT_TAX_URL = "http://mod-revenue-tax:8023/tax/v1/clearance"
+#: Default in-cluster base URL of mod-land-docs (deployment config). The
+#: verify path is ``POST /api/v1/states/{state_id}/land-docs/documents/
+#: {document_id}/verify`` on the in-cluster service port (8000).
+DEFAULT_DOCS_URL = "http://mod-land-docs:8000"
+
+#: Path template for the mod-land-docs document verification transition.
+DOCS_VERIFY_PATH = "/api/v1/states/{tenant_state_id}/land-docs/documents/{document_id}/verify"
 
 
 @dataclass(frozen=True)
@@ -85,10 +89,14 @@ class FixtureLandDocsAdapter:
 
 
 class HttpLandDocsAdapter:
-    """Production adapter — GETs document verification from mod-land-docs.
+    """Production adapter — verifies documents via mod-land-docs.
 
-    Fail-closed: transport/dependency failure raises
-    :class:`AdapterUnavailableError` instead of fabricating a verification.
+    Calls ``POST {base_url}/api/v1/states/{state_id}/land-docs/documents/
+    {document_id}/verify`` (the mod-land-docs lifecycle transition). A 200
+    response whose returned document status is VERIFIED counts as verified;
+    404 counts as not found/unverified. Fail-closed: any other
+    transport/dependency failure raises :class:`AdapterUnavailableError`
+    instead of fabricating a verification.
     """
 
     name = "http"
@@ -100,7 +108,8 @@ class HttpLandDocsAdapter:
         timeout_s: float = 5.0,
     ) -> None:
         env = environ if environ is not None else dict(os.environ)
-        self.base_url = base_url or env.get("SOS_LANDS_DOCS_URL") or DEFAULT_DOCS_URL
+        self.base_url = (base_url or env.get("SOS_LANDS_DOCS_URL")
+                         or DEFAULT_DOCS_URL).rstrip("/")
         self.timeout_s = timeout_s
 
     def verify_document(
@@ -112,20 +121,47 @@ class HttpLandDocsAdapter:
             raise AdapterUnavailableError(
                 "httpx is required for HttpLandDocsAdapter"
             ) from exc
+        url = self.base_url + DOCS_VERIFY_PATH.format(
+            tenant_state_id=tenant_state_id, document_id=document_id)
         try:
             resp = httpx.post(
-                self.base_url,
-                json={"tenant_state_id": tenant_state_id, "document_id": document_id},
+                url,
+                json={"verifier": "mod-gis-lands",
+                      "reason": "conveyancing evidence verification"},
+                headers={"X-State-Tenant": tenant_state_id},
                 timeout=self.timeout_s,
             )
+            if resp.status_code == 404:
+                return DocumentVerification(
+                    document_id=document_id, verified=False,
+                    detail="document not found in land-docs registry",
+                )
+            # 409 = lifecycle transition not allowed from the current status
+            # (e.g. already VERIFIED): fall back to reading the document so an
+            # idempotent re-verify is not mistaken for an outage.
+            if resp.status_code == 409:
+                resp = httpx.get(
+                    f"{self.base_url}/api/v1/states/{tenant_state_id}"
+                    f"/land-docs/documents/{document_id}",
+                    headers={"X-State-Tenant": tenant_state_id},
+                    timeout=self.timeout_s,
+                )
+                if resp.status_code == 404:
+                    return DocumentVerification(
+                        document_id=document_id, verified=False,
+                        detail="document not found in land-docs registry",
+                    )
             resp.raise_for_status()
-            body = resp.json()
+            body = resp.json() if resp.content else {}
+            status_value = str(body.get("status", "")).upper()
             return DocumentVerification(
                 document_id=document_id,
-                verified=bool(body["verified"]),
-                doc_type=str(body.get("doc_type", "")),
-                detail=str(body.get("detail", "")),
+                verified=status_value == "VERIFIED",
+                doc_type=str(body.get("doc_type", body.get("document_type", ""))),
+                detail=f"land-docs status {status_value or 'unknown'}",
             )
+        except AdapterUnavailableError:
+            raise
         except Exception as exc:
             raise AdapterUnavailableError(
                 f"land-docs adapter unavailable at {self.base_url}: {exc} "
@@ -197,6 +233,11 @@ class FixtureTaxClearanceAdapter:
 class HttpTaxClearanceAdapter:
     """Production adapter — POSTs to the state tax clearance endpoint.
 
+    External-system seam: no in-cluster tax-clearance service ships with the
+    platform, so there is NO default URL — an explicit ``SOS_LANDS_TAX_URL``
+    (or constructor argument) is required and constructing without one
+    raises :class:`AdapterUnavailableError` (fail-closed).
+
     Fail-closed: any failure raises :class:`AdapterUnavailableError` rather
     than registering a transfer without tax clearance.
     """
@@ -210,7 +251,13 @@ class HttpTaxClearanceAdapter:
         timeout_s: float = 5.0,
     ) -> None:
         env = environ if environ is not None else dict(os.environ)
-        self.base_url = base_url or env.get("SOS_LANDS_TAX_URL") or DEFAULT_TAX_URL
+        self.base_url = base_url or env.get("SOS_LANDS_TAX_URL")
+        if not self.base_url:
+            raise AdapterUnavailableError(
+                "SOS_LANDS_TAX_URL is required for HttpTaxClearanceAdapter "
+                "(external-system seam; fail-closed: refusing to boot with "
+                "an unconfigured tax-clearance endpoint)"
+            )
         self.timeout_s = timeout_s
 
     def clear(

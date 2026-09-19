@@ -1,0 +1,20 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.tenant.suspended.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.tenant.suspended' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "reason": {
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "reason",
+    "timestamp"
+  ],
+  "title": "ng.sos.tenant.suspended",
+  "type": "object"
+}

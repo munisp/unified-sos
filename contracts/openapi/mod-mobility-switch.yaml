@@ -343,6 +343,84 @@ paths:
       - mobility
       security:
       - bearerAuth: []
+  /payments/v1/quotes:
+    post:
+      summary: Create Payment Quote
+      operationId: create_payment_quote_payments_v1_quotes_post
+      parameters:
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentQuoteRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mobility
+      security:
+      - bearerAuth: []
+  /payments/v1/quotes/{quote_id}/confirm:
+    post:
+      summary: Confirm Payment Quote
+      operationId: confirm_payment_quote_payments_v1_quotes__quote_id__confirm_post
+      parameters:
+      - name: quote_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Quote Id
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      - name: x-state-tenant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-State-Tenant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mobility
+      security:
+      - bearerAuth: []
   /healthz:
     get:
       summary: Healthz
@@ -597,6 +675,36 @@ components:
       - bill_reference
       - amount_kobo
       title: NibssBillNotification
+    PaymentQuoteRequest:
+      properties:
+        bill_reference:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Bill Reference
+        ticket_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ticket Ref
+        amount_kobo:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Amount Kobo
+        payer:
+          type: string
+          title: Payer
+          default: payer
+      type: object
+      required:
+      - amount_kobo
+      title: PaymentQuoteRequest
+      description: 'Citizen-PWA payment quote request.
+
+
+        ``bill_reference`` is the canonical field; ``ticket_ref`` is accepted as
+
+        an alias for the PWA''s fare-ticket flow.'
     SettlementBatch:
       properties:
         batch_id:
@@ -692,6 +800,11 @@ components:
         type:
           type: string
           title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
       type: object
       required:
       - loc

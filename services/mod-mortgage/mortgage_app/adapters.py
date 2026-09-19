@@ -14,7 +14,7 @@ Selection (environment-driven, fail-closed)::
     SOS_MORTGAGE_LEDGER=fixture|tigerbeetle   (default: fixture)
     SOS_MORTGAGE_TB_URL=...                    (required for tigerbeetle)
     SOS_MORTGAGE_LANDS=fixture|http           (default: fixture)
-    SOS_MORTGAGE_LANDS_URL=http://mod-gis-lands:8003
+    SOS_MORTGAGE_LANDS_URL=http://mod-gis-lands:8000   (in-cluster port)
 
 All money amounts are integer kobo — never floats.
 """
@@ -85,11 +85,12 @@ class FixtureCreditScorer:
 class HttpCreditScorer:
     """Production scorer over mod-ml-inference — fail-closed seam.
 
-    Requires ``SOS_MORTGAGE_CREDIT_URL``; constructing without configuration
-    raises :class:`AdapterUnavailableError` rather than silently degrading.
+    ``SOS_MORTGAGE_CREDIT_URL`` overrides the documented in-cluster default
+    :attr:`DEFAULT_URL` (``http://mod-ml-inference:8000``, the compose
+    service port — host port 8021 is only published on localhost).
     """
 
-    DEFAULT_URL = "http://mod-ml-inference:8021/ml/v1/credit/score"
+    DEFAULT_URL = "http://mod-ml-inference:8000/ml/v1/credit/score"
 
     def __init__(
         self,
@@ -97,12 +98,7 @@ class HttpCreditScorer:
         environ: Optional[Dict[str, str]] = None,
     ) -> None:
         env = environ if environ is not None else dict(os.environ)
-        self.url = url or env.get("SOS_MORTGAGE_CREDIT_URL")
-        if not self.url:
-            raise AdapterUnavailableError(
-                "SOS_MORTGAGE_CREDIT_URL is required for HttpCreditScorer "
-                "(fail-closed: refusing to score with an unconfigured engine)"
-            )
+        self.url = url or env.get("SOS_MORTGAGE_CREDIT_URL") or self.DEFAULT_URL
         try:
             import httpx  # optional dependency  # noqa: F401
         except ImportError as exc:
@@ -390,14 +386,15 @@ class FixtureLandRegistry:
 class HttpLandRegistry:
     """Production registry over mod-gis-lands — fail-closed seam.
 
-    Requires ``SOS_MORTGAGE_LANDS_URL``; constructing without configuration
-    raises :class:`AdapterUnavailableError`. Strict: any verification field
-    the registry cannot attest (older mod-gis-lands without lifecycle-aware
-    verification/encumbrance fields) yields an UNVERIFIED snapshot, and the
-    domain layer fails closed rather than registering a lien on it.
+    ``SOS_MORTGAGE_LANDS_URL`` overrides the documented in-cluster default
+    :attr:`DEFAULT_URL` (``http://mod-gis-lands:8000``, the compose service
+    port). Strict: any verification field the registry cannot attest (older
+    mod-gis-lands without lifecycle-aware verification/encumbrance fields)
+    yields an UNVERIFIED snapshot, and the domain layer fails closed rather
+    than registering a lien on it.
     """
 
-    DEFAULT_URL = "http://mod-gis-lands:8003"
+    DEFAULT_URL = "http://mod-gis-lands:8000"
     strict = True
 
     def __init__(
@@ -406,13 +403,8 @@ class HttpLandRegistry:
         environ: Optional[Dict[str, str]] = None,
     ) -> None:
         env = environ if environ is not None else dict(os.environ)
-        self.url = (url or env.get("SOS_MORTGAGE_LANDS_URL") or "").rstrip("/")
-        if not self.url:
-            raise AdapterUnavailableError(
-                "SOS_MORTGAGE_LANDS_URL is required for HttpLandRegistry "
-                "(fail-closed: refusing to register liens against an "
-                "unverified title)"
-            )
+        self.url = (url or env.get("SOS_MORTGAGE_LANDS_URL")
+                    or self.DEFAULT_URL).rstrip("/")
         try:
             import httpx  # optional dependency  # noqa: F401
         except ImportError as exc:
@@ -520,9 +512,12 @@ class FixtureTitleTransfer:
 class HttpTitleTransfer:
     """Production title transfer over mod-gis-lands — fail-closed seam.
 
-    Requires ``SOS_MORTGAGE_LANDS_URL``; constructing without configuration
-    raises :class:`AdapterUnavailableError`.
+    ``SOS_MORTGAGE_LANDS_URL`` overrides the documented in-cluster default
+    :attr:`DEFAULT_URL` (``http://mod-gis-lands:8000``, the compose service
+    port).
     """
+
+    DEFAULT_URL = "http://mod-gis-lands:8000"
 
     def __init__(
         self,
@@ -530,12 +525,8 @@ class HttpTitleTransfer:
         environ: Optional[Dict[str, str]] = None,
     ) -> None:
         env = environ if environ is not None else dict(os.environ)
-        self.url = (url or env.get("SOS_MORTGAGE_LANDS_URL") or "").rstrip("/")
-        if not self.url:
-            raise AdapterUnavailableError(
-                "SOS_MORTGAGE_LANDS_URL is required for HttpTitleTransfer "
-                "(fail-closed: refusing to sell without a title-transfer path)"
-            )
+        self.url = (url or env.get("SOS_MORTGAGE_LANDS_URL")
+                    or self.DEFAULT_URL).rstrip("/")
         try:
             import httpx  # optional dependency  # noqa: F401
         except ImportError as exc:

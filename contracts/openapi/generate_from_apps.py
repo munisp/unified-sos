@@ -366,6 +366,76 @@ SERVICES: dict[str, dict] = {
             tags=["geospatial", "geolibre", "lakehouse"],
         ),
     },
+    "mod-gis-lands": {
+        "package": "lands_app.main",
+        "info": dict(
+            title="SOS Cadastre & Land Registry API",
+            description=(
+                "Tenant-isolated cadastre and land registry: parcel registry, "
+                "systematic titling, governor-consent transfer workflow with "
+                "signed transfer JWS chained to previous title hash, Land Use "
+                "Act s.28 revocations with two-phase compensation ledger, "
+                "court orders, succession assents, and a hash-chained "
+                "append-only cadastre event log. Deploys: all 6 states."
+            ),
+            tags=["lands", "cadastre", "titles"],
+        ),
+    },
+    "mod-identity": {
+        "package": "app.main",
+        "info": dict(
+            title="SOS Identity Registry API (mod-identity)",
+            description=(
+                "Sovereign identity registry: foundational identity records, "
+                "STIN issuance, and identity lifecycle management for all SOS "
+                "stakeholders. Complements mod-kyc-kyb (verification) and "
+                "mod-citizen-portal. Deploys: all 6 states."
+            ),
+            tags=["identity", "registry", "stin"],
+        ),
+    },
+    "mod-ml-inference": {
+        "package": "app.main",
+        "info": dict(
+            title="SOS ML Inference & Model Governance API (mod-ml-inference)",
+            description=(
+                "Tenant-isolated ML model serving and governance: versioned "
+                "model registry, deterministic inference, drift detection "
+                "(ng.sos.ml.drift_detected), and fail-soft remediation "
+                "(rollback) seams. Deploys: all 6 states."
+            ),
+            tags=["ml", "inference", "governance"],
+        ),
+    },
+    "mod-ppp-investment": {
+        "package": "app.main",
+        "info": dict(
+            title="SOS PPP Investment & Concession Management API (mod-ppp-investment)",
+            description=(
+                "PPP/concession lifecycle: project pipeline, concession "
+                "agreements, escrow settlement statements, milestone "
+                "tracking, and the hash-chained procurement audit log "
+                "(public projection via mod-transparency). Deploys: all 6 "
+                "states."
+            ),
+            tags=["ppp", "concessions", "procurement"],
+        ),
+    },
+    "control-plane": {
+        "package": "app.main",
+        "info": dict(
+            title="SOS Control Plane — Tenant Lifecycle & Policy API (control-plane)",
+            description=(
+                "WP-01 control plane: state tenant onboarding and orchestrated "
+                "provisioning workflow (202 + poll async semantics), tenant "
+                "suspension, signed policy-pack activation, operator "
+                "management, and a hash-chained admin audit log where every "
+                "admin-gated call is recorded (token SHA-256 only, never the "
+                "token). Deploys: central control tier, all 6 states."
+            ),
+            tags=["control-plane", "tenants", "policy-packs"],
+        ),
+    },
 }
 
 
