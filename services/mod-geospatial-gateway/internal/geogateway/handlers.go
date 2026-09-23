@@ -1,12 +1,23 @@
 package geogateway
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
+	"sync"
 )
+
+// maxRequestBodyBytes bounds JSON request bodies (DoS hardening); geometry
+// payloads can be sizeable but never approach 8 MiB.
+const maxRequestBodyBytes = 8 << 20 // 8 MiB
+
+// jsonBufPool recycles response encode buffers on hot endpoints (geometry
+// validation, job reads) to avoid per-request allocations.
+var jsonBufPool = sync.Pool{New: func() any { return new(bytes.Buffer) }}
 
 // Handler exposes the geospatial gateway HTTP API.
 type Handler struct {
@@ -29,10 +40,19 @@ func (h *Handler) Routes() *http.ServeMux {
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(v); err != nil {
+	buf := jsonBufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer jsonBufPool.Put(buf)
+	if err := json.NewEncoder(buf).Encode(v); err != nil {
 		log.Printf("encode response: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to encode response")
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
+	w.WriteHeader(status)
+	if _, err := w.Write(buf.Bytes()); err != nil {
+		log.Printf("write response: %v", err)
 	}
 }
 
@@ -56,6 +76,9 @@ func tenantFromRequest(w http.ResponseWriter, r *http.Request) (string, bool) {
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
+	// Bound the body so an oversized payload is rejected instead of being
+	// buffered without limit.
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(dst); err != nil {

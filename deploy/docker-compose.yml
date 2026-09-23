@@ -6,6 +6,38 @@ name: sos-local
 services:
   postgres:
     image: postgis/postgis:16-3.4
+    # Latency tuning (dev-tier, sized to the 2G limit below; production
+    # parameters are set per-tenant in infra/helm/sos-platform):
+    # - shared_buffers 512MB (~25% of limit), work_mem 16MB per sort/hash,
+    # - jit off for short OLTP-style queries, 200 max connections.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - work_mem=16MB
+      - -c
+      - maintenance_work_mem=128MB
+      - -c
+      - effective_cache_size=1536MB
+      - -c
+      - max_connections=200
+      - -c
+      - jit=off
+      - -c
+      - random_page_cost=1.1
+      # Uncomment for slow-query triage during perf runs:
+      # - -c
+      # - log_min_duration_statement=250
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          memory: 512M
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-sos}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sos-dev-only-not-a-secret}
@@ -24,7 +56,27 @@ services:
 
   redis:
     image: redis:7-alpine
-    command: ["redis-server", "--appendonly", "yes"]
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          memory: 128M
+    # NOTE: redis backs durable seams (queues/outbox-style state), so AOF
+    # persistence stays ON — do NOT switch to appendonly no or an LRU
+    # eviction policy here. maxmemory is a guardrail only; noeviction makes
+    # OOM loud rather than silently dropping durable keys.
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - 384mb
+      - --maxmemory-policy
+      - noeviction
     ports:
       - "6379:6379"
     volumes:
@@ -37,6 +89,15 @@ services:
 
   tigerbeetle:
     image: ghcr.io/tigerbeetle/tigerbeetle:0.16.40
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          memory: 256M
     command:
       - start
       - --cache-grid=512MiB
@@ -75,6 +136,15 @@ services:
 
   redpanda:
     image: docker.redpanda.com/redpandadata/redpanda:v24.2.7
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 1536M
+        reservations:
+          memory: 512M
     command:
       - redpanda
       - start
@@ -97,6 +167,15 @@ services:
 
   minio:
     image: minio/minio:RELEASE.2024-09-13T20-26-02Z
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          memory: 128M
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-sos-dev}
@@ -114,6 +193,15 @@ services:
 
   opensearch:
     image: opensearchproject/opensearch:2.16.0
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          memory: 512M
     environment:
       discovery.type: single-node
       DISABLE_SECURITY_PLUGIN: "true" # dev only; production enforces TLS+SSO
@@ -151,6 +239,10 @@ services:
       REV_CORE_LEDGER: memory
       TB_ADDRESSES: tigerbeetle:3000
     ports:
+      # KNOWN ISSUE (pre-existing): host port 8080 is also published by the
+      # `caddy` edge service (8080:80) below — only one can bind at a time.
+      # Left as-is to avoid breaking existing local URLs; remap deliberately
+      # in a follow-up if both must run together.
       - "8080:8080"
     depends_on:
       tigerbeetle:
@@ -163,7 +255,20 @@ services:
       context: ../services/mod-gis-lands
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-gis-lands:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       DATABASE_URL: postgresql://${POSTGRES_USER:-sos}:${POSTGRES_PASSWORD:-sos-dev-only-not-a-secret}@postgres:5432/${POSTGRES_DB:-sos}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
     ports:
@@ -184,7 +289,20 @@ services:
       context: ../services/mod-environment
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-environment:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
     ports:
       - "8010:8000"
@@ -199,7 +317,20 @@ services:
       context: ../services/mod-citizen-portal
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-citizen-portal:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       # SSO facade targets the local Keycloak dev realm (one realm per state
       # tenant in production; see deploy/keycloak/).
@@ -220,7 +351,20 @@ services:
       context: ../services/mod-kyc-kyb
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-kyc-kyb:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       # local mode = deterministic simulated adapters; production mode
       # requires real PaddleOCR/Docling/VLM/registry adapter config
@@ -245,7 +389,20 @@ services:
       context: ..
       dockerfile: services/mod-geospatial/Dockerfile
     image: ghcr.io/munisp/mod-geospatial:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       # local mode = deterministic pure-Python adapters; production mode
       # requires PostGIS + Sedona/lakehouse endpoints (fail closed otherwise).
@@ -270,7 +427,20 @@ services:
       context: ../services/mod-transparency
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-transparency:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       # local default = deterministic in-memory fixture; production mode sets
       # POLICE_CAD_BASE_URL + PPP_INVESTMENT_BASE_URL (fail closed otherwise).
@@ -291,7 +461,20 @@ services:
       context: ../services/mod-erp-bridge
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-erp-bridge:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       # local default = deterministic fixture adapter; production sets
       # ERP_BACKEND=odoo|erpnext|ifmis_export + the backend env vars
@@ -315,7 +498,20 @@ services:
       context: ../services/mod-safecity-vision
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-safecity-vision:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       # local default = deterministic fixture engine; production sets
       # SOS_VISION_ENGINE=insightface + SOS_VISION_MODEL_DIR +
@@ -339,7 +535,20 @@ services:
       context: ../services/mod-agri-trace
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-agri-trace:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-benue}
       # fixture default; production: SOS_AGRI_PROFILE=production +
       # SOS_AGRI_EXCHANGE_URL / SOS_AGRI_IOT_URL (fail closed otherwise)
@@ -360,7 +569,20 @@ services:
       context: ../services/mod-border-transit
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-border-transit:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-taraba}
       SOS_BORDER_PROFILE: ${SOS_BORDER_PROFILE:-fixture}
       EVENT_BUS: ${EVENT_BUS:-memory}
@@ -379,7 +601,20 @@ services:
       context: ../services/mod-waterways
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-waterways:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-lagos}
       SOS_WATERWAYS_PROFILE: ${SOS_WATERWAYS_PROFILE:-fixture}
       EVENT_BUS: ${EVENT_BUS:-memory}
@@ -401,7 +636,20 @@ services:
       context: ../services/control-plane
       dockerfile: Dockerfile
     image: ghcr.io/munisp/control-plane:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       # fixture default = deterministic local control plane; production sets
       # SOS_CP_PROFILE=production + SOS_CP_ADMIN_TOKEN (fail closed otherwise)
@@ -420,7 +668,20 @@ services:
       context: ../services/mod-identity
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-identity:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       EVENT_BUS: ${EVENT_BUS:-memory}
     ports:
@@ -436,7 +697,20 @@ services:
       context: ../services/mod-mobility-switch
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-mobility-switch:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-lagos}
       # fixture settlement ledger default; production sets
       # SOS_MOBILITY_LEDGER_URL (TigerBeetle) + FSPIOP/NIBSS scheme config
@@ -454,7 +728,20 @@ services:
       context: ../services/mod-police-cad
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-police-cad:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       # fixture default; production: SOS_CAD_PROFILE=production + external
       # dispatch/CCTV seams (fail closed otherwise)
@@ -473,7 +760,20 @@ services:
       context: ../services/mod-market
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-market:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       EVENT_BUS: ${EVENT_BUS:-memory}
     ports:
@@ -489,7 +789,20 @@ services:
       context: ../services/mod-mining
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-mining:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       EVENT_BUS: ${EVENT_BUS:-memory}
     ports:
@@ -505,7 +818,20 @@ services:
       context: ../services/mod-forestry
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-forestry:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       EVENT_BUS: ${EVENT_BUS:-memory}
     ports:
@@ -521,7 +847,20 @@ services:
       context: ../services/mod-education
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-education:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       EVENT_BUS: ${EVENT_BUS:-memory}
     ports:
@@ -537,7 +876,20 @@ services:
       context: ../services/mod-health
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-health:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       EVENT_BUS: ${EVENT_BUS:-memory}
     ports:
@@ -553,7 +905,20 @@ services:
       context: ../services/mod-gis-luc
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-gis-luc:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       EVENT_BUS: ${EVENT_BUS:-memory}
     ports:
@@ -569,7 +934,20 @@ services:
       context: ../services/mod-agri-waybill
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-agri-waybill:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       EVENT_BUS: ${EVENT_BUS:-memory}
     ports:
@@ -585,7 +963,20 @@ services:
       context: ../services/mod-ppp-investment
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-ppp-investment:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       EVENT_BUS: ${EVENT_BUS:-memory}
     ports:
@@ -601,7 +992,20 @@ services:
       context: ../services/mod-transport-wim
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-transport-wim:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       EVENT_BUS: ${EVENT_BUS:-memory}
     ports:
@@ -664,7 +1068,20 @@ services:
       context: ../services/mod-land-docs
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-land-docs:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       # fixture OCR default; production: SOS_LANDDOCS_PROFILE=production +
       # SOS_LANDDOCS_OCR_URL (PaddleOCR/Docling sidecar) + SOS_LANDDOCS_BUCKET
@@ -685,7 +1102,20 @@ services:
       context: ../services/mod-mortgage
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-mortgage:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       # fixture credit/ledger defaults; production: SOS_MORTGAGE_PROFILE=production
       # + SOS_MORTGAGE_TB_URL + SOS_MORTGAGE_LANDS_URL (fail closed otherwise)
@@ -705,7 +1135,20 @@ services:
       context: ..
       dockerfile: services/mod-ml-inference/Dockerfile
     image: ghcr.io/munisp/mod-ml-inference:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       # fixture default = deterministic heuristic tagged model_version=fixture;
       # production: SOS_ML_PROFILE=production + SOS_ML_ARTIFACTS_DIR +
@@ -735,7 +1178,20 @@ services:
       context: ../services/mod-geospatial-gateway
       dockerfile: Dockerfile
     image: ghcr.io/munisp/mod-geospatial-gateway:dev
+    # Resource guardrails for the single-node dev tier; production
+    # requests/limits are rendered by infra/helm/sos-platform.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
+      # Perf tuning: uvicorn honors UVICORN_* env (CLI flags in the
+      # Dockerfile stay the source of truth; uvloop ships in uvicorn[standard]).
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       GEOSPATIAL_UPSTREAM_URL: http://mod-geospatial:8013
     ports:

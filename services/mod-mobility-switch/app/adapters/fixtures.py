@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+from functools import lru_cache
 from typing import Any, Mapping
 
 from .fspiop import FspiopAdapter, TransferFulfilment, compute_hmac_signature
@@ -16,11 +17,13 @@ from .nibss_ebills import NibssEBillsAdapter, SettlementRow, compute_bill_signat
 FIXTURE_SECRET = "fixture-scheme-secret"  # local-only; never a real credential
 
 
+@lru_cache(maxsize=8192)  # same transfer_id → same digest; memoize the sha256
 def _fixture_fulfilment(transfer_id: str) -> str:
     digest = hashlib.sha256(f"fixture-fulfil:{transfer_id}".encode("utf-8")).digest()
     return base64.b64encode(digest).decode("ascii")
 
 
+@lru_cache(maxsize=8192)
 def _fixture_condition(transfer_id: str) -> str:
     digest = hashlib.sha256(f"fixture-condition:{transfer_id}".encode("utf-8")).digest()
     return base64.b64encode(digest).decode("ascii")

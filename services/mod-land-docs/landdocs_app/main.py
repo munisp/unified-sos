@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path as _Path
 from typing import Optional
 
+import anyio
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
@@ -199,15 +200,20 @@ def create_app(
 
     @app.post(f"{base}/documents", status_code=status.HTTP_201_CREATED,
               response_model=RegisterDocumentResponse, tags=["documents"])
-    def register_document(
+    async def register_document(
         req: RegisterDocumentRequest,
         tenant: str = Depends(tenant_dependency),
         store: LandDocsStore = Depends(get_store),
     ):
+        # Async upload path: hashing (SHA-256 over the full payload), duplicate
+        # detection and the object-store put are blocking CPU/IO work — offload
+        # to a worker thread so the event loop stays responsive under load.
         content = _decode(req.content_base64)
-        doc, warnings = store.register_document(
-            tenant, req.title, req.filename, content, req.registered_by,
-            doc_type=req.doc_type, parcel_id=req.parcel_id,
+        doc, warnings = await anyio.to_thread.run_sync(
+            lambda: store.register_document(
+                tenant, req.title, req.filename, content, req.registered_by,
+                doc_type=req.doc_type, parcel_id=req.parcel_id,
+            )
         )
         DOCS_REGISTERED.labels(tenant_state_id=tenant).inc()
         logger.info("document_registered tenant=%s doc=%s v=%d", tenant,
@@ -307,15 +313,18 @@ def create_app(
     @app.post(f"{base}/documents/{{document_id}}/versions",
               status_code=status.HTTP_201_CREATED,
               response_model=LandDocument, tags=["versioning"])
-    def add_version(
+    async def add_version(
         document_id: str, req: NewVersionRequest,
         tenant: str = Depends(tenant_dependency),
         store: LandDocsStore = Depends(get_store),
     ):
         _doc_or_404(store, tenant, document_id)
         content = _decode(req.content_base64)
-        doc = _transition_or_409(store.add_version, tenant, document_id,
-                                 content, req.filename, req.actor)
+        # Async upload path: hash + supersede + object-store put offloaded.
+        doc = await anyio.to_thread.run_sync(
+            lambda: _transition_or_409(store.add_version, tenant, document_id,
+                                       content, req.filename, req.actor)
+        )
         DOCS_REGISTERED.labels(tenant_state_id=tenant).inc()
         logger.info("document_versioned tenant=%s prior=%s new=%s v=%d", tenant,
                     document_id, doc.document_id, doc.version)

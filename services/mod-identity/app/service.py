@@ -8,6 +8,7 @@ record to an API-consumer path; verification returns booleans only.
 from __future__ import annotations
 
 import itertools
+import time
 from datetime import date, datetime
 from typing import Callable, Optional
 
@@ -99,7 +100,14 @@ class IdentityService:
     # -- audit -----------------------------------------------------------
     def _audit(self, action: str, state_id: str, actor_id: str, subject_id: str, details: str = "") -> AuditEntry:
         prev = self.repo.audit_tail_hash()
-        seq = len(self.repo.list_audit()) + 1
+        # O(1) seq: audit_count() avoids list_audit()'s full-chain copy on
+        # every append; fall back for duck-typed repos lacking the method.
+        count = (
+            self.repo.audit_count()
+            if hasattr(self.repo, "audit_count")
+            else len(self.repo.list_audit())
+        )
+        seq = count + 1
         payload = f"{seq}|{action}|{state_id}|{actor_id}|{subject_id}|{details}"
         entry = AuditEntry(
             seq=seq,
@@ -291,11 +299,9 @@ class IdentityService:
         # realm in live mode); latency is metered into the audit detail.
         registry_latency_ms: Optional[int] = None
         if product is VerificationProduct.KYC_ADJUNCT and attested:
-            import time as _time
-
-            started = _time.perf_counter()
+            started = time.perf_counter()
             fed = self.federation_client.verify_nin_claim(state_id, resident.nin, claim)
-            registry_latency_ms = int((_time.perf_counter() - started) * 1000)
+            registry_latency_ms = int((time.perf_counter() - started) * 1000)
             attested = attested and bool(fed.get("attested", False))
 
         result = VerificationResult(

@@ -402,6 +402,34 @@ class InferenceEngine:
         raise AdapterUnavailableError(
             f"cannot load {model_name}@{version}: " + "; ".join(errors))
 
+    # -- warmup ---------------------------------------------------------------
+
+    def warmup(self, model_names: Optional[List[str]] = None) -> Dict[str, str]:
+        """Eagerly load model weights once at startup (PERF).
+
+        Without warmup the first request to each model pays the torch
+        ``load_state_dict`` cost inline. Idempotent: ``_load`` caches per
+        ``(model_name, version)``, so repeat calls are no-ops. Fixture
+        profiles tolerate unloadable/missing artifacts (the heuristic
+        fallback covers them at predict time); production profiles fail
+        closed by re-raising.
+        """
+        warmed: Dict[str, str] = {}
+        names = model_names if model_names is not None else self.registry.models()
+        for name in names:
+            try:
+                card = self.registry.card(name)
+            except ModelNotFoundError:
+                continue
+            try:
+                self._load(name, card.version, card)
+            except AdapterUnavailableError:
+                if self.profile in PRODUCTION_PROFILES:
+                    raise
+                continue
+            warmed[name] = card.version
+        return warmed
+
     # -- prediction ---------------------------------------------------------
 
     def _fixture_fallback(self, model_name: str,

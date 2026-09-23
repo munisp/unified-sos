@@ -24,12 +24,35 @@ from __future__ import annotations
 
 import hashlib
 import os
+import threading
 from typing import Dict, Optional, Protocol
 
 from pydantic import BaseModel, Field
 
 MIN_READABLE_BYTES = 16
 LOW_CONFIDENCE = 0.42
+
+# --- shared HTTP client (PERF) ---------------------------------------------
+# One process-wide httpx.Client reused by every PaddleOcrEngine call: TCP/TLS
+# handshake and connection-pool setup happen once instead of per OCR request.
+_HTTP_CLIENT = None
+_HTTP_CLIENT_LOCK = threading.Lock()
+
+
+def _shared_http_client():
+    """Lazily build (once) and return the module-level httpx client."""
+    global _HTTP_CLIENT
+    if _HTTP_CLIENT is None:
+        with _HTTP_CLIENT_LOCK:
+            if _HTTP_CLIENT is None:
+                try:
+                    import httpx
+                except ImportError as exc:  # pragma: no cover
+                    raise AdapterUnavailableError(
+                        "httpx is required for PaddleOcrEngine (pip install httpx)"
+                    ) from exc
+                _HTTP_CLIENT = httpx.Client()
+    return _HTTP_CLIENT
 
 
 class AdapterUnavailableError(RuntimeError):
@@ -114,14 +137,9 @@ class PaddleOcrEngine:
         self.timeout_seconds = timeout_seconds
 
     def extract(self, content: bytes, filename: str) -> OcrResult:
+        client = _shared_http_client()  # reused module-level client (PERF)
         try:
-            import httpx
-        except ImportError as exc:  # pragma: no cover
-            raise AdapterUnavailableError(
-                "httpx is required for PaddleOcrEngine (pip install httpx)"
-            ) from exc
-        try:
-            resp = httpx.post(
+            resp = client.post(
                 self.ocr_url,
                 files={"file": (filename, content)},
                 timeout=self.timeout_seconds,

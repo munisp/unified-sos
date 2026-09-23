@@ -20,6 +20,7 @@ import hashlib
 import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from functools import lru_cache
 from typing import Dict, List, Optional, Protocol
 
 
@@ -150,13 +151,19 @@ class FixtureAisAdapter:
     def latest_position(self, mmsi: str) -> AisPosition:
         if not mmsi or not mmsi.isdigit():
             raise ValueError("mmsi must be a numeric identifier")
-        digest = hashlib.sha256(mmsi.encode("utf-8")).digest()
-        lat = 4.5 + (digest[0] / 255.0) * 7.0   # 4.5–11.5 N
-        lon = 3.0 + (digest[1] / 255.0) * 10.0  # 3.0–13.0 E
-        speed = round((digest[2] / 255.0) * 12.0, 1)
-        return AisPosition(mmsi=mmsi, latitude=round(lat, 5),
-                           longitude=round(lon, 5), speed_knots=speed,
-                           reported_at="1970-01-01T00:00:00+00:00")
+        return _fixture_position(mmsi)
+
+
+@lru_cache(maxsize=4096)
+def _fixture_position(mmsi: str) -> AisPosition:
+    """Memoized fixture derivation: same MMSI → same fix, computed once."""
+    digest = hashlib.sha256(mmsi.encode("utf-8")).digest()
+    lat = 4.5 + (digest[0] / 255.0) * 7.0   # 4.5–11.5 N
+    lon = 3.0 + (digest[1] / 255.0) * 10.0  # 3.0–13.0 E
+    speed = round((digest[2] / 255.0) * 12.0, 1)
+    return AisPosition(mmsi=mmsi, latitude=round(lat, 5),
+                       longitude=round(lon, 5), speed_knots=speed,
+                       reported_at="1970-01-01T00:00:00+00:00")
 
 
 class HttpAisAdapter:

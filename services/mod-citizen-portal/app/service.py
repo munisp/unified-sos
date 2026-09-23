@@ -139,7 +139,14 @@ class CitizenPortalService:
     # -- hash-chained audit -------------------------------------------------
     def _audit(self, action: str, state_id: str, actor_id: str, subject_id: str, details: str = "") -> PortalAuditEvent:
         prev = self.repo.audit_tail_hash()
-        seq = len(self.repo.list_audit()) + 1
+        # O(1) seq: audit_count() avoids list_audit()'s full-chain copy on
+        # every append; fall back for duck-typed repos lacking the method.
+        count = (
+            self.repo.audit_count()
+            if hasattr(self.repo, "audit_count")
+            else len(self.repo.list_audit())
+        )
+        seq = count + 1
         payload = f"{seq}|{action}|{state_id}|{actor_id}|{subject_id}|{details}"
         entry = PortalAuditEvent(
             seq=seq,

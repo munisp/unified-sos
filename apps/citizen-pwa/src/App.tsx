@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react';
 import { isDemoMode, onDemoModeChange } from './lib/api';
 import { isPlaceholderLogo, monogram, useBranding } from './lib/branding';
 import { useHashRoute, Link } from './lib/router';
@@ -6,12 +6,21 @@ import { useAppStore } from './lib/store';
 import { STATES } from './lib/types';
 import { StateSelector } from './screens/StateSelector';
 import { Home } from './screens/Home';
-import { ServiceRequestForm } from './screens/ServiceRequestForm';
-import { MyRequests } from './screens/MyRequests';
-import { Payments } from './screens/Payments';
-import { Transparency } from './screens/Transparency';
-import { VerifyDeed } from './screens/VerifyDeed';
-import { Profile } from './screens/Profile';
+
+// Route-level code splitting: every screen except Home (the landing route)
+// ships as its own async chunk so the initial JS stays under the 250KB gzip
+// budget on 3G. Chunks load on first navigation to the route and are then
+// cached by the service worker (static CacheFirst).
+const ServiceRequestForm = lazy(() =>
+  import('./screens/ServiceRequestForm').then((m) => ({ default: m.ServiceRequestForm })),
+);
+const MyRequests = lazy(() => import('./screens/MyRequests').then((m) => ({ default: m.MyRequests })));
+const Payments = lazy(() => import('./screens/Payments').then((m) => ({ default: m.Payments })));
+const Transparency = lazy(() =>
+  import('./screens/Transparency').then((m) => ({ default: m.Transparency })),
+);
+const VerifyDeed = lazy(() => import('./screens/VerifyDeed').then((m) => ({ default: m.VerifyDeed })));
+const Profile = lazy(() => import('./screens/Profile').then((m) => ({ default: m.Profile })));
 
 const NAV = [
   { to: '/', label: 'Services', match: /^\/($|request|services)/ },
@@ -59,13 +68,21 @@ export function App() {
   else if (route.startsWith('/profile')) screen = <Profile stateId={stateId} />;
   else screen = <Home stateId={stateId} />;
 
+  const lazyScreen =
+    requestMatch ||
+    route.startsWith('/requests') ||
+    route.startsWith('/pay') ||
+    route.startsWith('/transparency') ||
+    route.startsWith('/verify-deed') ||
+    route.startsWith('/profile');
+
   return (
     <div className="app-shell">
       <a href="#main" className="sr-only">Skip to content</a>
       <header className="app-header">
         <span className="brand">
           {brandingResult && !isPlaceholderLogo(brandingResult.branding) ? (
-            <img src={brandingResult.branding.logo_url} alt="" width={28} height={28} />
+            <img src={brandingResult.branding.logo_url} alt="" width={28} height={28} decoding="async" />
           ) : (
             <span className="brand-monogram" aria-hidden="true" data-testid="brand-monogram">
               {brandingResult ? monogram(brandingResult.branding.display_name) : 'SOS'}
@@ -90,7 +107,15 @@ export function App() {
           Demo mode — live services unreachable, showing sample data.
         </p>
       )}
-      <main id="main">{screen}</main>
+      <main id="main">
+        {lazyScreen ? (
+          <Suspense fallback={<p className="notice" role="status" style={{ margin: '0.6rem 1rem 0' }}>Loading…</p>}>
+            {screen}
+          </Suspense>
+        ) : (
+          screen
+        )}
+      </main>
       {brandingResult && (
         <footer className="app-footer">
           <span>

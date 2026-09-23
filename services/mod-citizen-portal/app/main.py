@@ -141,7 +141,32 @@ def create_app(repo: Optional[CitizenPortalRepository] = None) -> FastAPI:
     app.state.repo = repo or InMemoryCitizenPortalRepository()
 
     def service(request: Request) -> CitizenPortalService:
-        return CitizenPortalService(request.app.state.repo)
+        # Reuse one service per app: construction reads env (KYC seam) and
+        # builds the catalog provider, and the service itself is stateless
+        # apart from the repo handle. Rebuild only if the repo is swapped
+        # (e.g. tests injecting a fresh repository).
+        svc = getattr(request.app.state, "service_instance", None)
+        if svc is None or svc.repo is not request.app.state.repo:
+            svc = CitizenPortalService(request.app.state.repo)
+            request.app.state.service_instance = svc
+        return svc
+
+    def channel_adapter(kind: str, svc: CitizenPortalService, locale: str = "en"):
+        # Adapters copy the prompt table on construction; cache per
+        # (kind, locale) on the service instance instead of per callback.
+        cache = getattr(svc, "_adapter_cache", None)
+        if cache is None:
+            cache = svc._adapter_cache = {}
+        key = (kind, locale if kind == "ivr" else "")
+        adapter = cache.get(key)
+        if adapter is None:
+            adapter = (
+                IvrChannelAdapter(svc, locale=locale)
+                if kind == "ivr"
+                else UssdChannelAdapter(svc)
+            )
+            cache[key] = adapter
+        return adapter
 
     def guard(exc: Exception) -> HTTPException:
         if isinstance(exc, NotFoundError):
@@ -324,7 +349,7 @@ def create_app(repo: Optional[CitizenPortalRepository] = None) -> FastAPI:
         state_id: str,
         svc: CitizenPortalService = Depends(service),
     ):
-        return await _channel_callback(request, UssdChannelAdapter(svc), state_id)
+        return await _channel_callback(request, channel_adapter("ussd", svc), state_id)
 
     @app.post("/channels/ivr/callback", response_class=PlainTextResponse)
     async def ivr_callback(
@@ -333,7 +358,7 @@ def create_app(repo: Optional[CitizenPortalRepository] = None) -> FastAPI:
         locale: str = "en",
         svc: CitizenPortalService = Depends(service),
     ):
-        return await _channel_callback(request, IvrChannelAdapter(svc, locale=locale), state_id)
+        return await _channel_callback(request, channel_adapter("ivr", svc, locale), state_id)
 
     if _instrument_fastapi is not None:
         _instrument_fastapi(app, "mod-citizen-portal")

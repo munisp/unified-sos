@@ -41,6 +41,7 @@ class IdentityRepository(Protocol):
     def append_audit(self, entry: AuditEntry) -> AuditEntry: ...
     def list_audit(self, state_id: Optional[str] = None) -> List[AuditEntry]: ...
     def audit_tail_hash(self) -> str: ...
+    def audit_count(self) -> int: ...
 
 
 class InMemoryIdentityRepository:
@@ -136,6 +137,10 @@ class InMemoryIdentityRepository:
         if state_id is None:
             return list(self._audit)
         return [e for e in self._audit if e.state_id == state_id]
+
+    def audit_count(self) -> int:
+        """O(1) entry count — avoids copying the chain to derive a seq."""
+        return len(self._audit)
 
     def audit_tail_hash(self) -> str:
         return self._audit[-1].entry_hash if self._audit else self.GENESIS_HASH

@@ -1,13 +1,24 @@
 package revenue
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
+	"sync"
 
 	"github.com/munisp/unified-sos/ledger/splits"
 )
+
+// maxRequestBodyBytes bounds JSON request bodies (DoS hardening); the
+// largest contract payload (an assessment with metadata) is a few KB.
+const maxRequestBodyBytes = 1 << 20 // 1 MiB
+
+// jsonBufPool recycles response encode buffers on the hot path (webhook
+// settlements + assessment reads) to avoid per-request allocations.
+var jsonBufPool = sync.Pool{New: func() any { return new(bytes.Buffer) }}
 
 // Handler exposes the revenue service over HTTP per
 // contracts/openapi/revenue-assessments.yaml (Go 1.22 pattern routing;
@@ -54,7 +65,7 @@ func (h *Handler) createAssessment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req AssessmentRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(w, r, &req); err != nil {
 		writeError(w, badRequest("MALFORMED_JSON", "request body: %v", err))
 		return
 	}
@@ -89,7 +100,7 @@ func (h *Handler) paymentWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req SettlementRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(w, r, &req); err != nil {
 		writeError(w, badRequest("MALFORMED_JSON", "request body: %v", err))
 		return
 	}
@@ -112,7 +123,7 @@ func (h *Handler) refund(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req RefundRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(w, r, &req); err != nil {
 		writeError(w, badRequest("MALFORMED_JSON", "request body: %v", err))
 		return
 	}
@@ -136,7 +147,7 @@ func (h *Handler) correction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req CorrectionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(w, r, &req); err != nil {
 		writeError(w, badRequest("MALFORMED_JSON", "request body: %v", err))
 		return
 	}
@@ -152,11 +163,28 @@ func (h *Handler) correction(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+// decodeJSON reads a bounded JSON request body (http.MaxBytesReader caps the
+// size so an oversized body is rejected with a decode error instead of being
+// buffered without limit).
+func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
+	return json.NewDecoder(r.Body).Decode(dst)
+}
+
 func writeJSON(w http.ResponseWriter, status int, body any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(body); err != nil {
+	buf := jsonBufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer jsonBufPool.Put(buf)
+	if err := json.NewEncoder(buf).Encode(body); err != nil {
 		log.Printf("mod-rev-core: encode response: %v", err)
+		writeError(w, internalError("INTERNAL", "encode response: %v", err))
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
+	w.WriteHeader(status)
+	if _, err := w.Write(buf.Bytes()); err != nil {
+		log.Printf("mod-rev-core: write response: %v", err)
 	}
 }
 

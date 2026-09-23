@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 
 import { Header } from './components/Header';
-import { Cadastre3D } from './components/Cadastre3D';
 import { IncidentQueue } from './components/IncidentQueue';
 import { MapView } from './components/MapView';
 import { SloBanner } from './components/SloBanner';
@@ -10,6 +9,11 @@ import { TrustFundPanel } from './components/TrustFundPanel';
 import { UnitRoster } from './components/UnitRoster';
 import { useBranding } from './lib/branding';
 import { ConsoleProvider, useConsole } from './lib/store';
+
+// Code-split the Cesium 3D cadastre view: the cesium chunk is several MB and
+// is only fetched when the console finishes loading tenant data, keeping the
+// interactive path (queue + 2D map) fast on dispatch workstations.
+const Cadastre3D = lazy(() => import('./components/Cadastre3D').then((m) => ({ default: m.Cadastre3D })));
 
 function BrandFooter() {
   const { stateId } = useConsole();
@@ -42,7 +46,9 @@ function ConsoleBody() {
         <div className="col">
           <IncidentQueue now={now} />
           <MapView />
-          <Cadastre3D />
+          <Suspense fallback={<p className="muted">Loading 3D cadastre…</p>}>
+            <Cadastre3D />
+          </Suspense>
         </div>
         <div className="col">
           <UnitRoster />

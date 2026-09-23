@@ -4,6 +4,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"time"
 
@@ -24,6 +25,17 @@ func main() {
 	root := http.NewServeMux()
 	root.Handle("GET /metrics", metrics.Handler())
 	root.Handle("/", metrics.Instrument(handler.Routes()))
+
+	// pprof debug endpoints only when SOS_GO_PPROF=on (off by default so
+	// production deployments expose no profiling surface).
+	if os.Getenv("SOS_GO_PPROF") == "on" {
+		root.HandleFunc("/debug/pprof/", pprof.Index)
+		root.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		root.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		root.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		root.HandleFunc("/debug/pprof/trace", pprof.Trace)
+		log.Printf("mod-geospatial-gateway: pprof debug endpoints enabled at /debug/pprof/ (SOS_GO_PPROF=on)")
+	}
 
 	srv := &http.Server{
 		Addr:              addr,

@@ -153,6 +153,16 @@ class _TenantScope:
     def __init__(self) -> None:
         self.documents: Dict[str, LandDocument] = {}
         self.audit: List[dict] = []
+        # PERF indexes for duplicate detection:
+        # content_hash -> [document_id] for O(1) exact-content lookups, and
+        # document_id -> normalized title so fuzzy matching doesn't recompute
+        # lowercasing/whitespace-collapsing for every pairwise comparison.
+        self.hash_index: Dict[str, List[str]] = {}
+        self.norm_titles: Dict[str, str] = {}
+
+
+def _normalize_title(title: str) -> str:
+    return " ".join(title.lower().split())
 
 
 class LandDocsStore:
@@ -203,21 +213,36 @@ class LandDocsStore:
             scope.audit.append(record)
 
     # -- duplicate detection --------------------------------------------------
+    def _index_doc(self, scope: _TenantScope, doc: LandDocument) -> None:
+        scope.hash_index.setdefault(doc.content_hash, []).append(doc.document_id)
+        scope.norm_titles[doc.document_id] = _normalize_title(doc.title)
+
     def find_duplicates(self, tenant: str, title: str,
                         content_hash: str) -> List[DuplicateWarning]:
         """Exact SHA-256 content-hash match + fuzzy title match (difflib)."""
+        scope = self._scope(tenant)
         warnings: List[DuplicateWarning] = []
-        norm = " ".join(title.lower().split())
-        for other in self._scope(tenant).documents.values():
-            if other.content_hash == content_hash:
+        norm = _normalize_title(title)
+        # O(1) exact-hash cohort via the per-tenant index; iteration order
+        # (and therefore warning order) is unchanged from the naive scan.
+        exact_ids = set(scope.hash_index.get(content_hash, ()))
+        for other in scope.documents.values():
+            if other.document_id in exact_ids:
                 warnings.append(DuplicateWarning(
                     document_id=other.document_id, title=other.title,
                     reason="identical_content_hash", score=1.0,
                 ))
                 continue
-            ratio = difflib.SequenceMatcher(
-                None, norm, " ".join(other.title.lower().split())
-            ).ratio()
+            other_norm = scope.norm_titles.get(other.document_id)
+            if other_norm is None:
+                other_norm = _normalize_title(other.title)
+                scope.norm_titles[other.document_id] = other_norm
+            matcher = difflib.SequenceMatcher(None, norm, other_norm)
+            # real_quick_ratio() is an upper bound on ratio(); prune pairs
+            # that cannot reach the threshold without the full O(n·m) pass.
+            if matcher.real_quick_ratio() < DUPLICATE_TITLE_RATIO:
+                continue
+            ratio = matcher.ratio()
             if ratio >= DUPLICATE_TITLE_RATIO:
                 warnings.append(DuplicateWarning(
                     document_id=other.document_id, title=other.title,
@@ -257,8 +282,10 @@ class LandDocsStore:
             registered_at=now,
             updated_at=now,
         )
-        self._scope(tenant).documents[doc.document_id] = doc
-        self._audit(self._scope(tenant), doc, "REGISTERED", registered_by,
+        scope = self._scope(tenant)
+        scope.documents[doc.document_id] = doc
+        self._index_doc(scope, doc)
+        self._audit(scope, doc, "REGISTERED", registered_by,
                     f"registered '{title}' ({filename}, sha256:{content_hash[:12]}…)")
         return doc, duplicates
 
@@ -386,6 +413,7 @@ class LandDocsStore:
             updated_at=now,
         )
         scope.documents[new_id] = new_doc
+        self._index_doc(scope, new_doc)
         self._audit(scope, new_doc, "REGISTERED", actor,
                     f"registered v{version} of '{prior.title}' "
                     f"(supersedes {document_id})")

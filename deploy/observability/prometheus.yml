@@ -6,8 +6,13 @@
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
+  # Latency SLOs need trustworthy histograms: bound each scrape so a slow
+  # /metrics endpoint cannot skew intervals, and cap per-scrape volume.
+  scrape_timeout: 10s
+  sample_limit: 10000
 rule_files:
 - alerts.yml
+- alerts-latency.yml
 scrape_configs:
 - job_name: control-plane
   kubernetes_sd_configs:

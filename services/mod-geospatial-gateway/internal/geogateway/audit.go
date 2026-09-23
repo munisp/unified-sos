@@ -48,6 +48,37 @@ func (e AuditEvent) payload() map[string]any {
 	}
 }
 
+// canonicalPayload marshals the exact byte sequence the map-based canonical
+// form produces (encoding/json sorts map keys: actor, detail, event_id,
+// event_type, prev_hash, recorded_at, tenant_state_id) without allocating a
+// map or sorting keys on every append/verify. Field order below IS the
+// canonical order; do not reorder.
+type canonicalPayload struct {
+	Actor         string         `json:"actor"`
+	Detail        map[string]any `json:"detail"`
+	EventID       string         `json:"event_id"`
+	EventType     string         `json:"event_type"`
+	PrevHash      string         `json:"prev_hash"`
+	RecordedAt    string         `json:"recorded_at"`
+	TenantStateID string         `json:"tenant_state_id"`
+}
+
+// eventHash computes the chained hash of one event. Byte-identical to
+// EventPayloadHash(e.payload(), e.PrevHash) (pinned by a differential test).
+func eventHash(e *AuditEvent) string {
+	raw, _ := json.Marshal(canonicalPayload{
+		Actor:         e.Actor,
+		Detail:        e.Detail,
+		EventID:       e.EventID,
+		EventType:     e.EventType,
+		PrevHash:      e.PrevHash,
+		RecordedAt:    e.RecordedAt,
+		TenantStateID: e.TenantStateID,
+	})
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:])
+}
+
 // EventPayloadHash hashes one record's payload chained to prevHash.
 func EventPayloadHash(payload map[string]any, prevHash string) string {
 	body := map[string]any{}
@@ -95,7 +126,7 @@ func (l *AuditLog) Record(eventType, tenantStateID, actor string, detail map[str
 	if e.Detail == nil {
 		e.Detail = map[string]any{}
 	}
-	e.EventHash = EventPayloadHash(e.payload(), prevHash)
+	e.EventHash = eventHash(&e)
 	l.events = append(l.events, e)
 	return e
 }
@@ -127,7 +158,7 @@ func (l *AuditLog) Verify() []string {
 		if e.PrevHash != expectedPrev {
 			errs = append(errs, fmt.Sprintf("event %s: broken chain link", e.EventID))
 		}
-		if e.EventHash != EventPayloadHash(e.payload(), e.PrevHash) {
+		if e.EventHash != eventHash(&e) {
 			errs = append(errs, fmt.Sprintf("event %s: hash mismatch — record tampered", e.EventID))
 		}
 		lastHash = e.EventHash

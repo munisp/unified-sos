@@ -74,34 +74,52 @@ class InMemoryParcelRepository:
     """Tenant-isolated in-memory repository for tests and local runs."""
 
     def __init__(self) -> None:
-        # tenant_state_id -> parcel_id -> record
+        # tenant_state_id -> parcel_id -> record  (O(1) tenant-scoped lookup)
         self._by_id: dict[str, dict[UUID, ParcelRecord]] = {}
+        # tenant_state_id -> parcel_uin -> parcel_id  (O(1) UIN lookup/index)
+        self._by_uin: dict[str, dict[str, UUID]] = {}
+        # (tenant_state_id, parcel_id) -> (boundary_geojson dict, geometry).
+        # Parsed shapely geometries are reused across overlap/search calls as
+        # long as the record's boundary dict object is unchanged (strong ref
+        # held, so id-reuse after GC cannot alias). PERF: shape() re-parsing
+        # dominated register/search latency.
+        self._geom_cache: dict[tuple[str, UUID], tuple[dict, BaseGeometry]] = {}
 
     # -- helpers -----------------------------------------------------------
     def _tenant(self, tenant_state_id: str) -> dict[UUID, ParcelRecord]:
         return self._by_id.setdefault(tenant_state_id, {})
 
-    @staticmethod
-    def _geom(record: ParcelRecord) -> BaseGeometry:
-        return shape(record.boundary_geojson)
+    def _tenant_uin(self, tenant_state_id: str) -> dict[str, UUID]:
+        return self._by_uin.setdefault(tenant_state_id, {})
+
+    def _geom(self, record: ParcelRecord) -> BaseGeometry:
+        key = (record.tenant_state_id, record.parcel_id)
+        cached = self._geom_cache.get(key)
+        if cached is not None and cached[0] is record.boundary_geojson:
+            return cached[1]
+        geom = shape(record.boundary_geojson)
+        self._geom_cache[key] = (record.boundary_geojson, geom)
+        return geom
 
     # -- ParcelRepository implementation ------------------------------------
     def add(self, record: ParcelRecord) -> None:
         tenant = self._tenant(record.tenant_state_id)
-        if any(r.parcel_uin == record.parcel_uin for r in tenant.values()):
+        uin_index = self._tenant_uin(record.tenant_state_id)
+        if record.parcel_uin in uin_index:
             raise DuplicateParcelError(
                 f"parcel_uin {record.parcel_uin!r} already registered"
             )
         tenant[record.parcel_id] = record
+        uin_index[record.parcel_uin] = record.parcel_id
 
     def get(self, tenant_state_id: str, parcel_id: UUID) -> Optional[ParcelRecord]:
         return self._tenant(tenant_state_id).get(parcel_id)
 
     def get_by_uin(self, tenant_state_id: str, parcel_uin: str) -> Optional[ParcelRecord]:
-        for record in self._tenant(tenant_state_id).values():
-            if record.parcel_uin == parcel_uin:
-                return record
-        return None
+        parcel_id = self._tenant_uin(tenant_state_id).get(parcel_uin)
+        if parcel_id is None:
+            return None
+        return self._tenant(tenant_state_id).get(parcel_id)
 
     def active_geometries(self, tenant_state_id: str) -> list[tuple[str, BaseGeometry]]:
         return [
@@ -124,7 +142,13 @@ class InMemoryParcelRepository:
         return results
 
     def update(self, record: ParcelRecord) -> None:
-        self._tenant(record.tenant_state_id)[record.parcel_id] = record
+        tenant = self._tenant(record.tenant_state_id)
+        prior = tenant.get(record.parcel_id)
+        uin_index = self._tenant_uin(record.tenant_state_id)
+        if prior is not None and prior.parcel_uin != record.parcel_uin:
+            uin_index.pop(prior.parcel_uin, None)
+        uin_index[record.parcel_uin] = record.parcel_id
+        tenant[record.parcel_id] = record
 
 
 def parse_within_wkt(wkt_text: str) -> BaseGeometry:

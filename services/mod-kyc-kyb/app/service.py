@@ -133,6 +133,21 @@ RISK_BAND_ORDER = {
 }
 
 
+# Risk-signal weights; module-level so the hot submit path does not
+# rebuild the mapping on every scoring call.
+SIGNAL_WEIGHTS: Dict[str, int] = {
+    "MISSING_DOCUMENTS": 50,
+    "EXTRACTION_MISMATCH": 30,
+    "LIVENESS_NOT_PASSED": 45,
+    "SANCTIONS_HIT": 100,
+    "REGISTRY_MISMATCH": 55,
+    "REGISTRY_NOT_FOUND": 40,
+    "REGISTRY_UNAVAILABLE": 35,
+    "OWNERSHIP_UNVERIFIED": 20,
+}
+_DEFAULT_SIGNAL_WEIGHT = 10
+
+
 def band_for_score(score: int) -> RiskBand:
     if score <= RISK_LOW_MAX:
         return RiskBand.LOW
@@ -365,9 +380,9 @@ class KycKybService:
                     break
         if case.liveness_required:
             challenges = self.repo.challenges_for_case(case.case_id)
+            results = self.repo.liveness_results
             passed = any(
-                self.repo.liveness_results.get(c.challenge_id, None) is not None
-                and self.repo.liveness_results[c.challenge_id].passed
+                (res := results.get(c.challenge_id)) is not None and res.passed
                 for c in challenges
             )
             if not passed:
@@ -383,17 +398,7 @@ class KycKybService:
 
     @staticmethod
     def _score_signals(signals: List[str]) -> int:
-        weights = {
-            "MISSING_DOCUMENTS": 50,
-            "EXTRACTION_MISMATCH": 30,
-            "LIVENESS_NOT_PASSED": 45,
-            "SANCTIONS_HIT": 100,
-            "REGISTRY_MISMATCH": 55,
-            "REGISTRY_NOT_FOUND": 40,
-            "REGISTRY_UNAVAILABLE": 35,
-            "OWNERSHIP_UNVERIFIED": 20,
-        }
-        return min(100, sum(weights.get(s, 10) for s in signals))
+        return min(100, sum(SIGNAL_WEIGHTS.get(s, _DEFAULT_SIGNAL_WEIGHT) for s in signals))
 
     def submit_kyc_case(self, tenant: str, case_id: str, actor: str = "system") -> KycCase:
         case = self.repo.get_kyc_case(case_id, tenant)

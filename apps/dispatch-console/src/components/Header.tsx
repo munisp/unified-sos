@@ -10,7 +10,7 @@ export function Header() {
     <header className="app-header">
       <div className="brand">
         {branding && !isPlaceholderLogo(branding) ? (
-          <img className="brand-logo" src={branding.logo_url} alt="" width={32} height={32} />
+          <img className="brand-logo" src={branding.logo_url} alt="" width={32} height={32} decoding="async" />
         ) : (
           <span className="brand-monogram" aria-hidden="true" data-testid="brand-monogram">
             {branding ? monogram(branding.display_name) : 'SO'}

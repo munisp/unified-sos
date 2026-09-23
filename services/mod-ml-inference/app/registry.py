@@ -92,12 +92,32 @@ class ModelRegistry:
         self.artifacts_dir = Path(artifacts_dir)
         self.mlflow_tracking_uri = (mlflow_tracking_uri or "").strip() or None
         self._cards: Dict[tuple, ModelCard] = {}
+        # (model_name, kind) -> (mtime_ns, version). PERF: champion/challenger
+        # pointers are consulted on every prediction; the file is only
+        # re-read when its mtime changes (one stat syscall per request
+        # instead of an open+read).
+        self._pointer_cache: Dict[tuple, tuple] = {}
         self._scan()
+
+    def _read_pointer(self, model_name: str, kind: str) -> Optional[str]:
+        pointer = self.artifacts_dir / model_name / kind
+        try:
+            mtime_ns = pointer.stat().st_mtime_ns
+        except OSError:
+            self._pointer_cache.pop((model_name, kind), None)
+            return None
+        cached = self._pointer_cache.get((model_name, kind))
+        if cached is not None and cached[0] == mtime_ns:
+            return cached[1]
+        version = pointer.read_text(encoding="utf-8").strip()
+        self._pointer_cache[(model_name, kind)] = (mtime_ns, version)
+        return version
 
     # -- loading ---------------------------------------------------------
 
     def _scan(self) -> None:
         self._cards.clear()
+        self._pointer_cache.clear()
         if not self.artifacts_dir.is_dir():
             return
         for model_dir in sorted(self.artifacts_dir.iterdir()):
@@ -128,22 +148,18 @@ class ModelRegistry:
         return sorted(versions, key=_version_sort_key)
 
     def champion_version(self, model_name: str) -> str:
-        pointer = self.artifacts_dir / model_name / "champion"
-        if pointer.is_file():
-            version = pointer.read_text(encoding="utf-8").strip()
-            if (model_name, version) in self._cards:
-                return version
+        version = self._read_pointer(model_name, "champion")
+        if version is not None and (model_name, version) in self._cards:
+            return version
         versions = self.versions(model_name)
         if not versions:
             raise ModelNotFoundError(model_name)
         return versions[-1]
 
     def challenger_version(self, model_name: str) -> Optional[str]:
-        pointer = self.artifacts_dir / model_name / "challenger"
-        if pointer.is_file():
-            version = pointer.read_text(encoding="utf-8").strip()
-            if (model_name, version) in self._cards:
-                return version
+        version = self._read_pointer(model_name, "challenger")
+        if version is not None and (model_name, version) in self._cards:
+            return version
         return None
 
     def card(self, model_name: str, version: Optional[str] = None) -> ModelCard:

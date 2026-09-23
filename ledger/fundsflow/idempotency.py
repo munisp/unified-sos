@@ -175,6 +175,8 @@ class RedisIdempotencyStore:
 class IdempotencyMiddleware:
     """Execute-once wrapper around money-moving handlers."""
 
+    LOCAL_CACHE_MAX = 10000  # bound for the in-process replay cache
+
     def __init__(
         self,
         store: Optional[IdempotencyStore] = None,
@@ -185,6 +187,38 @@ class IdempotencyMiddleware:
         self.ttl_seconds = ttl_seconds
         self._clock = clock
         self.executions = 0  # observability: how many real executions
+        # Fast path: process-local cache of COMPLETED records in front of the
+        # store (Redis seam included). Replays of a finished key never touch
+        # the network. Only final (non-in_progress) records are cached, so
+        # NX claim semantics are untouched: every first-execution still goes
+        # through store.put_if_absent.
+        self._local: Dict[str, StoredResponse] = {}
+        self._local_lock = threading.Lock()
+        self.local_hits = 0  # observability: replay fast-path hit rate
+
+    def _local_get(self, key: str, digest: str) -> Optional[StoredResponse]:
+        """Return a cached completed record iff it is live and hash-matches.
+
+        A live cached record whose request_hash differs still proves the key
+        was seen with another payload → caller raises 409 without a store
+        round-trip.
+        """
+        with self._local_lock:
+            rec = self._local.get(key)
+            if rec is not None and rec.expires_at <= self._clock():
+                del self._local[key]  # TTL expiry mirrors the store
+                return None
+            return rec
+
+    def _local_put(self, key: str, record: StoredResponse) -> None:
+        with self._local_lock:
+            if len(self._local) >= self.LOCAL_CACHE_MAX:
+                self._local.clear()  # bounded: worst case falls back to store
+            self._local[key] = record
+
+    def _local_delete(self, key: str) -> None:
+        with self._local_lock:
+            self._local.pop(key, None)
 
     def execute(
         self,
@@ -199,6 +233,15 @@ class IdempotencyMiddleware:
         ttl = ttl_seconds if ttl_seconds is not None else self.ttl_seconds
         digest = request_hash(payload)
         expires_at = self._clock() + ttl
+        # Fast path: replay of a locally-cached COMPLETED record.
+        cached = self._local_get(key, digest)
+        if cached is not None:
+            if cached.request_hash != digest:
+                raise IdempotencyConflict(
+                    f"idempotency key {key!r} replayed with a different payload"
+                )
+            self.local_hits += 1
+            return cached.response  # replay: original response, no re-execute
         # Atomic claim (no check-then-act TOCTOU): exactly one concurrent
         # caller wins the claim and executes; losers see ConflictOrReplay.
         claim = StoredResponse(
@@ -215,21 +258,22 @@ class IdempotencyMiddleware:
                 raise IdempotencyInProgress(
                     f"idempotency key {key!r} is being executed concurrently"
                 )
+            self._local_put(key, existing)  # warm the fast path for replays
             return existing.response  # replay: original response, no re-execute
         try:
             response = fn()
         except Exception:
             self.store.delete(key)  # failed execution releases the claim
+            self._local_delete(key)
             raise
         self.executions += 1
-        self.store.put(
-            key,
-            StoredResponse(
-                request_hash=digest,
-                response=response,
-                expires_at=expires_at,
-            ),
+        record = StoredResponse(
+            request_hash=digest,
+            response=response,
+            expires_at=expires_at,
         )
+        self.store.put(key, record)
+        self._local_put(key, record)
         return response
 
 

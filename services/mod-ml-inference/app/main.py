@@ -157,6 +157,9 @@ def create_app(registry: Optional[ModelRegistry] = None,
     app.state.registry = registry or build_registry()
     app.state.bus = bus or (_InMemoryEventBus() if _InMemoryEventBus else _NullEventBus())
     app.state.engine = engine or build_engine(app.state.registry)
+    # Warm model weights once at startup (credit_mlp / fraud_gnn / any
+    # registered artifact) so the first request doesn't pay load_state_dict.
+    app.state.warmed_models = app.state.engine.warmup()
     if monitor is None:
         import os as _os
 

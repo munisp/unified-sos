@@ -19,6 +19,7 @@ from __future__ import annotations
 import hashlib
 import math
 import os
+from functools import lru_cache
 from typing import Dict, Optional, Protocol, Sequence
 
 EMBEDDING_DIM = 128
@@ -62,6 +63,13 @@ class FixtureFaceEngine:
     """
 
     def embed(self, image_ref: str) -> Embedding:
+        # PERF: embeddings are pure functions of the image reference, so the
+        # SHA-256 derivation is memoized — repeat probes/enrolments of the
+        # same frame never re-derive. Bounded to keep memory flat.
+        return self._derive(image_ref)
+
+    @lru_cache(maxsize=4096)
+    def _derive(self, image_ref: str) -> Embedding:
         dims: list[int] = []
         counter = 0
         while len(dims) < EMBEDDING_DIM:

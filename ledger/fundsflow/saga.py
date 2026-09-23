@@ -83,6 +83,7 @@ class SagaStore(Protocol):
 class InMemorySagaStore:
     def __init__(self, clock: Callable[[], float] = time.time) -> None:
         self._records: Dict[str, SagaRecord] = {}
+        self._by_key: Dict[str, str] = {}  # idempotency_key → saga_id index
         self._clock = clock
         self.crash_on_save_state: Optional[SagaState] = None  # test hook
 
@@ -91,15 +92,14 @@ class InMemorySagaStore:
             raise RuntimeError(f"injected crash saving state {record.state}")
         record.updated_at = self._clock()
         self._records[record.saga_id] = record
+        self._by_key[record.idempotency_key] = record.saga_id
 
     def load(self, saga_id: str) -> Optional[SagaRecord]:
         return self._records.get(saga_id)
 
     def by_idempotency_key(self, key: str) -> Optional[SagaRecord]:
-        for r in self._records.values():
-            if r.idempotency_key == key:
-                return r
-        return None
+        saga_id = self._by_key.get(key)
+        return self._records.get(saga_id) if saga_id is not None else None
 
     def unfinished(self) -> List[SagaRecord]:
         return [r for r in self._records.values() if r.state not in TERMINAL_STATES]

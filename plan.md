@@ -53,3 +53,17 @@ Per-service pytest, validate_packs (37 packs), validate_infra, registry --check,
 - G1: officer/user provisioning into Keycloak realms (invite→approve→credential→role bind→offboard), VALID_STATES→37, shared OIDC JWT middleware (_shared, fail-closed), wire auth into sensitive write endpoints (gis-lands mutations, kyc review, control-plane).
 - G2: compose wiring (geospatial context/ports, missing 14 services, apisix+citizen-pwa so caddy edge works), integration URL fixes (mortgage→ml credit scoring, lands risk/fraud + phantom constants, land-docs port/path, mortgage lands port), /ml/v1/credit/score + /ml/v1/fraud/score routes, PWA /payments/v1/quotes+confirm in mobility-switch.
 - G3: contracts parity (AsyncAPI: add missing channels for published topics; implement publishers for declared channels in lands/kyc/fundsflow), OpenAPI generator +5 services, validate_packs KNOWN_MODULES +2, Cilium policies for remaining modules, repo hygiene (purge .pytest_cache/__pycache__, gitignore), document edge-daemon/document-ai deployment decisions.
+
+---
+
+## Stage 16 — Comprehensive Performance Tuning (target: industry-standard ms response times)
+Budget targets: internal API p50 < 50ms, p99 < 200ms; money-path writes p99 < 300ms; PWA TTI < 3s on 3G, JS bundle < 250KB gz initial; edge gzip/br everywhere.
+Toolchains: Go 1.22.5 (~/toolchains/go), TS 7.x (npm), Rust 1.80.1 (pending slow mirror download).
+
+- Wave P1 (shared + citizen-facing Python): _shared perf middleware (orjson responses, gzip, keep-alive, request timing hdr), uvicorn/gunicorn worker tuning defaults, citizen-portal/identity/kyc-kyb hot-path caching + async fixes.
+- Wave P2 (money path): fundsflow TB batching + outbox batch flush + idempotency local cache, mortgage/mobility-switch/waterways/erp-bridge allocation trims + async I/O.
+- Wave P3 (lands/GIS/ML): gis-lands spatial query indexing + projection cache, land-docs OCR queue, safecity-vision batch inference, ml-inference model warmup + batch scoring, Go geospatial-gateway + geometry-rs build opts.
+- Wave P4 (Go services): rev-core + geospatial-gateway — build flags (-trimpath -ldflags="-s -w"), pprof endpoints, sync.Pool, HTTP server timeouts/keepalive, benchmarks.
+- Wave P5 (mobile/PWA + edge): citizen-pwa + dispatch-console — code splitting, lazy routes, service worker cache, bundle budget; APISIX/Caddy gzip+br+cache headers; USSD/webhook fast paths.
+- Wave P6 (infra + harness): compose/Helm resource requests, Postgres pool sizing, Redis tuning, Prometheus SLO alerts (p99 latency), tests/perf k6/locust harness + perf budget gate doc.
+Gates: all existing suites green + new perf tests; commit; push.

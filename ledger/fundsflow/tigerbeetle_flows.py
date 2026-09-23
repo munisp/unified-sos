@@ -20,7 +20,30 @@ import hashlib
 import os
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
+
+_ID_CACHE_MAX = 65536  # bounded memo for deterministic transfer IDs
+_id_cache: Dict[Tuple[str, str], int] = {}
+
+
+def deterministic_transfer_id(idempotency_key: str, leg: str) -> int:
+    """Deterministic 128-bit transfer ID from (idempotency_key, leg).
+
+    Same (key, leg) → same ID, so retries map onto TigerBeetle's native
+    idempotent-create semantics and never double-apply. Results are memoized
+    in a bounded process-local cache: saga recovery and replays re-derive the
+    same IDs constantly, and sha256(key‖leg) is pure.
+    """
+    cache_key = (idempotency_key, leg)
+    cached = _id_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    digest = hashlib.sha256(f"{idempotency_key}|{leg}".encode("utf-8")).digest()
+    tid = int.from_bytes(digest[:16], "big")
+    if len(_id_cache) >= _ID_CACHE_MAX:
+        _id_cache.clear()  # simple bounded eviction; IDs re-derive on demand
+    _id_cache[cache_key] = tid
+    return tid
 
 
 class AdapterUnavailableError(RuntimeError):
@@ -29,16 +52,6 @@ class AdapterUnavailableError(RuntimeError):
 
 class TransferError(RuntimeError):
     """Raised on illegal transfer state transitions or chain failures."""
-
-
-def deterministic_transfer_id(idempotency_key: str, leg: str) -> int:
-    """Deterministic 128-bit transfer ID from (idempotency_key, leg).
-
-    Same (key, leg) → same ID, so retries map onto TigerBeetle's native
-    idempotent-create semantics and never double-apply.
-    """
-    digest = hashlib.sha256(f"{idempotency_key}|{leg}".encode("utf-8")).digest()
-    return int.from_bytes(digest[:16], "big")
 
 
 @dataclass
@@ -66,6 +79,9 @@ class InMemoryTBClient:
     def __init__(self) -> None:
         self.transfers: Dict[int, Transfer] = {}
         self.balances: Dict[int, int] = {}
+        # running per-account PENDING hold totals; avoids an O(n) scan of
+        # self.transfers on every hold creation (hot path)
+        self._holds: Dict[int, int] = {}
         # test hooks
         self.fail_on_leg: Optional[str] = None  # inject failure mid-chain
         self.fail_on_post: bool = False
@@ -77,11 +93,7 @@ class InMemoryTBClient:
         self.balances[t.credit_account] = self.balances.get(t.credit_account, 0) + sign * t.amount
 
     def _held(self, account: int) -> int:
-        return sum(
-            t.amount
-            for t in self.transfers.values()
-            if t.state == "PENDING" and t.debit_account == account
-        )
+        return self._holds.get(account, 0)
 
     # -- client surface --------------------------------------------------------
     def create_transfers(self, transfers: List[Transfer]) -> List[Transfer]:
@@ -107,13 +119,20 @@ class InMemoryTBClient:
                         raise TransferError("insufficient funds")
                 self.transfers[t.id] = t
                 created.append(t)
-                if not t.pending:
+                if t.pending:
+                    self._holds[t.debit_account] = (
+                        self._holds.get(t.debit_account, 0) + t.amount
+                    )
+                else:
                     self._apply(t, +1)
         except Exception:
             # linked-chain rollback: remove everything this call created
             for t in created:
                 if self.transfers.get(t.id) is t and t.state == "PENDING":
                     del self.transfers[t.id]
+                    self._holds[t.debit_account] = (
+                        self._holds.get(t.debit_account, 0) - t.amount
+                    )
             raise
         return created
 
@@ -131,6 +150,9 @@ class InMemoryTBClient:
             t = self.transfers[tid]
             if t.state == "PENDING":
                 t.state = "POSTED"
+                self._holds[t.debit_account] = (
+                    self._holds.get(t.debit_account, 0) - t.amount
+                )
                 self._apply(t, +1)
             # already POSTED → idempotent no-op
 
@@ -146,6 +168,9 @@ class InMemoryTBClient:
             t = self.transfers[tid]
             if t.state == "PENDING":
                 t.state = "VOIDED"
+                self._holds[t.debit_account] = (
+                    self._holds.get(t.debit_account, 0) - t.amount
+                )
 
     def balance(self, account: int) -> int:
         return self.balances.get(account, 0)

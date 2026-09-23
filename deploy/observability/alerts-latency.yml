@@ -1,0 +1,108 @@
+# SOS platform latency SLO recording + alerting rules.
+# Budgets follow docs/operations/performance-budgets.md:
+#   internal API reads : p50 < 50ms,  p99 < 200ms
+#   money writes       : p99 < 300ms  (services labelled money_write="true")
+# Requires http_request_duration_seconds_bucket{service,le} and
+# http_requests_total / http_errors_total as in alerts.yml.
+groups:
+  - name: sos-latency-recording
+    interval: 30s
+    rules:
+      # Pre-aggregated percentiles per service (keeps alert + dashboard
+      # queries cheap and consistent).
+      - record: sos:http_request_duration_seconds:p50
+        expr: |
+          histogram_quantile(0.50,
+            sum by (service, le) (rate(http_request_duration_seconds_bucket[5m]))
+          )
+      - record: sos:http_request_duration_seconds:p99
+        expr: |
+          histogram_quantile(0.99,
+            sum by (service, le) (rate(http_request_duration_seconds_bucket[5m]))
+          )
+      - record: sos:http_request_duration_seconds:p99_15m
+        expr: |
+          histogram_quantile(0.99,
+            sum by (service, le) (rate(http_request_duration_seconds_bucket[15m]))
+          )
+      - record: sos:http_error_rate:5m
+        expr: |
+          sum by (service) (rate(http_errors_total[5m]))
+            / sum by (service) (rate(http_requests_total[5m]))
+
+  - name: sos-latency-alerts
+    interval: 30s
+    rules:
+      - alert: SosInternalLatencyP99SLOBreach
+        # Internal APIs: p99 above 200ms over 15m (money writes excluded —
+        # they have their own, looser budget below).
+        # Money-write services are matched by name (ledger/settlement paths).
+        expr: |
+          sos:http_request_duration_seconds:p99_15m{
+            service!~"mod-rev-core|mod-mobility-switch|mod-mortgage|mod-citizen-portal"
+          } > 0.2
+        for: 15m
+        labels:
+          severity: warning
+          team: sos-platform
+          slo: latency-internal
+        annotations:
+          summary: "p99 latency above 200ms on {{ $labels.service }}"
+          description: "{{ $labels.service }} p99 > 200ms for 15m (internal API SLO; see docs/operations/performance-budgets.md)."
+
+      - alert: SosInternalLatencyP50SLOBreach
+        # Internal APIs: p50 above 50ms over 30m — early-warning tier.
+        expr: |
+          histogram_quantile(0.50,
+            sum by (service, le) (rate(http_request_duration_seconds_bucket[30m]))
+          ){service!~"mod-rev-core|mod-mobility-switch|mod-mortgage|mod-citizen-portal"}
+            > 0.05
+        for: 30m
+        labels:
+          severity: info
+          team: sos-platform
+          slo: latency-internal
+        annotations:
+          summary: "p50 latency above 50ms on {{ $labels.service }}"
+          description: "{{ $labels.service }} p50 > 50ms for 30m (internal API SLO early warning)."
+
+      - alert: SosMoneyWriteLatencyP99SLOBreach
+        # Money writes: p99 above 300ms over 10m (page — settlement path).
+        expr: |
+          sos:http_request_duration_seconds:p99{
+            service=~"mod-rev-core|mod-mobility-switch|mod-mortgage|mod-citizen-portal"
+          } > 0.3
+        for: 10m
+        labels:
+          severity: page
+          team: sos-revenue
+          slo: latency-money-write
+        annotations:
+          summary: "Money-write p99 above 300ms on {{ $labels.service }}"
+          description: "{{ $labels.service }} money-write p99 > 300ms for 10m (SLO: p99 < 300ms)."
+
+      - alert: SosErrorRateSLOBreachFast
+        # Fast-burn: 5xx ratio above 2% over 5m (page).
+        expr: sos:http_error_rate:5m > 0.02
+        for: 5m
+        labels:
+          severity: page
+          team: sos-platform
+          slo: availability
+        annotations:
+          summary: "Fast-burn error rate on {{ $labels.service }}"
+          description: "{{ $labels.service }} 5xx ratio > 2% for 5m (SLO: 99.9% availability)."
+
+      - alert: SosErrorRateSLOBreachSlow
+        # Slow-burn: 5xx ratio above 0.5% over 1h (ticket).
+        expr: |
+          sum by (service) (rate(http_errors_total[1h]))
+            / sum by (service) (rate(http_requests_total[1h])) > 0.005
+        for: 1h
+        labels:
+          severity: ticket
+          team: sos-platform
+          slo: availability
+        annotations:
+          summary: "Slow-burn error rate on {{ $labels.service }}"
+          description: "{{ $labels.service }} 5xx ratio > 0.5% for 1h; error budget draining."

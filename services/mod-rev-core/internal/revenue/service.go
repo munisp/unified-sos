@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"math/bits"
+	"strconv"
 	"time"
 
 	"github.com/munisp/unified-sos/ledger/splits"
@@ -55,12 +57,42 @@ type accountProvisioner interface {
 }
 
 // uint128Decimal renders a 128-bit ID as a decimal string per the
-// contract (tigerbeetle_transfer_pending_id).
+// contract (tigerbeetle_transfer_pending_id). It is allocation-light
+// (math/bits long division, no big.Int) because settlement renders one
+// decimal ID per chain leg on the hot path; the output is byte-identical
+// to the previous big.Int rendering (see uint128decimal_test.go).
 func uint128Decimal(id splits.Uint128) string {
-	hi := new(big.Int).SetUint64(id.Hi)
-	hi.Lsh(hi, 64)
-	hi.Add(hi, new(big.Int).SetUint64(id.Lo))
-	return hi.String()
+	if id.Hi == 0 {
+		return strconv.FormatUint(id.Lo, 10)
+	}
+	const divisor = 10_000_000_000_000_000_000 // 1e19, largest power of 10 in uint64
+	var digits [39]byte                        // 2^128-1 has 39 decimal digits
+	pos := len(digits)
+	hi, lo := id.Hi, id.Lo
+	for hi != 0 {
+		qHi := hi / divisor
+		r := hi % divisor // r < divisor, safe for bits.Div64
+		qLo, rem := bits.Div64(r, lo, divisor)
+		// Emit the 19-digit group (least-significant group first).
+		for i := 0; i < 19; i++ {
+			pos--
+			digits[pos] = byte('0' + rem%10)
+			rem /= 10
+		}
+		hi, lo = qHi, qLo
+	}
+	// Most-significant remainder (hi == 0 here), no leading zeros.
+	for lo > 0 {
+		pos--
+		digits[pos] = byte('0' + lo%10)
+		lo /= 10
+	}
+	// Strip any leading zeros of the most-significant emitted group (kept
+	// when the value is an exact multiple of 1e19^k and lo landed at 0).
+	for pos < len(digits)-1 && digits[pos] == '0' {
+		pos++
+	}
+	return string(digits[pos:])
 }
 
 // requestHash fingerprints the request payload for idempotency-conflict
@@ -278,7 +310,7 @@ func (s *Service) buildSettlementChain(tenantID uint16, pack *splits.PolicyPack,
 
 // splitLegViews renders the plan legs for the wire response.
 func splitLegViews(plan *splits.SplitPlan) []SplitLegView {
-	var out []SplitLegView
+	out := make([]SplitLegView, 0, len(plan.InstantLegs)+len(plan.MonthEndLegs))
 	for _, legs := range [][]splits.Leg{plan.InstantLegs, plan.MonthEndLegs} {
 		for _, leg := range legs {
 			out = append(out, SplitLegView{
@@ -373,6 +405,7 @@ func (s *Service) SettleBill(state string, req *SettlementRequest) (*SettlementR
 	gross := uint64(a.AmountDueKobo)
 	billID := splits.DeterministicIDFromRef(req.BillReference)
 	chainKey := req.BillReference
+	now := s.now() // capture once: 3+ clock reads in this hot path otherwise
 
 	if err := s.provisionAccounts(tenantID, pack, uint64(req.AmountKobo), excess > 0); err != nil {
 		return nil, err
@@ -392,7 +425,7 @@ func (s *Service) SettleBill(state string, req *SettlementRequest) (*SettlementR
 		SplitLegs:             splitLegViews(plan),
 		ClearingRemainderKobo: plan.ClearingRemainder,
 		PolicyID:              pack.PolicyID,
-		SettledAt:             s.now().UTC().Format(time.RFC3339),
+		SettledAt:             now.UTC().Format(time.RFC3339),
 	}
 	rec := &SettlementRecord{
 		TenantState:   state,
@@ -406,8 +439,9 @@ func (s *Service) SettleBill(state string, req *SettlementRequest) (*SettlementR
 		BillID:        uint128Decimal(billID),
 		RecordState:   SettlementSubmitted,
 		Response:      resp,
-		CreatedAt:     s.now(),
+		CreatedAt:     now,
 	}
+	rec.ChainTransferIDs = make([]string, 0, len(chain))
 	for _, tr := range chain {
 		rec.ChainTransferIDs = append(rec.ChainTransferIDs, uint128Decimal(tr.ID))
 	}
@@ -421,7 +455,7 @@ func (s *Service) SettleBill(state string, req *SettlementRequest) (*SettlementR
 	rec.RecordState = SettlementCommitted
 	s.store.SaveSettlement(rec)
 
-	if _, ok := s.store.ApplyPayment(state, a.AssessmentID, remaining, s.now().Unix()); !ok {
+	if _, ok := s.store.ApplyPayment(state, a.AssessmentID, remaining, now.Unix()); !ok {
 		return nil, conflict("ALREADY_SETTLED", "bill %q was settled concurrently", req.BillReference)
 	}
 	out := rec.Response

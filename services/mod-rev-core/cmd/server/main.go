@@ -22,7 +22,9 @@ package main
 import (
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"os"
+	"time"
 
 	"github.com/munisp/unified-sos/ledger/splits"
 	"github.com/munisp/unified-sos/services/mod-rev-core/internal/observability"
@@ -77,13 +79,42 @@ func run() int {
 	root := http.NewServeMux()
 	root.Handle("GET /metrics", metrics.Handler())
 	root.Handle("/", metrics.Instrument(handler.Routes()))
+	registerPprof(root, "mod-rev-core")
+
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: root,
+		// Hardening: bound header/body read, write, and keep-alive idle
+		// times so slow or stalled clients cannot hold connections open
+		// indefinitely.
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 16,
+	}
 
 	log.Printf("mod-rev-core: listening on %s (policy_dir=%q)", addr, policyDir)
-	if err := http.ListenAndServe(addr, root); err != nil {
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Printf("mod-rev-core: serve: %v", err)
 		return 1
 	}
 	return 0
+}
+
+// registerPprof mounts the net/http/pprof debug endpoints under /debug/pprof/
+// only when SOS_GO_PPROF=on (off by default so production builds expose no
+// profiling surface).
+func registerPprof(mux *http.ServeMux, service string) {
+	if os.Getenv("SOS_GO_PPROF") != "on" {
+		return
+	}
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	log.Printf("%s: pprof debug endpoints enabled at /debug/pprof/ (SOS_GO_PPROF=on)", service)
 }
 
 func getenv(key, fallback string) string {

@@ -20,11 +20,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from pyproj import Geod
+from shapely import prepare as _prepare
 from shapely import validation
 from shapely.geometry import shape
 from shapely.geometry.base import BaseGeometry
 
-#: WGS84 geodetic calculator for ellipsoidal area/perimeter.
+#: WGS84 geodetic calculator for ellipsoidal area/perimeter. Instantiated
+#: once at module import: pyproj objects are expensive to construct and are
+#: thread-safe for the pure-computation calls used here (PERF: reuse).
 _GEOD = Geod(ellps="WGS84")
 
 #: Rejection threshold for interior overlap between two parcels, in square
@@ -147,6 +150,11 @@ def find_overlap(
         like the RLS policy + trigger's ``tenant_state_id = NEW.tenant_state_id``).
     """
 
+    # PERF: prepare the candidate once — every predicate below
+    # (intersects/touches/crosses) is then served by the GEOS prepared
+    # geometry instead of re-walking the candidate's rings per existing
+    # parcel. Predicates and results are identical to the unprepared path.
+    _prepare(candidate)
     for uin, geom in existing:
         if not candidate.intersects(geom):
             continue

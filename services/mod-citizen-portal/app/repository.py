@@ -61,6 +61,7 @@ class CitizenPortalRepository(Protocol):
     def append_audit(self, entry: PortalAuditEvent) -> PortalAuditEvent: ...
     def list_audit(self, state_id: Optional[str] = None) -> List[PortalAuditEvent]: ...
     def audit_tail_hash(self) -> str: ...
+    def audit_count(self) -> int: ...
 
 
 class InMemoryCitizenPortalRepository:
@@ -212,6 +213,10 @@ class InMemoryCitizenPortalRepository:
         if state_id is None:
             return list(self._audit)
         return [e for e in self._audit if e.state_id == state_id]
+
+    def audit_count(self) -> int:
+        """O(1) entry count — avoids copying the chain to derive a seq."""
+        return len(self._audit)
 
     def audit_tail_hash(self) -> str:
         return self._audit[-1].entry_hash if self._audit else self.GENESIS_HASH

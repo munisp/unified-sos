@@ -15,6 +15,9 @@ FastAPI service with a single call:
 3. ``X-Request-ID`` propagation middleware — echoes an inbound request ID
    or mints a new one, exposes it on ``request.state.request_id`` and sets
    the response header.
+4. Performance wiring from ``_shared.perf`` (when importable): an
+   ``X-Response-Time`` server-timing header on every response and gzip
+   response compression (opt-out: ``SOS_GZIP_ENABLED=0``).
 
 Import convention (same as ``_shared.hashchain``): services insert the
 ``services/`` directory into ``sys.path`` before importing. Container
@@ -200,6 +203,18 @@ def instrument_fastapi(app, service_name: str, registry: Optional[LocalRegistry]
     if attach is not None:
         attach()
 
+    perf = None
+    try:
+        from _shared import perf as perf  # type: ignore[no-redef]
+    except ImportError:
+        try:
+            from . import perf as perf  # type: ignore[no-redef]
+        except ImportError:
+            try:
+                import perf as perf  # type: ignore[no-redef]
+            except ImportError:
+                perf = None  # minimal container images ship only the app package
+
     registry = registry or getattr(app.state, "observability_registry", None) or LocalRegistry()
     app.state.observability_registry = registry
     app.state.otel_enabled = _try_setup_otel(app, service_name)
@@ -214,11 +229,15 @@ def instrument_fastapi(app, service_name: str, registry: Optional[LocalRegistry]
 
     @app.middleware("http")
     async def metrics_middleware(request: Request, call_next):
-        if request.url.path in _LABEL_BLACKLIST_PATHS:
-            return await call_next(request)
         start = time.perf_counter()
         response = await call_next(request)
         elapsed = time.perf_counter() - start
+        if perf is not None:
+            # Server-side latency on every response (incl. /metrics), e.g.
+            # "3.42ms" — cheap and client-visible for gateway SLI checks.
+            response.headers[perf.RESPONSE_TIME_HEADER] = perf.format_response_time_ms(elapsed)
+        if request.url.path in _LABEL_BLACKLIST_PATHS:
+            return response
         labels = {
             "service": service_name,
             "route": _route_label(request),
@@ -237,6 +256,16 @@ def instrument_fastapi(app, service_name: str, registry: Optional[LocalRegistry]
                 {k: v for k, v in labels.items() if k != "status"},
             )
         return response
+
+    # Gzip response compression (opt-out via SOS_GZIP_ENABLED=0); only
+    # engages for clients advertising Accept-Encoding: gzip.
+    if perf is not None and os.environ.get("SOS_GZIP_ENABLED", "1").strip().lower() not in (
+        "0", "false", "no", "off",
+    ):
+        try:
+            perf.add_gzip_middleware(app)
+        except Exception:
+            pass  # compression is strictly optional; never break boot
 
     @app.get("/metrics", include_in_schema=False)
     def metrics_endpoint() -> PlainTextResponse:

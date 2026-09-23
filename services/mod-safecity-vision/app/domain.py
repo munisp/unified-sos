@@ -8,6 +8,7 @@ hash-chained audit log (services/_shared/hashchain, P1 audit immutability).
 
 from __future__ import annotations
 
+import math
 import threading
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -193,6 +194,10 @@ class _TenantScope:
         self.observations: list[CrowdObservation] = []
         self.anomalies: list[AnomalyEvent] = []
         self.face_audit: list[dict] = []
+        # PERF: L2 norm of each enrolled embedding, computed once per
+        # enrolment_id and reused across every probe comparison; entries are
+        # dropped by sweep_retention() together with the enrolment.
+        self.embedding_norms: dict[str, float] = {}
 
 
 class VisionStore:
@@ -209,6 +214,9 @@ class VisionStore:
         self.match_retention_days = match_retention_days
         self._lock = threading.Lock()
         self._scopes: dict[str, _TenantScope] = {}
+        # PERF: parsed-ISO timestamp memo for retention sweeps (strings are
+        # immutable, so the mapping is safe to keep indefinitely).
+        self._ts_cache: dict[str, datetime] = {}
 
     # -- tenant plumbing ------------------------------------------------------
     def _scope(self, tenant: str) -> _TenantScope:
@@ -278,11 +286,15 @@ class VisionStore:
         return enrolment
 
     # -- retention (biometric data must not outlive its lawful basis) ---------
-    @staticmethod
-    def _parse_ts(value: str) -> datetime:
-        ts = datetime.fromisoformat(value)
-        if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
+    def _parse_ts(self, value: str) -> datetime:
+        # PERF: ISO timestamps are immutable strings; parse each distinct
+        # value once per store instead of once per sweep per record.
+        ts = self._ts_cache.get(value)
+        if ts is None:
+            ts = datetime.fromisoformat(value)
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            self._ts_cache[value] = ts
         return ts
 
     def sweep_retention(self, now: datetime | None = None) -> dict[str, int]:
@@ -300,7 +312,9 @@ class VisionStore:
         now = now or datetime.now(timezone.utc)
         cutoff = now - timedelta(days=self.match_retention_days)
         counts: dict[str, int] = {}
-        for tenant, scope in self._scopes.items():
+        for tenant, scope in list(self._scopes.items()):
+            if not scope.enrolments and not scope.matches:
+                continue  # PERF: nothing to sweep in this tenant
             expired = [
                 eid
                 for eid, enr in scope.enrolments.items()
@@ -309,6 +323,7 @@ class VisionStore:
             ]
             for eid in expired:
                 enr = scope.enrolments.pop(eid)
+                scope.embedding_norms.pop(eid, None)
                 enr.embedding.clear()  # defence in depth: drop the biometric
                 self._audit_retention_purge(scope, enr, now)
             before = len(scope.matches)
@@ -340,25 +355,47 @@ class VisionStore:
             record["event_hash"] = event_payload_hash(record, prev)
             scope.face_audit.append(record)
 
-    def match_face(
-        self,
-        tenant: str,
-        image_ref: str,
-        camera_id: str | None = None,
-        threshold: float = DEFAULT_MATCH_THRESHOLD,
-        authorization_ref: str | None = None,
-    ) -> FaceMatchResult:
-        """Match a probe image against the tenant watchlist; audit the lookup."""
-        scope = self._scope(tenant)
-        if camera_id is not None:
-            self._camera(tenant, camera_id)
-        probe = self.engine.embed(image_ref)
+    @staticmethod
+    def _norm(vec) -> float:
+        return math.sqrt(sum(x * x for x in vec))
+
+    def _best_match(
+        self, scope: _TenantScope, probe
+    ) -> tuple[str | None, float]:
+        """Score a probe embedding against every enrolment (batch-scored).
+
+        The probe norm is computed once and each enrolment's norm is cached
+        on the scope, so scoring N enrolments costs N dot-products instead of
+        2N+1 full vector walks. Cosine results are identical to
+        ``cosine_similarity`` (same formula, zero-norm -> 0.0).
+        """
+        na = self._norm(probe)
         best_ref: str | None = None
         best_sim = 0.0
-        for enr in scope.enrolments.values():
-            sim = cosine_similarity(probe, enr.embedding)  # type: ignore[arg-type]
+        for eid, enr in scope.enrolments.items():
+            nb = scope.embedding_norms.get(eid)
+            if nb is None:
+                nb = self._norm(enr.embedding)
+                scope.embedding_norms[eid] = nb
+            if na == 0.0 or nb == 0.0:
+                sim = 0.0
+            else:
+                dot = sum(x * y for x, y in zip(probe, enr.embedding))
+                sim = dot / (na * nb)
             if sim > best_sim:
                 best_sim, best_ref = sim, enr.subject_ref
+        return best_ref, best_sim
+
+    def _record_match(
+        self,
+        scope: _TenantScope,
+        tenant: str,
+        camera_id: str | None,
+        threshold: float,
+        authorization_ref: str | None,
+        best_ref: str | None,
+        best_sim: float,
+    ) -> FaceMatchResult:
         matched = best_ref is not None and best_sim >= threshold
         result = FaceMatchResult(
             match_event_id=_id("match"),
@@ -373,6 +410,50 @@ class VisionStore:
         scope.matches.append(result)
         self._audit_lookup(scope, result, authorization_ref)
         return result
+
+    def match_face(
+        self,
+        tenant: str,
+        image_ref: str,
+        camera_id: str | None = None,
+        threshold: float = DEFAULT_MATCH_THRESHOLD,
+        authorization_ref: str | None = None,
+    ) -> FaceMatchResult:
+        """Match a probe image against the tenant watchlist; audit the lookup."""
+        scope = self._scope(tenant)
+        if camera_id is not None:
+            self._camera(tenant, camera_id)
+        probe = self.engine.embed(image_ref)
+        best_ref, best_sim = self._best_match(scope, probe)
+        return self._record_match(scope, tenant, camera_id, threshold,
+                                  authorization_ref, best_ref, best_sim)
+
+    def match_faces_batch(
+        self,
+        tenant: str,
+        image_refs: list[str],
+        camera_id: str | None = None,
+        threshold: float = DEFAULT_MATCH_THRESHOLD,
+        authorization_ref: str | None = None,
+    ) -> list[FaceMatchResult]:
+        """Batch face-match scoring: embed + score many probes in one call.
+
+        Enrolment norms are computed once (first probe) and reused for every
+        subsequent probe in the batch. Each probe still gets its own match
+        record and hash-chained audit entry — identical per-probe semantics
+        and ordering to calling :meth:`match_face` repeatedly.
+        """
+        scope = self._scope(tenant)
+        if camera_id is not None:
+            self._camera(tenant, camera_id)
+        results: list[FaceMatchResult] = []
+        for image_ref in image_refs:
+            probe = self.engine.embed(image_ref)
+            best_ref, best_sim = self._best_match(scope, probe)
+            results.append(self._record_match(scope, tenant, camera_id,
+                                              threshold, authorization_ref,
+                                              best_ref, best_sim))
+        return results
 
     def _audit_lookup(
         self, scope: _TenantScope, result: FaceMatchResult, authorization_ref: str | None

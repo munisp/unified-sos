@@ -81,7 +81,14 @@ def create_app(repo: Optional[IdentityRepository] = None) -> FastAPI:
     app.state.federation_client = build_federation_client()
 
     def service(request: Request) -> IdentityService:
-        return IdentityService(request.app.state.repo, request.app.state.federation_client)
+        # Reuse one service per app: construction is pure wiring and the
+        # service is stateless apart from repo/federation handles and its
+        # ID counter (which should keep advancing across requests anyway).
+        svc = getattr(request.app.state, "service_instance", None)
+        if svc is None or svc.repo is not request.app.state.repo:
+            svc = IdentityService(request.app.state.repo, request.app.state.federation_client)
+            request.app.state.service_instance = svc
+        return svc
 
     @app.post("/residents", response_model=ResidentRead, status_code=201)
     def register_resident(resident: Resident, svc: IdentityService = Depends(service)):

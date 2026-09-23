@@ -36,6 +36,18 @@ class RecordingEventBus:
             raise RuntimeError("injected bus publish failure")
         self.published.append((topic, payload))
 
+    def publish_batch(self, events: List[tuple]) -> None:
+        """Batch publish: one bus call for a seq-ordered chunk of events.
+
+        Same at-least-once / fail_next semantics as ``publish`` — the whole
+        batch raises on an injected failure so the relay falls back to
+        per-row isolation.
+        """
+        if self.fail_next:
+            self.fail_next = False
+            raise RuntimeError("injected bus publish failure")
+        self.published.extend(events)
+
 
 class KafkaOutboxBus:
     """Kafka seam over services/_shared/eventbus (import-guarded).
@@ -187,6 +199,36 @@ class OutboxWriter:
         tx.commit()
         return row
 
+    def write_batch(
+        self,
+        entries: List[Dict[str, Any]],
+    ) -> List[OutboxRow]:
+        """Write many (domain_record, topic, event_payload, idempotency_key)
+        entries in ONE store transaction — one commit for the whole batch
+        instead of one per event. Atomicity is unchanged: a crash before the
+        single commit loses all rows, never a partial flush.
+
+        Each entry is a dict with keys ``domain_record``, ``topic``,
+        ``event_payload`` and ``idempotency_key``.
+        """
+        now = self.store._clock()
+        rows = [
+            OutboxRow(
+                event_id=str(uuid.uuid4()),
+                topic=e["topic"],
+                payload=e["event_payload"],
+                idempotency_key=e["idempotency_key"],
+                created_at=now,
+            )
+            for e in entries
+        ]
+        tx = self.store.transaction()
+        for e, row in zip(entries, rows):
+            tx.write_domain(e["domain_record"])
+            tx.write_event(row)
+        tx.commit()
+        return rows
+
 
 class OutboxRelay:
     """At-least-once relay with recovery scan.
@@ -207,22 +249,68 @@ class OutboxRelay:
         self.bus = bus
         self.max_attempts = max_attempts
 
+    @staticmethod
+    def _envelope(row: OutboxRow) -> Dict[str, Any]:
+        return {**row.payload, "idempotency_key": row.idempotency_key,
+                "event_id": row.event_id}
+
+    def _publish_row(self, row: OutboxRow) -> bool:
+        """Publish one row with ack-on-success / dead-letter-on-exhaustion.
+
+        Returns True when the row was published (acked)."""
+        row.attempts += 1
+        try:
+            self.bus.publish(row.topic, self._envelope(row))
+        except Exception:
+            if row.attempts >= self.max_attempts:
+                self._dead_letter(row)
+            return False  # leave un-acked; next scan retries (unless dead)
+        row.published = True
+        return True
+
     def publish_pending(self) -> int:
         count = 0
         for row in self.store.unacked():  # seq order; dead rows excluded
-            row.attempts += 1
+            if self._publish_row(row):
+                count += 1
+        return count
+
+    def publish_pending_batched(self, batch_size: int = 64) -> int:
+        """Batched flush: one ``bus.publish_batch`` call per seq-ordered
+        chunk instead of one publish per row (fewer bus round-trips on the
+        relay hot path).
+
+        Semantics are identical to :meth:`publish_pending`: seq ordering is
+        preserved, rows ack only on success, and a failed batch falls back
+        to per-row isolation so a single poisoned event cannot block its
+        chunk-mates (and dead-letter accounting stays per-row). Buses
+        without ``publish_batch`` use the per-row path directly.
+        """
+        rows = self.store.unacked()
+        if not rows:
+            return 0
+        publish_batch = getattr(self.bus, "publish_batch", None)
+        if publish_batch is None or batch_size <= 1:
+            return self._publish_rows_individually(rows)
+        count = 0
+        for start in range(0, len(rows), batch_size):
+            chunk = rows[start:start + batch_size]
             try:
-                self.bus.publish(
-                    row.topic,
-                    {**row.payload, "idempotency_key": row.idempotency_key,
-                     "event_id": row.event_id},
-                )
+                publish_batch([(r.topic, self._envelope(r)) for r in chunk])
             except Exception:
-                if row.attempts >= self.max_attempts:
-                    self._dead_letter(row)
-                continue  # leave un-acked; next scan retries (unless dead)
-            row.published = True
-            count += 1
+                count += self._publish_rows_individually(chunk)
+                continue
+            for r in chunk:
+                r.attempts += 1
+                r.published = True
+            count += len(chunk)
+        return count
+
+    def _publish_rows_individually(self, rows: List[OutboxRow]) -> int:
+        count = 0
+        for row in rows:
+            if self._publish_row(row):
+                count += 1
         return count
 
     def _dead_letter(self, row: OutboxRow) -> None:

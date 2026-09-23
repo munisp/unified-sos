@@ -15,8 +15,15 @@ precacheAndRoute(self.__WB_MANIFEST);
 registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html')));
 
 // Read-heavy API GETs: network-first with cache fallback.
+// Money endpoints (/payments/v1/*, quotes/confirmations) are NEVER cached —
+// they bypass this route entirely (no match) and hit the network, matching
+// the edge `Cache-Control: no-store` policy (see deploy/tuning/generate_edge_cache.py).
+const NEVER_CACHE = /\/(payments|ledger|wallet|billing)\//i;
 registerRoute(
-  ({ url, request }) => request.method === 'GET' && /\/(citizen|transparency|api)\/v1\//.test(url.pathname),
+  ({ url, request }) =>
+    request.method === 'GET' &&
+    /\/(citizen|transparency|api)\/v1\//.test(url.pathname) &&
+    !NEVER_CACHE.test(url.pathname),
   new NetworkFirst({ cacheName: 'sos-api-reads', networkTimeoutSeconds: 6 }),
 );
 

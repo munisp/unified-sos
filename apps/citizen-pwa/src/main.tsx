@@ -14,6 +14,28 @@ export async function registerPushSeam(): Promise<void> {
   // await fetch(`${API}/citizen/v1/push-subscriptions`, { method: 'POST', body: JSON.stringify(sub) });
 }
 
+// Preconnect/dns-prefetch to the API origin when it is cross-origin
+// (VITE_API_BASE_URL set). Same-origin deployments need no hint — the
+// connection is already warm from the document fetch. Injected at runtime so
+// the hint only appears when an API origin is actually configured.
+const apiBase = import.meta.env.VITE_API_BASE_URL as string | undefined;
+if (apiBase) {
+  try {
+    const origin = new URL(apiBase, window.location.href).origin;
+    if (origin !== window.location.origin) {
+      for (const rel of ['preconnect', 'dns-prefetch']) {
+        const link = document.createElement('link');
+        link.rel = rel;
+        link.href = origin;
+        if (rel === 'preconnect') link.crossOrigin = '';
+        document.head.appendChild(link);
+      }
+    }
+  } catch {
+    // malformed VITE_API_BASE_URL — skip hints, api.ts will surface the error
+  }
+}
+
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <AppStoreProvider>
