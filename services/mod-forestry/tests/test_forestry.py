@@ -190,6 +190,47 @@ class TestDeforestationAlerts:
         assert client.post("/alerts/deforestation", json=big).json()["severity"] == "CRITICAL"
 
 
+class TestProvenancePublished:
+    def test_record_provenance_publishes_event(self):
+        """ng.sos.forestry.provenance_recorded fires on every recorded hop."""
+        published = []
+
+        class Bus:
+            def publish(self, topic, payload):
+                published.append((topic, payload))
+
+        app = create_app(ForestryService(bus=Bus()))
+        with TestClient(app) as client:
+            register_tag(client)
+            r = client.post(
+                "/provenance",
+                json=provenance_event(TAG["tag_id"], "HARVESTED"),
+            )
+            assert r.status_code == 201
+            assert len(published) == 1
+            topic, payload = published[0]
+            assert topic == "ng.sos.forestry.provenance_recorded"
+            assert payload.tag_id == TAG["tag_id"]
+            assert payload.stage.value == "HARVESTED"
+
+    def test_rejected_transition_publishes_nothing(self):
+        published = []
+
+        class Bus:
+            def publish(self, topic, payload):
+                published.append((topic, payload))
+
+        app = create_app(ForestryService(bus=Bus()))
+        with TestClient(app) as client:
+            register_tag(client)
+            r = client.post(
+                "/provenance",
+                json=provenance_event(TAG["tag_id"], "MILLED"),
+            )
+            assert r.status_code == 409
+            assert published == []
+
+
 class TestUntaggedHaulage:
     def test_report_publishes_event(self):
         published = []

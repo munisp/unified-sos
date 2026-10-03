@@ -48,6 +48,53 @@ GENERATED_HEADER = (
     "# the rate-limit defaults documented in deploy/tuning/apisix.yaml.\n"
 )
 
+#: Per-service path-prefix fan-out, derived from contracts/openapi/*.yaml.
+#: Each entry: (upstream service DNS name, [uri prefixes]). Upstream nodes
+#: resolve by short service name on the compose network / in-namespace k8s
+#: DNS at port 8000 (uvicorn). APISIX matches the longest prefix first, so
+#: these routes win over the per-tenant catch-all (/*) routes below; both
+#: carry the same X-Sos-Tenant-State rate-limit plugins so tenant isolation
+#: holds on every path.
+SERVICE_ROUTES: list[tuple[str, list[str]]] = [
+    ("mod-citizen-portal", ["/citizen/*", "/channels/*"]),
+    ("mod-transparency", ["/transparency/*"]),
+    ("mod-police-cad", ["/cad/*"]),
+    ("mod-mobility-switch", ["/payments/*", "/mobility/*"]),
+    ("control-plane", ["/cp/*", "/control/*"]),
+    ("mod-gis-lands", ["/api/v1/states/*/cadastre/*"]),
+    ("mod-geospatial", ["/api/v1/states/*/geospatial/*"]),
+    ("mod-gis-luc", ["/api/v1/states/*/luc/*"]),
+    ("mod-land-docs", ["/api/v1/states/*/land-docs/*"]),
+    ("mod-mortgage", ["/api/v1/states/*/mortgages/*"]),
+    ("mod-rev-core", ["/api/v1/states/*/revenue/*"]),
+    ("mod-erp-bridge", ["/erp/*"]),
+    ("mod-ml-inference", ["/ml/*"]),
+    ("mod-agri-trace", ["/agri/*"]),
+    ("mod-agri-waybill", ["/waybills/*", "/warehouse-receipts/*"]),
+    ("mod-border-transit", ["/border/*"]),
+    ("mod-education", ["/education/*"]),
+    ("mod-environment", ["/environment/*"]),
+    ("mod-forestry", [
+        "/provenance/*", "/tags/*", "/invoices/*",
+        "/alerts/deforestation/*", "/alerts/untagged-haulage/*",
+    ]),
+    ("mod-identity", [
+        "/residents/*", "/consents/*", "/consumers/*", "/credentials/*",
+        "/guardian-links/*", "/verify/*", "/audit/*", "/settlements/*",
+    ]),
+    ("mod-kyc-kyb", ["/kyc/*", "/kyb/*", "/kyc-kyb/*"]),
+    ("mod-market", ["/markets/*", "/stalls/*", "/tickets/*", "/traders/*", "/disputes/*"]),
+    ("mod-mining", ["/sites/*", "/consignments/*", "/split-rules/*", "/events/*"]),
+    ("mod-ppp-investment", [
+        "/projects/*", "/proposals/*", "/contracts/*",
+        "/disclosure/*", "/documentsets/*", "/kpis/*",
+    ]),
+    ("mod-safecity-vision", ["/vision/*"]),
+    ("mod-transport-wim", ["/wim/*", "/anpr/*", "/corridors/*", "/fines/*", "/manifests/*"]),
+    ("mod-waterways", ["/waterways/*"]),
+    ("mod-health", ["/health/*"]),
+]
+
 #: Per-tenant quota defaults (shared tier; dedicated tier doubles these).
 DEFAULT_COUNT = 1000          # requests per window
 DEFAULT_TIME_WINDOW = 60      # seconds
@@ -72,19 +119,66 @@ def load_tenants(states_dir: Path = STATES_DIR) -> list[str]:
     return tenants
 
 
+def rate_limit_plugin_lines(indent: str = "      ") -> list[str]:
+    """Per-tenant rate-limit plugins keyed on X-Sos-Tenant-State."""
+    return [
+        f"{indent}# Tenant quota (shared tier 1000/min; dedicated 2000/min).",
+        f"{indent}limit-count:",
+        f"{indent}  count: {DEFAULT_COUNT}",
+        f"{indent}  time_window: {DEFAULT_TIME_WINDOW}",
+        f"{indent}  key_type: var",
+        f"{indent}  key: http_x_sos_tenant_state",
+        f"{indent}  rejected_code: {REJECTED_CODE}",
+        f"{indent}  policy: redis          # shared counter across gateway replicas",
+        f"{indent}  redis_host: redis.sos-data.svc.cluster.local",
+        f"{indent}  redis_port: 6379",
+        f"{indent}# Leaky-bucket smoothing per tenant (burst 10% of quota).",
+        f"{indent}limit-req:",
+        f"{indent}  rate: {DEFAULT_REQ_RATE}",
+        f"{indent}  burst: {DEFAULT_REQ_BURST}",
+        f"{indent}  rejected_code: 503",
+        f"{indent}  key_type: var",
+        f"{indent}  key: http_x_sos_tenant_state",
+    ]
+
+
 def render(tenants: list[str]) -> str:
     lines = [
         GENERATED_HEADER,
-        # One shared upstream; per-tenant isolation comes from the route
-        # plugins keyed on the X-Sos-Tenant-State header.
+        "# Upstreams: one per service (short DNS name:8000) plus the shared",
+        "# sos-platform catch-all. Per-tenant isolation comes from the route",
+        "# plugins keyed on the X-Sos-Tenant-State header.",
         "upstreams:",
         "  - id: sos-platform",
         "    type: roundrobin",
         "    nodes:",
         '      "control-plane.sos-platform.svc.cluster.local:8000": 1',
+    ]
+    for service, _ in SERVICE_ROUTES:
+        lines += [
+            f"  - id: svc-{service}",
+            "    type: roundrobin",
+            "    nodes:",
+            f'      "{service}:8000": 1',
+        ]
+    lines += [
         "",
         "routes:",
+        "  # --- Per-service path-prefix fan-out (contracts/openapi/*.yaml) ---",
     ]
+    for service, uris in SERVICE_ROUTES:
+        lines += [
+            f"  - id: svc-{service}",
+            "    uris:",
+        ]
+        lines += [f"      - {uri}" for uri in uris]
+        lines += [
+            f"    upstream_id: svc-{service}",
+            "    plugins:",
+        ]
+        lines += rate_limit_plugin_lines()
+        lines.append("")
+    lines.append("  # --- Per-tenant catch-all routes (X-Sos-Tenant-State header) ---")
     for tenant in tenants:
         lines += [
             f"  # --- {tenant} ---",
@@ -95,25 +189,9 @@ def render(tenants: list[str]) -> str:
             '      - ["http_x_sos_tenant_state", "==", "' + tenant + '"]',
             "    upstream_id: sos-platform",
             "    plugins:",
-            "      # Tenant quota (shared tier 1000/min; dedicated 2000/min).",
-            "      limit-count:",
-            f"        count: {DEFAULT_COUNT}",
-            f"        time_window: {DEFAULT_TIME_WINDOW}",
-            "        key_type: var",
-            "        key: http_x_sos_tenant_state",
-            f"        rejected_code: {REJECTED_CODE}",
-            "        policy: redis          # shared counter across gateway replicas",
-            "        redis_host: redis.sos-data.svc.cluster.local",
-            "        redis_port: 6379",
-            "      # Leaky-bucket smoothing per tenant (burst 10% of quota).",
-            "      limit-req:",
-            f"        rate: {DEFAULT_REQ_RATE}",
-            f"        burst: {DEFAULT_REQ_BURST}",
-            "        rejected_code: 503",
-            "        key_type: var",
-            "        key: http_x_sos_tenant_state",
-            "",
         ]
+        lines += rate_limit_plugin_lines()
+        lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -153,9 +231,28 @@ def test_render_one_route_per_tenant() -> None:
     text = render(load_tenants())
     for tenant in load_tenants():
         assert f'"http_x_sos_tenant_state", "==", "{tenant}"' in text
-    assert text.count("limit-count:") == 37
-    assert text.count("limit-req:") == 37
+    total_routes = 37 + len(SERVICE_ROUTES)
+    assert text.count("limit-count:") == total_routes
+    assert text.count("limit-req:") == total_routes
     assert text.count("upstream_id: sos-platform") == 37
+
+
+def test_render_service_fanout_routes() -> None:
+    text = render(load_tenants())
+    expected = {
+        "mod-citizen-portal": "/citizen/*",
+        "mod-transparency": "/transparency/*",
+        "mod-police-cad": "/cad/*",
+        "mod-mobility-switch": "/payments/*",
+        "control-plane": "/cp/*",
+        "mod-gis-lands": "/api/v1/states/*/cadastre/*",
+        "mod-erp-bridge": "/erp/*",
+        "mod-ml-inference": "/ml/*",
+    }
+    for service, uri in expected.items():
+        assert f"  - id: svc-{service}" in text
+        assert f"      - {uri}" in text
+        assert f'      "{service}:8000": 1' in text
 
 
 def test_render_defaults_and_redis_policy() -> None:
@@ -173,13 +270,25 @@ def test_generated_yaml_parses_and_structure() -> None:
 
     text = render(load_tenants())
     doc = yaml.safe_load(text)
-    assert len(doc["upstreams"]) == 1
+    assert len(doc["upstreams"]) == 1 + len(SERVICE_ROUTES)
     assert doc["upstreams"][0]["id"] == "sos-platform"
-    assert len(doc["routes"]) == 37
-    for route in doc["routes"]:
+    for upstream, (service, _) in zip(doc["upstreams"][1:], SERVICE_ROUTES):
+        assert upstream["id"] == f"svc-{service}"
+        assert upstream["nodes"] == {f"{service}:8000": 1}
+    assert len(doc["routes"]) == 37 + len(SERVICE_ROUTES)
+    tenant_routes = [r for r in doc["routes"] if r["id"].startswith("tenant-")]
+    service_routes = [r for r in doc["routes"] if r["id"].startswith("svc-")]
+    assert len(tenant_routes) == 37
+    assert len(service_routes) == len(SERVICE_ROUTES)
+    for route in tenant_routes:
         assert route["vars"] == [
             ["http_x_sos_tenant_state", "==", route["id"].removeprefix("tenant-").replace("-", "_")]
         ]
+    for route, (service, uris) in zip(service_routes, SERVICE_ROUTES):
+        assert route["id"] == f"svc-{service}"
+        assert route["uris"] == uris
+        assert route["upstream_id"] == f"svc-{service}"
+    for route in doc["routes"]:
         assert route["plugins"]["limit-count"]["key"] == "http_x_sos_tenant_state"
         assert route["plugins"]["limit-req"]["key"] == "http_x_sos_tenant_state"
 

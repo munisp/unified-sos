@@ -67,3 +67,15 @@ Toolchains: Go 1.22.5 (~/toolchains/go), TS 7.x (npm), Rust 1.80.1 (pending slow
 - Wave P5 (mobile/PWA + edge): citizen-pwa + dispatch-console — code splitting, lazy routes, service worker cache, bundle budget; APISIX/Caddy gzip+br+cache headers; USSD/webhook fast paths.
 - Wave P6 (infra + harness): compose/Helm resource requests, Postgres pool sizing, Redis tuning, Prometheus SLO alerts (p99 latency), tests/perf k6/locust harness + perf budget gate doc.
 Gates: all existing suites green + new perf tests; commit; push.
+
+---
+
+## Stage 17 — End-to-end mapping audit + data-flow visualization
+Goal: prove frontend→backend→DB/middleware wiring is complete; no data loss; visualize everything.
+- 17a Audit (3 parallel read-only explore agents):
+  E1 frontend→backend: inventory every API call in apps/citizen-pwa + apps/dispatch-console (+USSD/webhook entry points) vs routes exposed by the 27 OpenAPI services + APISIX/Caddy routing.
+  E2 backend→persistence: per service — repositories, DSN seams, owned tables/schemas, event publishers/subscribers vs AsyncAPI channels, outbox usage.
+  E3 middleware/integration: APISIX routes vs compose services, Caddy ask/TLS, Keycloak realms vs officer roles, Redis/Postgres/TigerBeetle/Redpanda/MinIO/OpenSearch consumers, orphan check (channel with no publisher/subscriber, route with no backend, table with no writer).
+- 17b Fix any gaps found (coder agents, scoped).
+- 17c Visualize: docs/architecture/data-flow-map.md with Mermaid diagrams (frontend↔gateway↔services↔DB/middleware↔events), per-domain flow charts, data-loss-risk register; render PNGs to output.
+- Gates: tests green, commit, push.

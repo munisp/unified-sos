@@ -5,7 +5,7 @@ import os
 from datetime import date
 from typing import Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from .adapters import AdapterUnavailableError
@@ -69,8 +69,35 @@ except ImportError:
     except ImportError:  # minimal container images ship only the app package
         _instrument_fastapi = None
 
+# --- Shared OIDC JWT authorization (services/_shared/auth.py) ---------------
+try:
+    from _shared.auth import assert_auth_bootable as _assert_auth_bootable
+    from _shared.auth import require_role as _require_role
+except ImportError:  # minimal container images ship only the app package
+    import sys as _sys2
+    from pathlib import Path as _Path2
+
+    _sr = _Path2(__file__).resolve().parents[2]
+    if str(_sr) not in _sys2.path:
+        _sys2.path.insert(0, str(_sr))
+    try:
+        from _shared.auth import assert_auth_bootable as _assert_auth_bootable
+        from _shared.auth import require_role as _require_role
+    except ImportError:
+        def _assert_auth_bootable() -> None:  # type: ignore[misc]
+            return None
+
+        def _require_role(role: str):  # type: ignore[misc]
+            from fastapi import Request
+
+            def _dep(request: Request) -> str:
+                return f"{role}:anonymous"
+
+            return _dep
+
 
 def create_app(service: Optional[ErpBridgeService] = None) -> FastAPI:
+    _assert_auth_bootable()  # fail-closed: production profile requires JWKS
     app = FastAPI(title="mod-erp-bridge — ERP Integration Bridge")
     app.state.service = service or build_service()
     if _instrument_fastapi is not None:
@@ -106,7 +133,8 @@ def create_app(service: Optional[ErpBridgeService] = None) -> FastAPI:
         status_code=201,
         operation_id="pushJournalEntry",
     )
-    def push_journal(state: str, body: PushJournalRequest, request: Request):
+    def push_journal(state: str, body: PushJournalRequest, request: Request,
+                     _actor: str = Depends(_require_role("mda-officer"))):
         _guard(state)
         try:
             entry = JournalEntry(
@@ -164,7 +192,8 @@ def create_app(service: Optional[ErpBridgeService] = None) -> FastAPI:
         response_model=CoaMapping,
         operation_id="putCoaMapping",
     )
-    def put_coa_mapping(state: str, body: CoaMappingPut, request: Request):
+    def put_coa_mapping(state: str, body: CoaMappingPut, request: Request,
+                        _actor: str = Depends(_require_role("mda-officer"))):
         _guard(state)
         return svc(request).set_coa_mapping(state, body.mapping)
 

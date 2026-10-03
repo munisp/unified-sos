@@ -132,6 +132,32 @@ except ImportError:
     except ImportError:  # minimal container images ship only the app package
         _instrument_fastapi = None
 
+# --- Shared OIDC JWT authorization (services/_shared/auth.py) ---------------
+try:
+    from _shared.auth import assert_auth_bootable as _assert_auth_bootable
+    from _shared.auth import require_role as _require_role
+except ImportError:  # minimal container images ship only the app package
+    import sys as _sys2
+    from pathlib import Path as _Path2
+
+    _sr = _Path2(__file__).resolve().parents[2]
+    if str(_sr) not in _sys2.path:
+        _sys2.path.insert(0, str(_sr))
+    try:
+        from _shared.auth import assert_auth_bootable as _assert_auth_bootable
+        from _shared.auth import require_role as _require_role
+    except ImportError:
+        def _assert_auth_bootable() -> None:  # type: ignore[misc]
+            return None
+
+        def _require_role(role: str):  # type: ignore[misc]
+            from fastapi import Request
+
+            def _dep(request: Request) -> str:
+                return f"{role}:anonymous"
+
+            return _dep
+
 
 def _token_hash(token: str) -> str:
     """SHA-256 of a presented admin token — the audit log never sees raw tokens."""
@@ -194,6 +220,7 @@ def create_app(store: MetadataStore | None = None,
         version="1.0.0",
         description="WP-01 / EPIC-01. Metadata only — zero citizen PII (PII guard enforced).",
     )
+    _assert_auth_bootable()  # fail-closed: production profile requires JWKS
     if store is None:
         from .audit_archive import archive_from_env
 
@@ -219,7 +246,8 @@ def create_app(store: MetadataStore | None = None,
         response_model=TenantOperation,
     )
     def create_tenant(req: TenantCreate, store: MetadataStore = Depends(get_store),
-                      who: str = Depends(actor)) -> TenantOperation:
+                      who: str = Depends(actor),
+                      _actor: str = Depends(_require_role("governor"))) -> TenantOperation:
         """Provision a new state tenant (equivalent to `sosctl tenant create`)."""
         tenant = store.create_tenant(req, actor=who)
         return TenantOperation(
@@ -242,7 +270,8 @@ def create_app(store: MetadataStore | None = None,
     @app.post("/control/v1/tenants/{tenant_id}/suspend", response_model=Tenant)
     def suspend_tenant(tenant_id: str, req: SuspendRequest,
                        store: MetadataStore = Depends(get_store),
-                       who: str = Depends(actor)) -> Tenant:
+                       who: str = Depends(actor),
+                       _actor: str = Depends(_require_role("governor"))) -> Tenant:
         tenant = store.suspend_tenant(tenant_id, req.reason, actor=who)
         if tenant is None:
             raise HTTPException(status_code=404, detail=f"tenant '{tenant_id}' not found")
@@ -252,7 +281,8 @@ def create_app(store: MetadataStore | None = None,
               response_model=PolicyPackRecord)
     def ingest_policy_pack(tenant_id: str, ref: PolicyPackRef, response: Response,
                            store: MetadataStore = Depends(get_store),
-                           who: str = Depends(actor)) -> PolicyPackRecord:
+                           who: str = Depends(actor),
+                           _actor: str = Depends(_require_role("ministry"))) -> PolicyPackRecord:
         """Ingest a dynamic state policy pack (schema + guardrail validated)."""
         if store.get_tenant(tenant_id) is None:
             raise HTTPException(status_code=404, detail=f"tenant '{tenant_id}' not found")

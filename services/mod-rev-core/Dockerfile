@@ -20,7 +20,12 @@ RUN go mod download
 
 COPY services/mod-rev-core/ .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/mod-rev-core ./cmd/server
+# Build WITH `-tags tigerbeetle`: the production ledger adapter
+# (ledger/splits/tigerbeetle.go, behind `//go:build tigerbeetle`) is only
+# compiled under this tag. go.mod pins github.com/tigerbeetle/tigerbeetle-go
+# v0.16.11 (see go.sum), so the tag is always enabled here — otherwise
+# REV_CORE_LEDGER=tigerbeetle would fail closed at boot on the shipped image.
+RUN CGO_ENABLED=0 GOOS=linux go build -tags tigerbeetle -trimpath -ldflags="-s -w" -o /out/mod-rev-core ./cmd/server
 
 FROM gcr.io/distroless/static-debian12:nonroot AS runtime
 

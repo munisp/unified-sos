@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from datetime import timedelta
 
 import pytest
@@ -66,6 +67,37 @@ class TestAdapters:
     def test_tigerbeetle_fail_closed_without_url(self):
         with pytest.raises(AdapterUnavailableError):
             TigerBeetleLedgerAdapter(environ={})
+
+    def test_tigerbeetle_fail_closed_names_package_when_absent(self, monkeypatch):
+        # Simulate the optional client package being uninstalled; the error
+        # must name the package so operators know what to install.
+        monkeypatch.setitem(sys.modules, "tigerbeetle", None)
+        with pytest.raises(AdapterUnavailableError, match="tigerbeetle"):
+            TigerBeetleLedgerAdapter(environ={"SOS_MORTGAGE_TB_URL": "127.0.0.1:3000"})
+
+    def test_fixture_ledger_is_default(self):
+        assert isinstance(ledger_from_env({}), FixtureLedgerAdapter)
+
+    def test_fixture_ledger_never_imports_tigerbeetle(self, monkeypatch):
+        # Fixture mode must work even when the tigerbeetle package is absent
+        # (lazy import in the production adapter only).
+        monkeypatch.setitem(sys.modules, "tigerbeetle", None)
+        ledger = ledger_from_env({"SOS_MORTGAGE_LEDGER": "fixture"})
+        debit, credit = 101, 202
+        tid = deterministic_transfer_id("k1", "hold")
+        ledger.hold(tid, debit, credit, 5_000, "k1")
+        ledger.post(tid)
+        assert ledger.balance(credit) - ledger.balance(debit) == 10_000
+
+    def test_tigerbeetle_adapter_constructs_with_real_package(self):
+        # Smoke test (construction only — no live TB cluster needed): the
+        # pinned tigerbeetle client imports and both the adapter seam and a
+        # real ClientSync construct against a placeholder address.
+        tb = pytest.importorskip("tigerbeetle")
+        adapter = TigerBeetleLedgerAdapter(environ={"SOS_MORTGAGE_TB_URL": "127.0.0.1:3000"})
+        assert adapter.url == "127.0.0.1:3000"
+        client = tb.ClientSync(cluster_id=0, replica_addresses="127.0.0.1:3000")
+        client.close()
 
     def test_ledger_unknown_engine_fail_closed(self):
         with pytest.raises(AdapterUnavailableError):

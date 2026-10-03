@@ -150,6 +150,12 @@ class EscrowExpiredError(ValueError):
     """Pending escrow past its expiry — auto-aborted, HTTP 409."""
 
 
+class SchemeCallbackConflict(RuntimeError):
+    """Same transfer_id callback redelivered with a different payload (409)."""
+
+    status_code = 409
+
+
 #: Default pending-escrow TTL (Mojaloop-style transfer expiration window).
 DEFAULT_ESCROW_TTL_SECONDS = 15 * 60
 
@@ -212,6 +218,8 @@ class MobilityStore:
         self.batches: dict[str, SettlementBatch] = {}
         self.escrows: dict[str, EscrowRecord] = {}  # keyed by transfer_id
         self.bill_events: dict[str, dict] = {}  # keyed by bill_reference
+        # transfer_id -> request_hash of the accepted FSPIOP fulfilment callback
+        self.scheme_callback_hashes: dict[str, str] = {}
         self.audit_chain: list[dict] = []  # hash-chained audit records
         self._chain_tip: str = GENESIS_PREV_HASH
 
@@ -403,6 +411,56 @@ class MobilityStore:
             if rec.state != EscrowState.PENDING:
                 raise ValueError(f"escrow '{transfer_id}' is {rec.state.value}")
             return self._abort_locked(rec, "aborted")
+
+    def apply_transfer_callback(self, payload: dict) -> EscrowRecord:
+        """Apply an authenticated FSPIOP PUT /transfers/{id} callback.
+
+        COMMITTED posts the pending escrow; ABORTED voids it. Idempotent on
+        transfer_id: the canonical ``request_hash`` of the callback payload is
+        stored; a redelivery with the same payload replays the current record,
+        while the same transfer_id with a DIFFERENT payload raises
+        :class:`SchemeCallbackConflict` (HTTP 409) and is audit-logged on the
+        hash chain. Signature verification happens at the HTTP edge; this
+        method only sees authenticated payloads.
+        """
+        transfer_id = payload.get("transferId")
+        state = str(payload.get("transferState") or "").upper()
+        if not transfer_id:
+            raise KeyError("callback payload missing 'transferId'")
+        if state not in ("COMMITTED", "ABORTED"):
+            raise ValueError(f"unsupported transferState '{state}'")
+        digest = request_hash(payload)
+        with self._lock:
+            seen = self.scheme_callback_hashes.get(transfer_id)
+            if seen is not None:
+                if seen != digest:
+                    self._audit("scheme_callback_conflict", {
+                        "transfer_id": transfer_id,
+                        "existing_request_hash": seen,
+                        "rejected_request_hash": digest,
+                    })
+                    raise SchemeCallbackConflict(
+                        f"transfer_id '{transfer_id}' callback redelivered with a "
+                        f"different payload")
+                rec = self.escrows.get(transfer_id)
+                if rec is None:
+                    raise KeyError(f"escrow '{transfer_id}' not found")
+                return rec  # idempotent replay of the accepted callback
+        if state == "COMMITTED":
+            rec = self.fulfil_escrow(transfer_id,
+                                     str(payload.get("fulfilment") or ""))
+        else:
+            rec = self.abort_escrow(transfer_id)
+        with self._lock:
+            self.scheme_callback_hashes[transfer_id] = digest
+            self._audit("scheme_callback_applied", {
+                "transfer_id": transfer_id,
+                "transfer_state": state,
+                "request_hash": digest,
+                "escrow_state": rec.state.value,
+                "fulfilment": rec.fulfilment,
+            })
+        return rec
 
     def sweep_expired_escrows(self) -> list[EscrowRecord]:
         """Auto-abort every expired PENDING escrow (FSPIOP expiry sweep).

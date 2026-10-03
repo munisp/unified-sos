@@ -25,11 +25,17 @@ sos.abiastate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -54,11 +60,17 @@ sos.adamawastate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -83,11 +95,17 @@ sos.akwaibomstate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -112,11 +130,17 @@ sos.anambrastate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -141,11 +165,17 @@ sos.bauchistate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -170,11 +200,17 @@ sos.bayelsastate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -199,11 +235,17 @@ sos.benuestate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -228,11 +270,17 @@ sos.bornostate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -257,11 +305,17 @@ sos.crossriverstate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -286,11 +340,17 @@ sos.deltastate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -315,11 +375,17 @@ sos.ebonyistate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -344,11 +410,17 @@ sos.edostate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -373,11 +445,17 @@ sos.ekitistate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -402,11 +480,17 @@ sos.enugustate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -431,11 +515,17 @@ sos.fct.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -460,11 +550,17 @@ sos.gombestate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -489,11 +585,17 @@ sos.imostate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -518,11 +620,17 @@ sos.jigawastate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -547,11 +655,17 @@ sos.kadunastate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -576,11 +690,17 @@ sos.kanostate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -605,11 +725,17 @@ sos.katsinastate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -634,11 +760,17 @@ sos.kebbistate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -663,11 +795,17 @@ sos.kogistate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -692,11 +830,17 @@ sos.kwarastate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -721,11 +865,17 @@ sos.lagosstate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -750,11 +900,17 @@ sos.nasarawastate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -779,11 +935,17 @@ sos.nigerstate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -808,11 +970,17 @@ sos.ogunstate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -837,11 +1005,17 @@ sos.ondostate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -866,11 +1040,17 @@ sos.osunstate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -895,11 +1075,17 @@ sos.oyostate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -924,11 +1110,17 @@ sos.plateaustate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -953,11 +1145,17 @@ sos.riversstate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -982,11 +1180,17 @@ sos.sokotostate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -1011,11 +1215,17 @@ sos.tarabastate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -1040,11 +1250,17 @@ sos.yobestate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -1069,11 +1285,17 @@ sos.zamfarastate.gov.ng {
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {host}
 	}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -1091,6 +1313,30 @@ sos.zamfarastate.gov.ng {
 		format json
 	}
 }
+
+
+# --- dispatch console (optional; DISABLED) ------------------------------------
+# NOTE: deploy/docker-compose.yml defines no `dispatch-console` service, so
+# this vhost is commented out. Once a dispatch-console static build service
+# exists (serving :3000 on the internal network), uncomment this block to
+# serve it; API families on this host already flow through the same matcher.
+# dispatch.sos.gov.ng {
+# 	encode zstd gzip
+# 	@api path /api/* /cad/* /payments/* /cp/*
+# 	reverse_proxy @api apisix:9080 {
+# 		header_up Host {host}
+# 	}
+# 	reverse_proxy dispatch-console:3000
+# 	header {
+# 		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+# 		X-Content-Type-Options nosniff
+# 		X-Frame-Options DENY
+# 		-Server
+# 	}
+# 	log {
+# 		format json
+# 	}
+# }
 
 
 # --- Fallback: on-demand TLS for additional per-state custom domains ---

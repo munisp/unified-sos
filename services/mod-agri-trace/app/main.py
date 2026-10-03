@@ -71,6 +71,32 @@ except ImportError:
     except ImportError:  # minimal container images ship only the app package
         _instrument_fastapi = None
 
+# --- Shared OIDC JWT authorization (services/_shared/auth.py) ---------------
+try:
+    from _shared.auth import assert_auth_bootable as _assert_auth_bootable
+    from _shared.auth import require_role as _require_role
+except ImportError:  # minimal container images ship only the app package
+    import sys as _sys3
+    from pathlib import Path as _Path3
+
+    _sr = _Path3(__file__).resolve().parents[2]
+    if str(_sr) not in _sys3.path:
+        _sys3.path.insert(0, str(_sr))
+    try:
+        from _shared.auth import assert_auth_bootable as _assert_auth_bootable
+        from _shared.auth import require_role as _require_role
+    except ImportError:
+        def _assert_auth_bootable() -> None:  # type: ignore[misc]
+            return None
+
+        def _require_role(role: str):  # type: ignore[misc]
+            from fastapi import Request
+
+            def _dep(request: Request) -> str:
+                return f"{role}:anonymous"
+
+            return _dep
+
 
 def tenant_from_header(x_state_tenant: str | None = Header(default=None)) -> str:
     """All state is scoped by the ``X-State-Tenant`` header (multi-tenancy)."""
@@ -169,6 +195,7 @@ def create_app(store: AgriStore | None = None,
                     "warehouse receipts (issued/pledged/released/redeemed, "
                     "double-entry title transfer) and lot provenance tracing.",
     )
+    _assert_auth_bootable()  # fail-closed: production profile requires JWKS
     app.state.store = store or AgriStore()
     # Fail-closed adapter bindings: default fixture profile is deterministic;
     # SOS_AGRI_PROFILE=production hard-fails here at boot without config.
@@ -185,7 +212,8 @@ def create_app(store: AgriStore | None = None,
               response_model=Farmer, tags=["registry"])
     def register_farmer(req: FarmerRegistration,
                         tenant: str = Depends(tenant_from_header),
-                        store: AgriStore = Depends(get_store)):
+                        store: AgriStore = Depends(get_store),
+                        _actor: str = Depends(_require_role("agent-supervisor"))):
         return store.register_farmer(tenant, req.name, req.kyc_ref, req.lga, req.phone)
 
     @app.get("/agri/v1/farmers", response_model=list[Farmer], tags=["registry"])
@@ -212,7 +240,8 @@ def create_app(store: AgriStore | None = None,
     @app.post("/agri/v1/lots", status_code=status.HTTP_201_CREATED,
               response_model=Lot, tags=["aggregation"])
     def intake_lot(req: LotIntake, tenant: str = Depends(tenant_from_header),
-                   store: AgriStore = Depends(get_store)):
+                   store: AgriStore = Depends(get_store),
+                   _actor: str = Depends(_require_role("agent-supervisor"))):
         try:
             lot = store.intake_lot(tenant, req.farmer_id, req.commodity,
                                    req.weight_kg, req.grade, req.moisture_pct,
@@ -240,7 +269,8 @@ def create_app(store: AgriStore | None = None,
               response_model=Warehouse, tags=["warehouse"])
     def register_warehouse(req: WarehouseRegistration,
                            tenant: str = Depends(tenant_from_header),
-                           store: AgriStore = Depends(get_store)):
+                           store: AgriStore = Depends(get_store),
+                           _actor: str = Depends(_require_role("agent-supervisor"))):
         try:
             return store.register_warehouse(tenant, req.name, req.lga,
                                             req.capacity_kg, req.latitude,
@@ -258,7 +288,8 @@ def create_app(store: AgriStore | None = None,
               response_model=WarehouseReceipt, tags=["warehouse-receipts"])
     def issue_receipt(req: ReceiptIssueRequest,
                       tenant: str = Depends(tenant_from_header),
-                      store: AgriStore = Depends(get_store)):
+                      store: AgriStore = Depends(get_store),
+                      _actor: str = Depends(_require_role("agent-supervisor"))):
         try:
             receipt, event = store.issue_receipt(tenant, req.warehouse_id,
                                                  req.lot_id, req.storage_fees_kobo)
@@ -314,27 +345,31 @@ def create_app(store: AgriStore | None = None,
               response_model=WarehouseReceipt, tags=["warehouse-receipts"])
     def pledge_receipt(receipt_id: str, req: PledgeRequest,
                        tenant: str = Depends(tenant_from_header),
-                       store: AgriStore = Depends(get_store)):
+                       store: AgriStore = Depends(get_store),
+                       _actor: str = Depends(_require_role("agent-supervisor"))):
         """Pledge a WR as loan collateral; emits a settlement intent event."""
         return _lifecycle(receipt_id, tenant, store, "pledge", req)
 
     @app.post("/agri/v1/receipts/{receipt_id}/release",
               response_model=WarehouseReceipt, tags=["warehouse-receipts"])
     def release_receipt(receipt_id: str, tenant: str = Depends(tenant_from_header),
-                        store: AgriStore = Depends(get_store)):
+                        store: AgriStore = Depends(get_store),
+                        _actor: str = Depends(_require_role("agent-supervisor"))):
         return _lifecycle(receipt_id, tenant, store, "release")
 
     @app.post("/agri/v1/receipts/{receipt_id}/redeem",
               response_model=WarehouseReceipt, tags=["warehouse-receipts"])
     def redeem_receipt(receipt_id: str, tenant: str = Depends(tenant_from_header),
-                       store: AgriStore = Depends(get_store)):
+                       store: AgriStore = Depends(get_store),
+                       _actor: str = Depends(_require_role("agent-supervisor"))):
         return _lifecycle(receipt_id, tenant, store, "redeem")
 
     @app.post("/agri/v1/receipts/{receipt_id}/transfer",
               response_model=WarehouseReceipt, tags=["warehouse-receipts"])
     def transfer_title(receipt_id: str, req: TransferRequest,
                        tenant: str = Depends(tenant_from_header),
-                       store: AgriStore = Depends(get_store)):
+                       store: AgriStore = Depends(get_store),
+                       _actor: str = Depends(_require_role("agent-supervisor"))):
         """Transfer WR title between holders (double-entry ledger recorded)."""
         try:
             return store.transfer_title(tenant, receipt_id, req.from_holder,
@@ -363,7 +398,8 @@ def create_app(store: AgriStore | None = None,
     @app.post("/agri/v1/trace/hops", status_code=status.HTTP_201_CREATED,
               response_model=TraceHop, tags=["traceability"])
     def add_trace_hop(req: TraceHopRequest, tenant: str = Depends(tenant_from_header),
-                      store: AgriStore = Depends(get_store)):
+                      store: AgriStore = Depends(get_store),
+                      _actor: str = Depends(_require_role("agent-supervisor"))):
         try:
             hop, event = store.add_trace_hop(tenant, req.lot_id, req.stage,
                                              req.actor, req.latitude,

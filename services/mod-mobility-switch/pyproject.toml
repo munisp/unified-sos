@@ -3,7 +3,11 @@ name = "sos-mod-mobility-switch"
 version = "0.1.0"
 description = "SOS mod-mobility-switch — multimodal transit clearing reference (Cowry Gen 2 compatible)"
 requires-python = ">=3.11"
-dependencies = ["fastapi>=0.110", "pydantic>=2.6"]
+# tigerbeetle==0.17.9: official TigerBeetle Python client for the production
+# settlement ledger seam (app/adapters/ledger.py TigerBeetleSettlementLedger,
+# lazy-imported; fixture mode never imports it). Client release must match
+# the TigerBeetle cluster release.
+dependencies = ["fastapi>=0.110", "pydantic>=2.6", "tigerbeetle==0.17.9"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "httpx>=0.27", "uvicorn>=0.29"]

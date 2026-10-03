@@ -1,6 +1,7 @@
 """Event bus: env selection (fail-closed), topic registry, payload parity."""
 import asyncio
 import json
+import threading
 
 import pytest
 from pydantic import BaseModel
@@ -81,10 +82,145 @@ class TestKafkaEventBus:
         with pytest.raises(EventBusConfigError):
             bus.resolve_topic("ng.sos.does.not_exist")
 
-    def test_subscribe_not_supported(self):
+    def test_subscribe_without_aiokafka_fails_closed(self, monkeypatch):
+        import builtins
+
+        real_import = builtins.__import__
+
+        def no_aiokafka(name, *args, **kwargs):
+            if name == "aiokafka":
+                raise ImportError("no aiokafka in sandbox")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", no_aiokafka)
         bus = KafkaEventBus(bootstrap_servers="broker:9092")
-        with pytest.raises(NotImplementedError):
+        with pytest.raises(AdapterUnavailableError):
             bus.subscribe(CHANNEL, lambda p: None)
+
+
+class _FakeMessage:
+    def __init__(self, value: bytes):
+        self.value = value
+
+
+class _FakeConsumer:
+    """Fake aiokafka.AIOKafkaConsumer: replays queued messages, then idles."""
+
+    instances = []
+
+    def __init__(self, topic, bootstrap_servers=None, group_id=None, messages=()):
+        self.topic = topic
+        self.bootstrap_servers = bootstrap_servers
+        self.group_id = group_id
+        self._messages = list(messages)
+        self.started = False
+        self.stopped = False
+        _FakeConsumer.instances.append(self)
+
+    async def start(self):
+        self.started = True
+
+    async def stop(self):
+        self.stopped = True
+
+    def __aiter__(self):
+        return self._iterate()
+
+    async def _iterate(self):
+        for msg in self._messages:
+            yield msg
+        # idle until stopped, like a real consumer awaiting records
+        while not self.stopped:
+            await asyncio.sleep(0.01)
+
+
+def _kafka_bus_with_fake(messages):
+    _FakeConsumer.instances = []
+
+    def factory(topic, bootstrap_servers=None, group_id=None):
+        return _FakeConsumer(
+            topic,
+            bootstrap_servers=bootstrap_servers,
+            group_id=group_id,
+            messages=messages,
+        )
+
+    return KafkaEventBus(bootstrap_servers="broker:9092", consumer_factory=factory)
+
+
+class TestKafkaSubscribe:
+    def test_messages_route_to_handler(self):
+        bus = _kafka_bus_with_fake(
+            [_FakeMessage(PAYLOAD.model_dump_json().encode("utf-8"))]
+        )
+        received = []
+        done = threading.Event()
+
+        def handler(payload):
+            received.append(payload)
+            done.set()
+
+        bus.subscribe(CHANNEL, handler)
+        assert done.wait(timeout=5)
+        assert received == [json.loads(PAYLOAD.model_dump_json())]
+        consumer = _FakeConsumer.instances[0]
+        assert consumer.topic == CHANNEL
+        assert consumer.bootstrap_servers == "broker:9092"
+        bus.close()
+        assert consumer.started
+
+    def test_bad_json_is_dead_lettered_not_fatal(self, caplog):
+        bus = _kafka_bus_with_fake(
+            [
+                _FakeMessage(b"not-json{"),
+                _FakeMessage(PAYLOAD.model_dump_json().encode("utf-8")),
+            ]
+        )
+        received = []
+        done = threading.Event()
+
+        def handler(payload):
+            received.append(payload)
+            done.set()
+
+        with caplog.at_level("ERROR", logger="eventbus"):
+            bus.subscribe(CHANNEL, handler)
+            assert done.wait(timeout=5)
+        # poison message dead-lettered, good message still delivered
+        assert len(bus.dead_letters) == 1
+        assert bus.dead_letters[0]["topic"] == CHANNEL
+        assert received == [json.loads(PAYLOAD.model_dump_json())]
+        bus.close()
+
+    def test_handler_exception_does_not_kill_consumer(self, caplog):
+        bus = _kafka_bus_with_fake(
+            [
+                _FakeMessage(PAYLOAD.model_dump_json().encode("utf-8")),
+                _FakeMessage(PAYLOAD.model_dump_json().encode("utf-8")),
+            ]
+        )
+        calls = []
+        second = threading.Event()
+
+        def handler(payload):
+            calls.append(payload)
+            if len(calls) == 1:
+                raise RuntimeError("boom")
+            second.set()
+
+        with caplog.at_level("ERROR", logger="eventbus"):
+            bus.subscribe(CHANNEL, handler)
+            assert second.wait(timeout=5)
+        assert len(calls) == 2
+        bus.close()
+
+    def test_close_stops_consumer_and_joins_thread(self):
+        bus = _kafka_bus_with_fake([])
+        bus.subscribe(CHANNEL, lambda p: None)
+        consumer = _FakeConsumer.instances[0]
+        bus.close()
+        for t in bus._threads:
+            assert not t.is_alive()
 
 
 class _FakeProducer:

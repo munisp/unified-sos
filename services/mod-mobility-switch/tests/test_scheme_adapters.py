@@ -6,6 +6,8 @@ idempotent replay, and the escrow settlement flow.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -210,6 +212,134 @@ def test_nibss_webhook_signature_and_idempotency() -> None:
                       headers={"X-NIBSS-Signature": "deadbeef",
                                "Content-Type": "application/json"})
     assert bad.status_code == 401
+
+
+# --- HTTP: inbound FSPIOP fulfilment callbacks ---------------------------------
+
+def _escrow(client: TestClient, batch: dict, transfer_id: str) -> None:
+    resp = client.post("/mobility/v1/escrow", json={
+        "transfer_id": transfer_id, "batch_id": batch["batch_id"],
+        "amount_kobo": batch["gross_kobo"],
+    })
+    assert resp.status_code == 201
+
+
+def _signed_callback(client: TestClient, transfer_id: str, payload: dict,
+                     secret: str, signature: str | None = None):
+    from app.adapters.fspiop import compute_hmac_signature
+
+    body = json.dumps(payload).encode("utf-8")
+    sig = signature if signature is not None else compute_hmac_signature(secret, body)
+    return client.put(f"/mobility/v1/fsps/callbacks/transfers/{transfer_id}",
+                      content=body,
+                      headers={"FSPIOP-Signature": sig,
+                               "Content-Type": "application/json"})
+
+
+def _fulfilment_payload(transfer_id: str, fulfilment: str = "fulfil-abc") -> dict:
+    return {
+        "transferId": transfer_id,
+        "transferState": "COMMITTED",
+        "fulfilment": fulfilment,
+        "completedTimestamp": "2026-01-01T00:00:00Z",
+    }
+
+
+def test_fspiop_callback_happy_path_posts_escrow() -> None:
+    from app.adapters.fixtures import FIXTURE_SECRET
+
+    client, fspiop, _ = _fixture_client()
+    batch = _batch(client)
+    _escrow(client, batch, "tx-cb-1")
+
+    resp = _signed_callback(client, "tx-cb-1", _fulfilment_payload("tx-cb-1"),
+                            FIXTURE_SECRET)
+    assert resp.status_code == 200
+    assert resp.json()["state"] == "posted"
+    assert resp.json()["fulfilment"] == "fulfil-abc"
+
+    # Audit chain carries the applied callback and still verifies.
+    audit = client.get("/mobility/v1/audit").json()
+    assert audit["chain_errors"] == []
+    assert any(e["event_type"] == "scheme_callback_applied"
+               and e["transfer_id"] == "tx-cb-1" for e in audit["events"])
+
+
+def test_fspiop_callback_rejects_bad_and_missing_signature() -> None:
+    from app.adapters.fixtures import FIXTURE_SECRET
+
+    client, _, _ = _fixture_client()
+    batch = _batch(client)
+    _escrow(client, batch, "tx-cb-2")
+
+    bad = _signed_callback(client, "tx-cb-2", _fulfilment_payload("tx-cb-2"),
+                           FIXTURE_SECRET, signature="sha256=deadbeef")
+    assert bad.status_code == 401
+    body = json.dumps(_fulfilment_payload("tx-cb-2")).encode("utf-8")
+    missing = client.put("/mobility/v1/fsps/callbacks/transfers/tx-cb-2",
+                         content=body,
+                         headers={"Content-Type": "application/json"})
+    assert missing.status_code == 401
+    # Escrow untouched.
+    assert client.post("/mobility/v1/escrow/tx-cb-2/abort").json()["state"] == "void"
+
+
+def test_fspiop_callback_fails_closed_without_adapter() -> None:
+    client = TestClient(create_app())
+    resp = client.put("/mobility/v1/fsps/callbacks/transfers/tx-x",
+                      json=_fulfilment_payload("tx-x"))
+    assert resp.status_code == 503
+
+
+def test_fspiop_callback_idempotent_replay_and_conflict() -> None:
+    from app.adapters.fixtures import FIXTURE_SECRET
+
+    client, _, _ = _fixture_client()
+    batch = _batch(client)
+    _escrow(client, batch, "tx-cb-3")
+
+    payload = _fulfilment_payload("tx-cb-3")
+    first = _signed_callback(client, "tx-cb-3", payload, FIXTURE_SECRET)
+    assert first.status_code == 200
+    replay = _signed_callback(client, "tx-cb-3", payload, FIXTURE_SECRET)
+    assert replay.status_code == 200
+    assert replay.json() == first.json()  # idempotent replay
+
+    conflict = _signed_callback(
+        client, "tx-cb-3", _fulfilment_payload("tx-cb-3", "fulfil-DIFFERENT"),
+        FIXTURE_SECRET)
+    assert conflict.status_code == 409
+    audit = client.get("/mobility/v1/audit").json()
+    assert any(e["event_type"] == "scheme_callback_conflict"
+               and e["transfer_id"] == "tx-cb-3" for e in audit["events"])
+
+
+def test_fspiop_callback_abort_voids_escrow_and_validates_payload() -> None:
+    from app.adapters.fixtures import FIXTURE_SECRET
+
+    client, _, _ = _fixture_client()
+    batch = _batch(client)
+    _escrow(client, batch, "tx-cb-4")
+
+    aborted = _signed_callback(client, "tx-cb-4", {
+        "transferId": "tx-cb-4", "transferState": "ABORTED",
+        "errorInformation": {"errorCode": "3301",
+                             "errorDescription": "payer expired"},
+    }, FIXTURE_SECRET)
+    assert aborted.status_code == 200
+    assert aborted.json()["state"] == "void"
+
+    # transferId in the body must match the path; unknown transfer is 404.
+    mismatched = _signed_callback(client, "tx-cb-5",
+                                  _fulfilment_payload("tx-other"),
+                                  FIXTURE_SECRET)
+    assert mismatched.status_code == 400
+    ghost = _signed_callback(client, "tx-ghost", _fulfilment_payload("tx-ghost"),
+                             FIXTURE_SECRET)
+    assert ghost.status_code == 404
+    unsupported = _signed_callback(client, "tx-cb-4", {
+        "transferId": "tx-cb-4", "transferState": "RESERVED"}, FIXTURE_SECRET)
+    assert unsupported.status_code == 409
 
 
 def test_nibss_webhook_fails_closed_without_adapter() -> None:

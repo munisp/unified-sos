@@ -4,3 +4,7 @@ uvicorn[standard]>=0.29
 httpx>=0.27
 prometheus-client>=0.20
 # test extra: pytest>=8
+# Optional production "live" dependency for S3ObjectStore (import-guarded,
+# fail-closed when SOS_LANDDOCS_BUCKET is set without it). Exact pin lives in
+# repo-root constraints-live.txt:
+# boto3==1.35.76  # Apache-2.0 — S3-compatible object store client

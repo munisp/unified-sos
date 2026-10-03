@@ -2,13 +2,807 @@
 # Source of truth: config/states/*/policy-pack.json (tenant list) +
 # the rate-limit defaults documented in deploy/tuning/apisix.yaml.
 
+# Upstreams: one per service (short DNS name:8000) plus the shared
+# sos-platform catch-all. Per-tenant isolation comes from the route
+# plugins keyed on the X-Sos-Tenant-State header.
 upstreams:
   - id: sos-platform
     type: roundrobin
     nodes:
       "control-plane.sos-platform.svc.cluster.local:8000": 1
+  - id: svc-mod-citizen-portal
+    type: roundrobin
+    nodes:
+      "mod-citizen-portal:8000": 1
+  - id: svc-mod-transparency
+    type: roundrobin
+    nodes:
+      "mod-transparency:8000": 1
+  - id: svc-mod-police-cad
+    type: roundrobin
+    nodes:
+      "mod-police-cad:8000": 1
+  - id: svc-mod-mobility-switch
+    type: roundrobin
+    nodes:
+      "mod-mobility-switch:8000": 1
+  - id: svc-control-plane
+    type: roundrobin
+    nodes:
+      "control-plane:8000": 1
+  - id: svc-mod-gis-lands
+    type: roundrobin
+    nodes:
+      "mod-gis-lands:8000": 1
+  - id: svc-mod-geospatial
+    type: roundrobin
+    nodes:
+      "mod-geospatial:8000": 1
+  - id: svc-mod-gis-luc
+    type: roundrobin
+    nodes:
+      "mod-gis-luc:8000": 1
+  - id: svc-mod-land-docs
+    type: roundrobin
+    nodes:
+      "mod-land-docs:8000": 1
+  - id: svc-mod-mortgage
+    type: roundrobin
+    nodes:
+      "mod-mortgage:8000": 1
+  - id: svc-mod-rev-core
+    type: roundrobin
+    nodes:
+      "mod-rev-core:8000": 1
+  - id: svc-mod-erp-bridge
+    type: roundrobin
+    nodes:
+      "mod-erp-bridge:8000": 1
+  - id: svc-mod-ml-inference
+    type: roundrobin
+    nodes:
+      "mod-ml-inference:8000": 1
+  - id: svc-mod-agri-trace
+    type: roundrobin
+    nodes:
+      "mod-agri-trace:8000": 1
+  - id: svc-mod-agri-waybill
+    type: roundrobin
+    nodes:
+      "mod-agri-waybill:8000": 1
+  - id: svc-mod-border-transit
+    type: roundrobin
+    nodes:
+      "mod-border-transit:8000": 1
+  - id: svc-mod-education
+    type: roundrobin
+    nodes:
+      "mod-education:8000": 1
+  - id: svc-mod-environment
+    type: roundrobin
+    nodes:
+      "mod-environment:8000": 1
+  - id: svc-mod-forestry
+    type: roundrobin
+    nodes:
+      "mod-forestry:8000": 1
+  - id: svc-mod-identity
+    type: roundrobin
+    nodes:
+      "mod-identity:8000": 1
+  - id: svc-mod-kyc-kyb
+    type: roundrobin
+    nodes:
+      "mod-kyc-kyb:8000": 1
+  - id: svc-mod-market
+    type: roundrobin
+    nodes:
+      "mod-market:8000": 1
+  - id: svc-mod-mining
+    type: roundrobin
+    nodes:
+      "mod-mining:8000": 1
+  - id: svc-mod-ppp-investment
+    type: roundrobin
+    nodes:
+      "mod-ppp-investment:8000": 1
+  - id: svc-mod-safecity-vision
+    type: roundrobin
+    nodes:
+      "mod-safecity-vision:8000": 1
+  - id: svc-mod-transport-wim
+    type: roundrobin
+    nodes:
+      "mod-transport-wim:8000": 1
+  - id: svc-mod-waterways
+    type: roundrobin
+    nodes:
+      "mod-waterways:8000": 1
+  - id: svc-mod-health
+    type: roundrobin
+    nodes:
+      "mod-health:8000": 1
 
 routes:
+  # --- Per-service path-prefix fan-out (contracts/openapi/*.yaml) ---
+  - id: svc-mod-citizen-portal
+    uris:
+      - /citizen/*
+      - /channels/*
+    upstream_id: svc-mod-citizen-portal
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-transparency
+    uris:
+      - /transparency/*
+    upstream_id: svc-mod-transparency
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-police-cad
+    uris:
+      - /cad/*
+    upstream_id: svc-mod-police-cad
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-mobility-switch
+    uris:
+      - /payments/*
+      - /mobility/*
+    upstream_id: svc-mod-mobility-switch
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-control-plane
+    uris:
+      - /cp/*
+      - /control/*
+    upstream_id: svc-control-plane
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-gis-lands
+    uris:
+      - /api/v1/states/*/cadastre/*
+    upstream_id: svc-mod-gis-lands
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-geospatial
+    uris:
+      - /api/v1/states/*/geospatial/*
+    upstream_id: svc-mod-geospatial
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-gis-luc
+    uris:
+      - /api/v1/states/*/luc/*
+    upstream_id: svc-mod-gis-luc
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-land-docs
+    uris:
+      - /api/v1/states/*/land-docs/*
+    upstream_id: svc-mod-land-docs
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-mortgage
+    uris:
+      - /api/v1/states/*/mortgages/*
+    upstream_id: svc-mod-mortgage
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-rev-core
+    uris:
+      - /api/v1/states/*/revenue/*
+    upstream_id: svc-mod-rev-core
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-erp-bridge
+    uris:
+      - /erp/*
+    upstream_id: svc-mod-erp-bridge
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-ml-inference
+    uris:
+      - /ml/*
+    upstream_id: svc-mod-ml-inference
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-agri-trace
+    uris:
+      - /agri/*
+    upstream_id: svc-mod-agri-trace
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-agri-waybill
+    uris:
+      - /waybills/*
+      - /warehouse-receipts/*
+    upstream_id: svc-mod-agri-waybill
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-border-transit
+    uris:
+      - /border/*
+    upstream_id: svc-mod-border-transit
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-education
+    uris:
+      - /education/*
+    upstream_id: svc-mod-education
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-environment
+    uris:
+      - /environment/*
+    upstream_id: svc-mod-environment
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-forestry
+    uris:
+      - /provenance/*
+      - /tags/*
+      - /invoices/*
+      - /alerts/deforestation/*
+      - /alerts/untagged-haulage/*
+    upstream_id: svc-mod-forestry
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-identity
+    uris:
+      - /residents/*
+      - /consents/*
+      - /consumers/*
+      - /credentials/*
+      - /guardian-links/*
+      - /verify/*
+      - /audit/*
+      - /settlements/*
+    upstream_id: svc-mod-identity
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-kyc-kyb
+    uris:
+      - /kyc/*
+      - /kyb/*
+      - /kyc-kyb/*
+    upstream_id: svc-mod-kyc-kyb
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-market
+    uris:
+      - /markets/*
+      - /stalls/*
+      - /tickets/*
+      - /traders/*
+      - /disputes/*
+    upstream_id: svc-mod-market
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-mining
+    uris:
+      - /sites/*
+      - /consignments/*
+      - /split-rules/*
+      - /events/*
+    upstream_id: svc-mod-mining
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-ppp-investment
+    uris:
+      - /projects/*
+      - /proposals/*
+      - /contracts/*
+      - /disclosure/*
+      - /documentsets/*
+      - /kpis/*
+    upstream_id: svc-mod-ppp-investment
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-safecity-vision
+    uris:
+      - /vision/*
+    upstream_id: svc-mod-safecity-vision
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-transport-wim
+    uris:
+      - /wim/*
+      - /anpr/*
+      - /corridors/*
+      - /fines/*
+      - /manifests/*
+    upstream_id: svc-mod-transport-wim
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-waterways
+    uris:
+      - /waterways/*
+    upstream_id: svc-mod-waterways
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  - id: svc-mod-health
+    uris:
+      - /health/*
+    upstream_id: svc-mod-health
+    plugins:
+      # Tenant quota (shared tier 1000/min; dedicated 2000/min).
+      limit-count:
+        count: 1000
+        time_window: 60
+        key_type: var
+        key: http_x_sos_tenant_state
+        rejected_code: 429
+        policy: redis          # shared counter across gateway replicas
+        redis_host: redis.sos-data.svc.cluster.local
+        redis_port: 6379
+      # Leaky-bucket smoothing per tenant (burst 10% of quota).
+      limit-req:
+        rate: 200
+        burst: 100
+        rejected_code: 503
+        key_type: var
+        key: http_x_sos_tenant_state
+
+  # --- Per-tenant catch-all routes (X-Sos-Tenant-State header) ---
   # --- abia ---
   - id: tenant-abia
     uris:

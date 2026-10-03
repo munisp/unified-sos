@@ -639,7 +639,15 @@ def check_observability_scrape_coverage() -> None:
         parts = re.sub(r"([a-z0-9])([A-Z])", r"\1-\2", camel).lower()
         if parts not in jobs:
             fail(f"module {camel} ({parts}) has no scrape job in deploy/observability/prometheus.yml")
+    # Infra-plane scrape jobs (edge, datastore, broker) are not helm modules —
+    # they map to compose infra services, so they are allowlisted here.
+    infra_jobs = {
+        "caddy", "apisix", "postgres", "redis", "redpanda",
+        "minio", "opensearch", "tigerbeetle", "mlflow",
+    }
     for job in jobs:
+        if job in infra_jobs:
+            continue
         parts = job.split("-")
         camel = parts[0] + "".join(p.title() for p in parts[1:])
         if camel not in modules:

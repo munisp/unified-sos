@@ -25,6 +25,20 @@ def test_generates_blocks_for_all_37_states():
     assert "citizen-pwa:3000" in caddyfile
 
 
+def test_api_matcher_covers_frontend_api_families():
+    entries, _ = gen.load_state_domains()
+    caddyfile = gen.build_caddyfile(entries)
+    matcher = "@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*"
+    # One matcher per state block.
+    assert caddyfile.count(matcher) == len(entries)
+    # Money paths are no-store in every state block.
+    assert caddyfile.count('@money path /payments/* /mobility/*') == len(entries)
+    assert caddyfile.count('header @money Cache-Control "no-store"') == len(entries)
+    # Dispatch-console vhost is present but commented out (no compose service).
+    assert "# dispatch.sos.gov.ng {" in caddyfile
+    assert "# \treverse_proxy dispatch-console:3000" in caddyfile
+
+
 def test_allowed_domains_json_contains_all_domains():
     entries, _ = gen.load_state_domains()
     payload = json.loads(gen.build_allowed_domains(entries))

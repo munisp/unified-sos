@@ -79,11 +79,17 @@ STATE_BLOCK = """\
 	# Serve the citizen PWA (static frontend) for everything that is not API.
 	encode zstd gzip
 
-	@api path /api/*
+	# API families that must reach the APISIX gateway, not the PWA static
+	# build (per contracts/openapi/*.yaml path families).
+	@api path /api/* /citizen/* /transparency/* /cad/* /payments/* /cp/* /mobility/* /erp/* /ml/*
 	reverse_proxy @api apisix:9080 {{
 		# Preserve the tenant Host header so APISIX routes per-state.
 		header_up Host {{host}}
 	}}
+
+	# Money paths must never be cached by the edge or intermediaries.
+	@money path /payments/* /mobility/*
+	header @money Cache-Control "no-store"
 
 	reverse_proxy citizen-pwa:3000
 
@@ -101,6 +107,32 @@ STATE_BLOCK = """\
 		format json
 	}}
 }}
+
+"""
+
+DISPATCH_CONSOLE_BLOCK = """\
+# --- dispatch console (optional; DISABLED) ------------------------------------
+# NOTE: deploy/docker-compose.yml defines no `dispatch-console` service, so
+# this vhost is commented out. Once a dispatch-console static build service
+# exists (serving :3000 on the internal network), uncomment this block to
+# serve it; API families on this host already flow through the same matcher.
+# dispatch.sos.gov.ng {
+# 	encode zstd gzip
+# 	@api path /api/* /cad/* /payments/* /cp/*
+# 	reverse_proxy @api apisix:9080 {
+# 		header_up Host {host}
+# 	}
+# 	reverse_proxy dispatch-console:3000
+# 	header {
+# 		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+# 		X-Content-Type-Options nosniff
+# 		X-Frame-Options DENY
+# 		-Server
+# 	}
+# 	log {
+# 		format json
+# 	}
+# }
 
 """
 
@@ -152,6 +184,7 @@ def build_caddyfile(entries) -> str:
     parts = ["\n".join(parts), ""]
     for tenant, domain in entries:
         parts.append(STATE_BLOCK.format(tenant=tenant, domain=domain))
+    parts.append(DISPATCH_CONSOLE_BLOCK)
     parts.append(FALLBACK_BLOCK)
     return "\n".join(parts)
 

@@ -1,0 +1,19 @@
+{
+  "$id": "https://sos.ng/schemas/asyncapi/ng.sos.fundsflow.payment_completed.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "AsyncAPI payload schema for channel 'ng.sos.fundsflow.payment_completed' (derived from contracts/asyncapi/platform-events.yaml; do not edit \u2014 regenerate with contracts/asyncapi/registry/generate.py).",
+  "properties": {
+    "idempotency_key": {
+      "type": "string"
+    },
+    "saga_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "saga_id",
+    "idempotency_key"
+  ],
+  "title": "ng.sos.fundsflow.payment_completed",
+  "type": "object"
+}

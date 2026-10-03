@@ -270,6 +270,52 @@ paths:
       - mobility
       security:
       - bearerAuth: []
+  /mobility/v1/fsps/callbacks/transfers/{transfer_id}:
+    put:
+      summary: Fspiop Transfer Callback
+      description: 'FSPIOP v1.1 PUT /transfers/{transferId} fulfilment callback from the
+
+        Mojaloop scheme (contracts/asyncapi/mojaloop-transfers.yaml).
+
+
+        The FSPIOP-Signature header (HMAC-SHA256 sim profile; JWS in
+
+        production) is verified over the RAW body by the wired adapter — the
+
+        seam fails closed (503) when no adapter is configured and mis-signed
+
+        callbacks are rejected (401). COMMITTED posts the pending escrow,
+
+        ABORTED voids it. Idempotent on transfer_id: an identical redelivery
+
+        replays; a conflicting payload hash is rejected (409) and audit-logged
+
+        on the hash chain.'
+      operationId: fspiop_transfer_callback_mobility_v1_fsps_callbacks_transfers__transfer_id__put
+      parameters:
+      - name: transfer_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Transfer Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EscrowRecord'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      tags:
+      - mobility
+      security:
+      - bearerAuth: []
   /mobility/v1/webhooks/nibss/ebills:
     post:
       summary: Nibss Bill Notification
@@ -800,11 +846,6 @@ components:
         type:
           type: string
           title: Error Type
-        input:
-          title: Input
-        ctx:
-          type: object
-          title: Context
       type: object
       required:
       - loc

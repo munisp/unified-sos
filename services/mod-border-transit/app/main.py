@@ -62,6 +62,32 @@ except ImportError:
     except ImportError:
         _event_bus_from_env = None
 
+# --- Shared OIDC JWT authorization (services/_shared/auth.py) ---------------
+try:
+    from _shared.auth import assert_auth_bootable as _assert_auth_bootable
+    from _shared.auth import require_role as _require_role
+except ImportError:  # minimal container images ship only the app package
+    import sys as _sys3
+    from pathlib import Path as _Path3
+
+    _sr = _Path3(__file__).resolve().parents[2]
+    if str(_sr) not in _sys3.path:
+        _sys3.path.insert(0, str(_sr))
+    try:
+        from _shared.auth import assert_auth_bootable as _assert_auth_bootable
+        from _shared.auth import require_role as _require_role
+    except ImportError:
+        def _assert_auth_bootable() -> None:  # type: ignore[misc]
+            return None
+
+        def _require_role(role: str):  # type: ignore[misc]
+            from fastapi import Request
+
+            def _dep(request: Request) -> str:
+                return f"{role}:anonymous"
+
+            return _dep
+
 
 def tenant_from_header(x_state_tenant: str | None = Header(default=None)) -> str:
     """All state is scoped by the ``X-State-Tenant`` header (multi-tenancy)."""
@@ -146,6 +172,7 @@ def create_app(store: BorderTransitStore | None = None) -> FastAPI:
                     "consignments, corridor geofencing, tamper alerts, and "
                     "transit levy assessment for the six adoption states.",
     )
+    _assert_auth_bootable()  # fail-closed: production profile requires JWKS
     if store is None:
         bus = _event_bus_from_env() if _event_bus_from_env else None
         store = BorderTransitStore(bus=bus)
@@ -167,7 +194,8 @@ def create_app(store: BorderTransitStore | None = None) -> FastAPI:
               tags=["crossings"])
     def create_crossing(crossing_id: str, req: CrossingUpsert,
                         tenant: str = Depends(tenant_from_header),
-                        store: BorderTransitStore = Depends(get_store)):
+                        store: BorderTransitStore = Depends(get_store),
+                        _actor: str = Depends(_require_role("registry"))):
         try:
             return store.create_crossing(tenant, crossing_id, req.name,
                                          req.neighbor_country, req.latitude,
@@ -190,7 +218,8 @@ def create_app(store: BorderTransitStore | None = None) -> FastAPI:
                tags=["crossings"])
     def update_crossing(crossing_id: str, req: CrossingUpsert,
                         tenant: str = Depends(tenant_from_header),
-                        store: BorderTransitStore = Depends(get_store)):
+                        store: BorderTransitStore = Depends(get_store),
+                        _actor: str = Depends(_require_role("registry"))):
         try:
             return store.update_crossing(tenant, crossing_id, **req.model_dump())
         except KeyError as exc:
@@ -202,7 +231,8 @@ def create_app(store: BorderTransitStore | None = None) -> FastAPI:
                 status_code=status.HTTP_204_NO_CONTENT, tags=["crossings"])
     def delete_crossing(crossing_id: str,
                         tenant: str = Depends(tenant_from_header),
-                        store: BorderTransitStore = Depends(get_store)):
+                        store: BorderTransitStore = Depends(get_store),
+                        _actor: str = Depends(_require_role("registry"))):
         try:
             store.delete_crossing(tenant, crossing_id)
         except KeyError as exc:
@@ -261,21 +291,24 @@ def create_app(store: BorderTransitStore | None = None) -> FastAPI:
               response_model=Consignment, tags=["consignments"])
     def seal_consignment(consignment_id: str,
                          tenant: str = Depends(tenant_from_header),
-                         store: BorderTransitStore = Depends(get_store)):
+                         store: BorderTransitStore = Depends(get_store),
+                         _actor: str = Depends(_require_role("mda-officer"))):
         return _transition(consignment_id, "sealed", tenant, store)
 
     @app.post("/border/v1/consignments/{consignment_id}/arrive",
               response_model=Consignment, tags=["consignments"])
     def arrive_consignment(consignment_id: str,
                            tenant: str = Depends(tenant_from_header),
-                           store: BorderTransitStore = Depends(get_store)):
+                           store: BorderTransitStore = Depends(get_store),
+                           _actor: str = Depends(_require_role("mda-officer"))):
         return _transition(consignment_id, "arrived", tenant, store)
 
     @app.post("/border/v1/consignments/{consignment_id}/clear",
               tags=["consignments"])
     def clear_consignment(consignment_id: str, req: ClearanceRequest,
                           tenant: str = Depends(tenant_from_header),
-                          store: BorderTransitStore = Depends(get_store)):
+                          store: BorderTransitStore = Depends(get_store),
+                          _actor: str = Depends(_require_role("mda-officer"))):
         """Clear the consignment and append a hash-chained audit record."""
         try:
             return store.clear_consignment(tenant, consignment_id,
@@ -374,7 +407,8 @@ def create_app(store: BorderTransitStore | None = None) -> FastAPI:
               response_model=LevyAssessment, tags=["levy"])
     def levy_assess(consignment_id: str,
                     tenant: str = Depends(tenant_from_header),
-                    store: BorderTransitStore = Depends(get_store)):
+                    store: BorderTransitStore = Depends(get_store),
+                    _actor: str = Depends(_require_role("revenue-officer"))):
         try:
             return store.assess_levy(tenant, consignment_id)
         except KeyError as exc:
@@ -390,7 +424,8 @@ def create_app(store: BorderTransitStore | None = None) -> FastAPI:
     @app.put("/border/v1/levy/policy", response_model=LevyPolicy, tags=["levy"])
     def put_levy_policy(req: LevyPolicyUpdate,
                         tenant: str = Depends(tenant_from_header),
-                        store: BorderTransitStore = Depends(get_store)):
+                        store: BorderTransitStore = Depends(get_store),
+                        _actor: str = Depends(_require_role("revenue-officer"))):
         return store.set_levy_policy(tenant, req.flat_fee_kobo,
                                      req.ad_valorem_bps)
 

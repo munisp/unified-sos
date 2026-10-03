@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
@@ -12,6 +13,7 @@ from .adapters.base import AdapterUnavailableError
 from .domain import (
     BillEventConflict,
     ClearingRecord,
+    SchemeCallbackConflict,
     EscrowExpiredError,
     EscrowRecord,
     FareRule,
@@ -96,10 +98,37 @@ except ImportError:
     except ImportError:  # minimal container images ship only the app package
         _instrument_fastapi = None
 
+# --- Shared OIDC JWT authorization (services/_shared/auth.py) ---------------
+try:
+    from _shared.auth import assert_auth_bootable as _assert_auth_bootable
+    from _shared.auth import require_role as _require_role
+except ImportError:  # minimal container images ship only the app package
+    import sys as _sys2
+    from pathlib import Path as _Path2
+
+    _sr = _Path2(__file__).resolve().parents[2]
+    if str(_sr) not in _sys2.path:
+        _sys2.path.insert(0, str(_sr))
+    try:
+        from _shared.auth import assert_auth_bootable as _assert_auth_bootable
+        from _shared.auth import require_role as _require_role
+    except ImportError:
+        def _assert_auth_bootable() -> None:  # type: ignore[misc]
+            return None
+
+        def _require_role(role: str):  # type: ignore[misc]
+            from fastapi import Request
+
+            def _dep(request: Request) -> str:
+                return f"{role}:anonymous"
+
+            return _dep
+
 
 def create_app(store: MobilityStore | None = None, fspiop=None, nibss=None) -> FastAPI:
     """App factory. `fspiop` / `nibss` are scheme adapters (FSPIOP / NIBSS
     e-Bills); when None the scheme seams fail closed on use."""
+    _assert_auth_bootable()  # fail-closed: production profile requires JWKS
     app = FastAPI(title="SOS mod-mobility-switch — Multimodal Transit Clearing",
                   version="0.1.0")
     app.state.store = store or MobilityStore()
@@ -110,7 +139,8 @@ def create_app(store: MobilityStore | None = None, fspiop=None, nibss=None) -> F
 
     @app.put("/mobility/v1/fares/{tenant_state_id}", response_model=FareTable)
     def put_fare_table(tenant_state_id: str, req: FareTableRequest,
-                       store: MobilityStore = Depends(get_store)):
+                       store: MobilityStore = Depends(get_store),
+                       _actor: str = Depends(_require_role("revenue-officer"))):
         """Configure the state fare table (gazetted; union commission 3–8%)."""
         if not (3.0 <= req.union_commission_pct <= 8.0):
             raise HTTPException(
@@ -143,7 +173,8 @@ def create_app(store: MobilityStore | None = None, fspiop=None, nibss=None) -> F
     @app.post("/mobility/v1/settlements/{tenant_state_id}/{operator_id}",
               status_code=status.HTTP_201_CREATED, response_model=SettlementBatch)
     def settle(tenant_state_id: str, operator_id: str,
-               store: MobilityStore = Depends(get_store)):
+               store: MobilityStore = Depends(get_store),
+               _actor: str = Depends(_require_role("revenue-officer"))):
         """Close an operator settlement batch with TigerBeetle split legs
         (transfer code 140; accounts 4002 union commission, 3001 CRF, 2010 operator)."""
         try:
@@ -163,7 +194,8 @@ def create_app(store: MobilityStore | None = None, fspiop=None, nibss=None) -> F
     @app.post("/mobility/v1/escrow", status_code=status.HTTP_201_CREATED,
               response_model=EscrowRecord)
     def prepare_escrow(req: EscrowPrepareRequest, request: Request,
-                       store: MobilityStore = Depends(get_store)):
+                       store: MobilityStore = Depends(get_store),
+                       _actor: str = Depends(_require_role("revenue-officer"))):
         """Begin a pending-transfer escrow: reserves the batch gross on the
         escrow account and (when an FSPIOP adapter is wired) POSTs
         /transfers prepare to the scheme. Idempotent on transfer_id.
@@ -194,13 +226,15 @@ def create_app(store: MobilityStore | None = None, fspiop=None, nibss=None) -> F
         return rec
 
     @app.post("/mobility/v1/escrow/sweep", response_model=list[EscrowRecord])
-    def sweep_escrows(store: MobilityStore = Depends(get_store)):
+    def sweep_escrows(store: MobilityStore = Depends(get_store),
+                      _actor: str = Depends(_require_role("revenue-officer"))):
         """Auto-abort every expired PENDING escrow (idempotent sweep)."""
         return store.sweep_expired_escrows()
 
     @app.post("/mobility/v1/escrow/{transfer_id}/fulfil", response_model=EscrowRecord)
     def fulfil_escrow(transfer_id: str, request: Request,
-                      store: MobilityStore = Depends(get_store)):
+                      store: MobilityStore = Depends(get_store),
+                      _actor: str = Depends(_require_role("revenue-officer"))):
         """Post a pending escrow (FSPIOP COMMITTED fulfilment)."""
         fspiop = request.app.state.fspiop
         fulfilment = ""
@@ -219,13 +253,57 @@ def create_app(store: MobilityStore | None = None, fspiop=None, nibss=None) -> F
             raise HTTPException(status_code=409, detail=str(exc))
 
     @app.post("/mobility/v1/escrow/{transfer_id}/abort", response_model=EscrowRecord)
-    def abort_escrow(transfer_id: str, store: MobilityStore = Depends(get_store)):
+    def abort_escrow(transfer_id: str, store: MobilityStore = Depends(get_store),
+                     _actor: str = Depends(_require_role("revenue-officer"))):
         """Void a pending escrow (FSPIOP ABORTED / expiry)."""
         try:
             return store.abort_escrow(transfer_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=exc.args[0])
         except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+
+    # --- inbound FSPIOP scheme callbacks (PUT /transfers/{id} fulfilment) -----
+    @app.put("/mobility/v1/fsps/callbacks/transfers/{transfer_id}",
+             response_model=EscrowRecord)
+    async def fspiop_transfer_callback(transfer_id: str, request: Request,
+                                       store: MobilityStore = Depends(get_store)):
+        """FSPIOP v1.1 PUT /transfers/{transferId} fulfilment callback from the
+        Mojaloop scheme (contracts/asyncapi/mojaloop-transfers.yaml).
+
+        The FSPIOP-Signature header (HMAC-SHA256 sim profile; JWS in
+        production) is verified over the RAW body by the wired adapter — the
+        seam fails closed (503) when no adapter is configured and mis-signed
+        callbacks are rejected (401). COMMITTED posts the pending escrow,
+        ABORTED voids it. Idempotent on transfer_id: an identical redelivery
+        replays; a conflicting payload hash is rejected (409) and audit-logged
+        on the hash chain."""
+        fspiop = request.app.state.fspiop
+        if fspiop is None:
+            raise HTTPException(
+                status_code=503,
+                detail="FSPIOP adapter not configured (fail closed)")
+        body = await request.body()
+        if not fspiop.verify_inbound_signature(request.headers, body):
+            raise HTTPException(status_code=401,
+                                detail="invalid FSPIOP-Signature")
+        try:
+            payload = json.loads(body)
+        except ValueError:
+            raise HTTPException(status_code=400,
+                                detail="malformed callback payload (not JSON)")
+        if not isinstance(payload, dict) or payload.get("transferId") != transfer_id:
+            raise HTTPException(
+                status_code=400,
+                detail="callback payload 'transferId' missing or does not match "
+                       "the path transfer_id")
+        try:
+            return store.apply_transfer_callback(payload)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=exc.args[0])
+        except SchemeCallbackConflict as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+        except (EscrowExpiredError, ValueError) as exc:
             raise HTTPException(status_code=409, detail=str(exc))
 
     @app.post("/mobility/v1/webhooks/nibss/ebills")

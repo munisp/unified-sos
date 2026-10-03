@@ -25,7 +25,7 @@ Environment variables:
 |---|---|---|
 | `REV_CORE_ADDR` | `:8080` | HTTP listen address |
 | `REV_CORE_POLICY_DIR` | _(embedded seeds)_ | Directory of revenue-split policy packs overriding the embedded gazetted seeds |
-| `REV_CORE_LEDGER` | `memory` | Ledger backend: `memory` (in-memory fake, no cluster needed) or `tigerbeetle` (production adapter — documented stub pending cluster provisioning, see `ledger/README.md`) |
+| `REV_CORE_LEDGER` | `memory` | Ledger backend: `memory` (in-memory fake, no cluster needed) or `tigerbeetle` (production adapter). The production adapter is compiled behind Go build tag `tigerbeetle` (dep `github.com/tigerbeetle/tigerbeetle-go v0.16.11`, pinned in `go.mod`); the Dockerfile builds with `-tags tigerbeetle`, so the shipped image supports `REV_CORE_LEDGER=tigerbeetle` (requires `TB_ADDRESSES` + `TB_CLUSTER_ID`). Local builds/tests: add `-tags tigerbeetle` to include the adapter; the live-cluster contract suite additionally needs `-tags integration` and `TB_ADDRESSES` |
 | `TB_ADDRESSES` | — | TigerBeetle cluster addresses for the production adapter |
 
 Bearer JWT validation (Keycloak realm, tenant claims) is enforced by the APISIX gateway upstream; this service trusts the `{state_id}` path tenant after gateway authentication.

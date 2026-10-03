@@ -65,6 +65,32 @@ class _NullEventBus:
     def publish(self, topic: str, payload: BaseModel) -> None:
         self.published.append({"topic": topic, "payload": payload.model_dump(mode="json")})
 
+# --- Shared OIDC JWT authorization (services/_shared/auth.py) ---------------
+try:
+    from _shared.auth import assert_auth_bootable as _assert_auth_bootable
+    from _shared.auth import require_role as _require_role
+except ImportError:  # minimal container images ship only the app package
+    import sys as _sys3
+    from pathlib import Path as _Path3
+
+    _sr = _Path3(__file__).resolve().parents[2]
+    if str(_sr) not in _sys3.path:
+        _sys3.path.insert(0, str(_sr))
+    try:
+        from _shared.auth import assert_auth_bootable as _assert_auth_bootable
+        from _shared.auth import require_role as _require_role
+    except ImportError:
+        def _assert_auth_bootable() -> None:  # type: ignore[misc]
+            return None
+
+        def _require_role(role: str):  # type: ignore[misc]
+            from fastapi import Request
+
+            def _dep(request: Request) -> str:
+                return f"{role}:anonymous"
+
+            return _dep
+
 
 # --- request models -----------------------------------------------------------
 
@@ -142,6 +168,7 @@ def create_app(store: WaterwaysStore | None = None,
                     "locked at departure) and sand-dredging volumetric "
                     "monitoring (quota alerts, hash-chained royalty levies).",
     )
+    _assert_auth_bootable()  # fail-closed: production profile requires JWKS
     bus = (_InMemoryEventBus() if _InMemoryEventBus is not None else None) or _NullEventBus()
     app.state.event_bus = bus
     app.state.store = store or WaterwaysStore(event_bus=bus)
@@ -171,7 +198,8 @@ def create_app(store: WaterwaysStore | None = None,
     @app.post("/waterways/v1/trips", status_code=status.HTTP_201_CREATED,
               response_model=Trip, tags=["ticketing"])
     def schedule_trip(req: TripScheduleRequest, tenant: str = Depends(require_tenant),
-                      store: WaterwaysStore = Depends(get_store)):
+                      store: WaterwaysStore = Depends(get_store),
+                      _actor: str = Depends(_require_role("dispatch"))):
         try:
             return store.schedule_trip(tenant, req.route_id, req.vessel,
                                        req.capacity, req.departure)
@@ -219,7 +247,8 @@ def create_app(store: WaterwaysStore | None = None,
 
     @app.post("/waterways/v1/trips/{trip_id}/depart", tags=["ticketing"])
     def depart_trip(trip_id: str, tenant: str = Depends(require_tenant),
-                    store: WaterwaysStore = Depends(get_store)):
+                    store: WaterwaysStore = Depends(get_store),
+                    _actor: str = Depends(_require_role("dispatch"))):
         """Mark departure — safety rule: manifest locks at departure."""
         try:
             trip = store.depart_trip(tenant, trip_id)
@@ -236,7 +265,8 @@ def create_app(store: WaterwaysStore | None = None,
               response_model=Dredger, tags=["dredging"])
     def register_dredger(req: DredgerRegistrationRequest,
                          tenant: str = Depends(require_tenant),
-                         store: WaterwaysStore = Depends(get_store)):
+                         store: WaterwaysStore = Depends(get_store),
+                         _actor: str = Depends(_require_role("registry"))):
         return store.register_dredger(tenant, req.vessel_name, req.license_no,
                                       req.operator_kyb_ref, req.monthly_quota_m3)
 
@@ -267,7 +297,8 @@ def create_app(store: WaterwaysStore | None = None,
               tags=["dredging"])
     def ingest_survey(req: SurveyIngestRequest, tenant: str = Depends(require_tenant),
                       store: WaterwaysStore = Depends(get_store),
-                      sedona: SedonaVolumetricsAdapter = Depends(get_sedona)):
+                      sedona: SedonaVolumetricsAdapter = Depends(get_sedona),
+                      _actor: str = Depends(_require_role("surveyor"))):
         """Ingest a volumetric dredging survey. Cross-checks the claimed volume
         against the Sedona volumetric adapter, rolls into the monthly quota,
         and computes a hash-chained royalty levy (integer kobo per m³)."""

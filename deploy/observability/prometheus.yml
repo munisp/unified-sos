@@ -13,6 +13,7 @@ global:
 rule_files:
 - alerts.yml
 - alerts-latency.yml
+- alerts-caddy.yml
 scrape_configs:
 - job_name: control-plane
   kubernetes_sd_configs:
@@ -420,3 +421,70 @@ scrape_configs:
     action: keep
   - target_label: service
     replacement: mod-transparency
+
+# --- Edge + data-plane infrastructure (compose static targets) ---------------
+# These components are not helm modules, so they use static_configs against
+# compose service DNS names instead of kubernetes_sd. Ports are the standard
+# metrics/exporter ports for each image; if a pinned image exposes metrics
+# elsewhere, adjust the port here (and only here).
+- job_name: caddy
+  # Caddy admin API metrics: Caddyfile global block has `admin localhost:2019`
+  # + `servers { metrics }`; in compose the admin listener must bind 0.0.0.0
+  # (admin 0.0.0.0:2019) for Prometheus to reach it across containers.
+  static_configs:
+  - targets:
+    - caddy:2019
+- job_name: apisix
+  # APISIX prometheus plugin export. Default export is on the data port:
+  # http://apisix:9080/apisix/prometheus/metrics. If a dedicated 9091
+  # metrics listener is configured (see deploy/tuning/apisix.yaml), retarget
+  # to apisix:9091 and drop metrics_path.
+  metrics_path: /apisix/prometheus/metrics
+  static_configs:
+  - targets:
+    - apisix:9080
+- job_name: postgres
+  # Requires postgres_exporter sidecar (standard port 9187); the postgres
+  # image itself exposes no /metrics.
+  static_configs:
+  - targets:
+    - postgres:9187
+- job_name: redis
+  # Requires redis_exporter sidecar (standard port 9121); redis itself
+  # exposes INFO only, not Prometheus metrics.
+  static_configs:
+  - targets:
+    - redis:9121
+- job_name: redpanda
+  # Redpanda natively exposes Prometheus metrics on the admin API port 9644.
+  metrics_path: /public_metrics
+  static_configs:
+  - targets:
+    - redpanda:9644
+- job_name: minio
+  # MinIO exposes Prometheus metrics on its API port 9000 at
+  # /minio/v2/metrics/cluster (may require MINIO_PROMETHEUS_AUTH_TYPE=public
+  # or a bearer token in production).
+  metrics_path: /minio/v2/metrics/cluster
+  static_configs:
+  - targets:
+    - minio:9000
+- job_name: opensearch
+  # Requires the opensearch prometheus-exporter plugin or
+  # opensearch-exporter sidecar (standard port 9600 for the performance
+  # analyzer / 9114 for aparo exporter). Adjust to the deployed exporter.
+  static_configs:
+  - targets:
+    - opensearch:9600
+- job_name: tigerbeetle
+  # TigerBeetle does not expose Prometheus metrics natively; scrape via a
+  # tigerbeetle exporter sidecar if deployed (standard port 9100 reserved).
+  static_configs:
+  - targets:
+    - tigerbeetle:9100
+- job_name: mlflow
+  # MLflow tracking server exposes /metrics on its HTTP port 5000 when
+  # started with --expose-prometheus (MLFLOW_EXPOSE_PROMETHEUS=true).
+  static_configs:
+  - targets:
+    - mlflow:5000

@@ -733,6 +733,20 @@ channels:
             failed_step: { type: string }
             error: { type: string }
             timestamp: { type: string, format: date-time }
+  ng.sos.fundsflow.payment_completed:
+    publish:
+      operationId: fundsflowPaymentCompleted
+      description: >-
+        Emitted by the funds-flow saga coordinator (ledger/fundsflow/saga.py,
+        outbox.event_publish step) when a payment saga completes — the final
+        canonical saga step publishes this topic via the transactional outbox.
+      message:
+        payload:
+          type: object
+          required: [saga_id, idempotency_key]
+          properties:
+            saga_id: { type: string }
+            idempotency_key: { type: string }
   ng.sos.fundsflow.outbox_deadletter:
     publish:
       operationId: fundsflowOutboxDeadletter

@@ -154,6 +154,10 @@ services:
       - --overprovisioned
       - --node-id=0
       - --check=false
+      # Advertised listeners: in-compose clients (EVENT_KAFKA_BOOTSTRAP)
+      # must use redpanda:29092 (PLAINTEXT); host tooling uses localhost:9092
+      # (OUTSIDE). Do not point containers at redpanda:9092 — the broker
+      # would advertise localhost:9092 back to them.
       - --kafka-addr=PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
       - --advertise-kafka-addr=PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092
     ports:
@@ -234,16 +238,21 @@ services:
     image: ghcr.io/munisp/mod-rev-core:dev
     environment:
       REV_CORE_ADDR: ":8080"
-      # In-memory ledger by default; switch to tigerbeetle once the Go
-      # TB adapter is provisioned (see ledger/README.md).
+      # In-memory ledger by default. REV_CORE_LEDGER=tigerbeetle is verified
+      # against services/mod-rev-core/cmd/server/main.go, but the TigerBeetle
+      # adapter is behind `//go:build tigerbeetle` (ledger/splits/tigerbeetle.go)
+      # and the Dockerfile builds WITHOUT `-tags tigerbeetle`, so the stub
+      # (tigerbeetle_stub.go) is a hard startup error. Keep memory until the
+      # image is rebuilt with the tag:
+      # REV_CORE_LEDGER: tigerbeetle
       REV_CORE_LEDGER: memory
       TB_ADDRESSES: tigerbeetle:3000
     ports:
-      # KNOWN ISSUE (pre-existing): host port 8080 is also published by the
-      # `caddy` edge service (8080:80) below — only one can bind at a time.
-      # Left as-is to avoid breaking existing local URLs; remap deliberately
-      # in a follow-up if both must run together.
-      - "8080:8080"
+      # Host port remapped 8080 -> 8037: caddy (8080:80) owns host :8080.
+      # NOTE for deploy/observability/prometheus.yml (owned by another
+      # workstream — do not edit here): the `mod-rev-core` scrape job must
+      # target host port 8037 (container :8080 unchanged).
+      - "8037:8080"
     depends_on:
       tigerbeetle:
         condition: service_started
@@ -271,10 +280,17 @@ services:
       UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       DATABASE_URL: postgresql://${POSTGRES_USER:-sos}:${POSTGRES_PASSWORD:-sos-dev-only-not-a-secret}@postgres:5432/${POSTGRES_DB:-sos}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
+      # Bus seam is optional in lands_app/eventlog.py (fail-soft publish);
+      # the env is honored once the service wires event_bus_from_env.
+      EVENT_BUS: ${EVENT_BUS:-kafka}
+      EVENT_KAFKA_BOOTSTRAP: ${EVENT_KAFKA_BOOTSTRAP:-redpanda:29092}
     ports:
       - "8000:8000"
     depends_on:
       postgres:
+        condition: service_healthy
+      redpanda:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/openapi.json', timeout=3).status==200 else 1)\""]
@@ -304,6 +320,7 @@ services:
       UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
       UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
     ports:
       - "8010:8000"
     healthcheck:
@@ -335,6 +352,7 @@ services:
       # SSO facade targets the local Keycloak dev realm (one realm per state
       # tenant in production; see deploy/keycloak/).
       KEYCLOAK_BASE_URL: http://keycloak:8080
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
     ports:
       - "8011:8000"
     depends_on:
@@ -370,13 +388,23 @@ services:
       # requires real PaddleOCR/Docling/VLM/registry adapter config
       # (see services/mod-kyc-kyb/README.md).
       KYC_KYB_MODE: local
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
+      # Bus seam is optional in app/service.py (fail-soft publish); the env
+      # is honored once the service wires event_bus_from_env.
+      EVENT_BUS: ${EVENT_BUS:-kafka}
+      # NOTE: redpanda advertises PLAINTEXT://redpanda:29092 in-compose and
+      # OUTSIDE://localhost:9092 for the host — containers must use 29092.
+      EVENT_KAFKA_BOOTSTRAP: ${EVENT_KAFKA_BOOTSTRAP:-redpanda:29092}
     ports:
-      - "8012:8000"
+      # Container serves :8090 (see services/mod-kyc-kyb/Dockerfile).
+      - "8012:8090"
     depends_on:
       postgres:
         condition: service_healthy
+      redpanda:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8090/healthz', timeout=3).status==200 else 1)\""]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -408,11 +436,18 @@ services:
       # requires PostGIS + Sedona/lakehouse endpoints (fail closed otherwise).
       GEOSPATIAL_MODE: local
       DATABASE_URL: postgresql://${POSTGRES_USER:-sos}:${POSTGRES_PASSWORD:-sos-dev-only-not-a-secret}@postgres:5432/${POSTGRES_DB:-sos}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
+      # Bus seam is optional in app/service.py (fail-soft publish); the env
+      # is honored once the service wires event_bus_from_env.
+      EVENT_BUS: ${EVENT_BUS:-kafka}
+      EVENT_KAFKA_BOOTSTRAP: ${EVENT_KAFKA_BOOTSTRAP:-redpanda:29092}
     ports:
       # Container serves :8013 (see services/mod-geospatial/Dockerfile).
       - "8013:8013"
     depends_on:
       postgres:
+        condition: service_healthy
+      redpanda:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8013/healthz', timeout=3).status==200 else 1)\""]
@@ -446,6 +481,7 @@ services:
       # POLICE_CAD_BASE_URL + PPP_INVESTMENT_BASE_URL (fail closed otherwise).
       POLICE_CAD_BASE_URL: ${POLICE_CAD_BASE_URL:-}
       PPP_INVESTMENT_BASE_URL: ${PPP_INVESTMENT_BASE_URL:-}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
     ports:
       - "8015:8000"
     healthcheck:
@@ -480,8 +516,14 @@ services:
       # ERP_BACKEND=odoo|erpnext|ifmis_export + the backend env vars
       # (fail closed otherwise — see services/mod-erp-bridge/README.md).
       ERP_BACKEND: ${ERP_BACKEND:-local}
+      # LEFT ON MEMORY (audit finding 3): with EVENT_BUS=kafka,
+      # app/service.py build_service() constructs KafkaEventBus and
+      # ErpBridgeService.__init__ calls bus.subscribe(), which raises
+      # NotImplementedError in _shared/eventbus (Kafka consumption runs in
+      # dedicated consumers) — the container would crash at boot.
       EVENT_BUS: ${EVENT_BUS:-memory}
       IFMIS_EXPORT_DIR: ${IFMIS_EXPORT_DIR:-/tmp/ifmis-export}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
     ports:
       - "8016:8000"
     healthcheck:
@@ -518,9 +560,16 @@ services:
       # SOS_VISION_AUTHORIZATIONS_FILE (NDPA warrant/DPO records) —
       # fail closed otherwise (see services/mod-safecity-vision/README.md).
       SOS_VISION_ENGINE: ${SOS_VISION_ENGINE:-fixture}
-      EVENT_BUS: ${EVENT_BUS:-memory}
+      # app/main.py wires event_bus_from_env with fail-soft fallback to
+      # in-memory if the bus cannot be constructed.
+      EVENT_BUS: ${EVENT_BUS:-kafka}
+      EVENT_KAFKA_BOOTSTRAP: ${EVENT_KAFKA_BOOTSTRAP:-redpanda:29092}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
     ports:
       - "8017:8000"
+    depends_on:
+      redpanda:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
       interval: 15s
@@ -553,9 +602,16 @@ services:
       # fixture default; production: SOS_AGRI_PROFILE=production +
       # SOS_AGRI_EXCHANGE_URL / SOS_AGRI_IOT_URL (fail closed otherwise)
       SOS_AGRI_PROFILE: ${SOS_AGRI_PROFILE:-fixture}
-      EVENT_BUS: ${EVENT_BUS:-memory}
+      # app/main.py wires event_bus_from_env with fail-soft fallback to
+      # in-memory if the bus cannot be constructed.
+      EVENT_BUS: ${EVENT_BUS:-kafka}
+      EVENT_KAFKA_BOOTSTRAP: ${EVENT_KAFKA_BOOTSTRAP:-redpanda:29092}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
     ports:
       - "8018:8000"
+    depends_on:
+      redpanda:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
       interval: 15s
@@ -585,9 +641,16 @@ services:
       UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-taraba}
       SOS_BORDER_PROFILE: ${SOS_BORDER_PROFILE:-fixture}
-      EVENT_BUS: ${EVENT_BUS:-memory}
+      # app/main.py wires event_bus_from_env (bus construction failures are
+      # tolerated; publishes fail soft).
+      EVENT_BUS: ${EVENT_BUS:-kafka}
+      EVENT_KAFKA_BOOTSTRAP: ${EVENT_KAFKA_BOOTSTRAP:-redpanda:29092}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
     ports:
       - "8019:8000"
+    depends_on:
+      redpanda:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
       interval: 15s
@@ -617,9 +680,16 @@ services:
       UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-lagos}
       SOS_WATERWAYS_PROFILE: ${SOS_WATERWAYS_PROFILE:-fixture}
-      EVENT_BUS: ${EVENT_BUS:-memory}
+      # app/main.py currently instantiates InMemoryEventBus directly; the
+      # env is honored once the service wires event_bus_from_env.
+      EVENT_BUS: ${EVENT_BUS:-kafka}
+      EVENT_KAFKA_BOOTSTRAP: ${EVENT_KAFKA_BOOTSTRAP:-redpanda:29092}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
     ports:
       - "8020:8000"
+    depends_on:
+      redpanda:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
       interval: 15s
@@ -654,9 +724,29 @@ services:
       # fixture default = deterministic local control plane; production sets
       # SOS_CP_PROFILE=production + SOS_CP_ADMIN_TOKEN (fail closed otherwise)
       SOS_CP_PROFILE: ${SOS_CP_PROFILE:-fixture}
-      EVENT_BUS: ${EVENT_BUS:-memory}
+      # app/branding.py currently instantiates InMemoryEventBus directly;
+      # the env is honored once the service wires event_bus_from_env.
+      EVENT_BUS: ${EVENT_BUS:-kafka}
+      EVENT_KAFKA_BOOTSTRAP: ${EVENT_KAFKA_BOOTSTRAP:-redpanda:29092}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
+      # Wired seams (verified in control-plane/app): CP_PG_DSN is read by
+      # PostgresOperator and OPENSEARCH_URL by OpenSearchArchive — both only
+      # activate in live/AUDIT_ARCHIVE=opensearch modes, so they are inert
+      # under the default local/fixture profile but correct for the flip.
+      CP_PG_DSN: postgresql://${POSTGRES_USER:-sos}:${POSTGRES_PASSWORD:-sos-dev-only-not-a-secret}@postgres:5432/${POSTGRES_DB:-sos}
+      OPENSEARCH_URL: http://opensearch:9200
+      # S3_KMS_KEY_ID intentionally left unset: no KMS backend runs in this
+      # compose stack (control-plane/app/main.py S3Operator accepts None).
+      # S3_KMS_KEY_ID: ...
     ports:
       - "8024:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      opensearch:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
       interval: 15s
@@ -684,6 +774,7 @@ services:
       UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       EVENT_BUS: ${EVENT_BUS:-memory}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
     ports:
       - "8025:8000"
     healthcheck:
@@ -713,8 +804,16 @@ services:
       UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-lagos}
       # fixture settlement ledger default; production sets
-      # SOS_MOBILITY_LEDGER_URL (TigerBeetle) + FSPIOP/NIBSS scheme config
+      # SOS_MOBILITY_LEDGER_URL (TigerBeetle) + FSPIOP/NIBSS scheme config.
+      # LEFT UNSET (audit finding 4): app/adapters/ledger.py
+      # TigerBeetleSettlementLedger requires the optional `tigerbeetle`
+      # Python package, which is not in this image's dependencies — setting
+      # the URL would raise AdapterUnavailableError at adapter selection.
+      # SOS_MOBILITY_LEDGER_URL: tigerbeetle:3000
+      # No shared-event-bus seam in app/ (hashchain audit only) — EVENT_BUS
+      # stays memory here.
       EVENT_BUS: ${EVENT_BUS:-memory}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
     ports:
       - "8026:8000"
     healthcheck:
@@ -747,6 +846,7 @@ services:
       # dispatch/CCTV seams (fail closed otherwise)
       SOS_CAD_PROFILE: ${SOS_CAD_PROFILE:-fixture}
       EVENT_BUS: ${EVENT_BUS:-memory}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
     ports:
       - "8027:8000"
     healthcheck:
@@ -776,6 +876,7 @@ services:
       UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       EVENT_BUS: ${EVENT_BUS:-memory}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
     ports:
       - "8028:8000"
     healthcheck:
@@ -805,6 +906,7 @@ services:
       UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       EVENT_BUS: ${EVENT_BUS:-memory}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
     ports:
       - "8029:8000"
     healthcheck:
@@ -833,9 +935,16 @@ services:
       UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
       UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
-      EVENT_BUS: ${EVENT_BUS:-memory}
+      # app/audit.py is a hash-chain audit log; the shared-bus env is
+      # honored once the service wires event_bus_from_env.
+      EVENT_BUS: ${EVENT_BUS:-kafka}
+      EVENT_KAFKA_BOOTSTRAP: ${EVENT_KAFKA_BOOTSTRAP:-redpanda:29092}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
     ports:
       - "8030:8000"
+    depends_on:
+      redpanda:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
       interval: 15s
@@ -863,6 +972,7 @@ services:
       UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       EVENT_BUS: ${EVENT_BUS:-memory}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
     ports:
       - "8031:8000"
     healthcheck:
@@ -892,6 +1002,7 @@ services:
       UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       EVENT_BUS: ${EVENT_BUS:-memory}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
     ports:
       - "8032:8000"
     healthcheck:
@@ -921,6 +1032,7 @@ services:
       UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       EVENT_BUS: ${EVENT_BUS:-memory}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
     ports:
       - "8033:8000"
     healthcheck:
@@ -950,6 +1062,7 @@ services:
       UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       EVENT_BUS: ${EVENT_BUS:-memory}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
     ports:
       - "8034:8000"
     healthcheck:
@@ -979,6 +1092,7 @@ services:
       UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       EVENT_BUS: ${EVENT_BUS:-memory}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
     ports:
       - "8035:8000"
     healthcheck:
@@ -1008,6 +1122,7 @@ services:
       UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       EVENT_BUS: ${EVENT_BUS:-memory}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
     ports:
       - "8036:8000"
     healthcheck:
@@ -1086,9 +1201,24 @@ services:
       # fixture OCR default; production: SOS_LANDDOCS_PROFILE=production +
       # SOS_LANDDOCS_OCR_URL (PaddleOCR/Docling sidecar) + SOS_LANDDOCS_BUCKET
       SOS_LANDDOCS_PROFILE: ${SOS_LANDDOCS_PROFILE:-fixture}
-      EVENT_BUS: ${EVENT_BUS:-memory}
+      # landdocs_app/main.py wires event_bus_from_env with fail-soft
+      # fallback to in-memory if the bus cannot be constructed.
+      EVENT_BUS: ${EVENT_BUS:-kafka}
+      EVENT_KAFKA_BOOTSTRAP: ${EVENT_KAFKA_BOOTSTRAP:-redpanda:29092}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
+      # MinIO S3 seam — LEFT COMMENTED (audit finding 5): landdocs_app/
+      # adapters.py S3ObjectStore reads SOS_LANDDOCS_BUCKET, but put()/get()
+      # raise AdapterUnavailableError in this image ("wired on the
+      # production image") and no S3 endpoint env is read, so setting the
+      # bucket would break document upload/retrieval rather than wire MinIO.
+      # SOS_LANDDOCS_BUCKET: s3://land-docs
+      # (MinIO endpoint for when the boto3 wiring lands: http://minio:9000,
+      #  creds ${MINIO_ROOT_USER}/${MINIO_ROOT_PASSWORD})
     ports:
       - "8022:8000"
+    depends_on:
+      redpanda:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
       interval: 15s
@@ -1122,8 +1252,20 @@ services:
       SOS_MORTGAGE_PROFILE: ${SOS_MORTGAGE_PROFILE:-fixture}
       SOS_MORTGAGE_CREDIT_URL: ${SOS_MORTGAGE_CREDIT_URL:-http://mod-ml-inference:8000/ml/v1/credit/score}
       EVENT_BUS: ${EVENT_BUS:-memory}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
+      # TigerBeetle seam — LEFT COMMENTED (audit finding 4): mortgage_app/
+      # adapters.py TigerBeetleLedgerAdapter (SOS_MORTGAGE_LEDGER=tigerbeetle
+      # + SOS_MORTGAGE_TB_URL, scheme tb://host:port per tests) requires the
+      # optional `tigerbeetle` Python package, which is not in this image's
+      # requirements — setting these would raise AdapterUnavailableError at
+      # boot (fail-closed).
+      # SOS_MORTGAGE_LEDGER: tigerbeetle
+      # SOS_MORTGAGE_TB_URL: tb://tigerbeetle:3000
     ports:
       - "8023:8000"
+    depends_on:
+      tigerbeetle:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
       interval: 15s
@@ -1154,11 +1296,24 @@ services:
       # production: SOS_ML_PROFILE=production + SOS_ML_ARTIFACTS_DIR +
       # SOS_MLFLOW_TRACKING_URI (fail closed otherwise)
       SOS_ML_PROFILE: ${SOS_ML_PROFILE:-fixture}
-      EVENT_BUS: ${EVENT_BUS:-memory}
+      # app/main.py currently instantiates InMemoryEventBus directly; the
+      # env is honored once the service wires event_bus_from_env.
+      EVENT_BUS: ${EVENT_BUS:-kafka}
+      EVENT_KAFKA_BOOTSTRAP: ${EVENT_KAFKA_BOOTSTRAP:-redpanda:29092}
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
+      # Verified env name in app/registry.py; in fixture profile the URI is
+      # stored for the production flip (the optional mlflow client package
+      # is only required when SOS_ML_PROFILE=production).
+      SOS_MLFLOW_TRACKING_URI: http://mlflow:5000
     volumes:
       - ../ml/artifacts:/app/ml/artifacts:ro
     ports:
       - "8021:8000"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      mlflow:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)\""]
       interval: 15s
@@ -1194,6 +1349,7 @@ services:
       UVICORN_LOOP: ${UVICORN_LOOP:-uvloop}
       TENANT_STATE_ID: ${TENANT_STATE_ID:-osun}
       GEOSPATIAL_UPSTREAM_URL: http://mod-geospatial:8013
+      SOS_AUTH_PROFILE: ${SOS_AUTH_PROFILE:-development}
     ports:
       - "8014:8014"
     depends_on:

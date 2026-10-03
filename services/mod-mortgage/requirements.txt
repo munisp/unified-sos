@@ -1,3 +1,8 @@
 fastapi>=0.110
 pydantic>=2.6
 uvicorn[standard]>=0.29
+# Production ledger seam: official TigerBeetle Python client, required by
+# mortgage_app.adapters.TigerBeetleLedgerAdapter (lazy-imported — fixture
+# mode never imports it; fail-closed AdapterUnavailableError when absent).
+# The client release must match the TigerBeetle cluster release.
+tigerbeetle==0.17.9

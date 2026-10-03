@@ -11,7 +11,12 @@ Selection (environment-driven, fail-closed)::
     SOS_LANDDOCS_OCR_ENGINE=fixture|paddle        (default: fixture)
     SOS_LANDDOCS_OCR_URL=http://ocr:8080/ocr      (required for paddle; required
                                                    in the production profile)
-    SOS_LANDDOCS_BUCKET=s3://land-docs            (required for S3 object store)
+    SOS_LANDDOCS_BUCKET=land-docs                 (required for S3 object store)
+    SOS_LANDDOCS_S3_ENDPOINT=http://minio:9000    (optional S3-compatible endpoint)
+    SOS_LANDDOCS_S3_ACCESS_KEY / SOS_LANDDOCS_S3_SECRET_KEY
+                                                  (optional static credentials;
+                                                   otherwise the boto3 default
+                                                   credential chain is used)
 
 The fixture OCR engine derives extracted fields from the SHA-256 of the
 document content — the same bytes always yield the same extraction, and
@@ -208,14 +213,18 @@ class S3ObjectStore:
     """Production object store (S3-compatible bucket) — fail-closed seam.
 
     Requires ``SOS_LANDDOCS_BUCKET``; constructing without configuration
-    raises :class:`AdapterUnavailableError`. The boto3 wiring lives on the
-    production image; the seam is config-gated here.
+    raises :class:`AdapterUnavailableError`. The optional
+    ``SOS_LANDDOCS_S3_ENDPOINT`` targets S3-compatible stores (e.g. MinIO);
+    ``SOS_LANDDOCS_S3_ACCESS_KEY``/``SOS_LANDDOCS_S3_SECRET_KEY`` provide
+    static credentials, otherwise the boto3 default credential chain applies.
+    boto3 is imported lazily: missing package + configured bucket fails closed.
     """
 
     def __init__(
         self,
         bucket: Optional[str] = None,
         environ: Optional[Dict[str, str]] = None,
+        client: Optional[object] = None,
     ) -> None:
         env = environ if environ is not None else dict(os.environ)
         bucket = bucket or env.get("SOS_LANDDOCS_BUCKET")
@@ -225,18 +234,53 @@ class S3ObjectStore:
                 "(fail-closed: refusing to run an unconfigured object store)"
             )
         self.bucket = bucket
+        self.endpoint_url = env.get("SOS_LANDDOCS_S3_ENDPOINT")
+        self.access_key = env.get("SOS_LANDDOCS_S3_ACCESS_KEY")
+        self.secret_key = env.get("SOS_LANDDOCS_S3_SECRET_KEY")
+        # client: test seam for injecting a fake boto3 S3 client; production
+        # code leaves it None and the real client is built lazily below.
+        self._client = client
 
-    def put(self, key: str, content: bytes) -> str:  # pragma: no cover
-        raise AdapterUnavailableError(
-            "S3ObjectStore is wired on the production image; the seam is "
-            "config-gated here so central services never depend on it."
-        )
+    def _ensure_client(self) -> object:
+        if self._client is None:
+            try:
+                import boto3  # optional dependency (production image)
+            except ImportError as exc:
+                raise AdapterUnavailableError(
+                    "boto3 is required for S3ObjectStore with "
+                    "SOS_LANDDOCS_BUCKET set (pip install boto3)"
+                ) from exc
+            kwargs: Dict[str, str] = {}
+            if self.endpoint_url:
+                kwargs["endpoint_url"] = self.endpoint_url
+            if self.access_key:
+                kwargs["aws_access_key_id"] = self.access_key
+                kwargs["aws_secret_access_key"] = self.secret_key or ""
+            self._client = boto3.client("s3", **kwargs)
+        return self._client
 
-    def get(self, storage_ref: str) -> bytes:  # pragma: no cover
-        raise AdapterUnavailableError(
-            "S3ObjectStore is wired on the production image; the seam is "
-            "config-gated here so central services never depend on it."
-        )
+    @staticmethod
+    def _parse_ref(storage_ref: str) -> tuple[str, str]:
+        if not storage_ref.startswith("s3://"):
+            raise KeyError(f"object '{storage_ref}' not found")
+        bucket, _, key = storage_ref[5:].partition("/")
+        if not bucket or not key:
+            raise KeyError(f"object '{storage_ref}' not found")
+        return bucket, key
+
+    def put(self, key: str, content: bytes) -> str:
+        client = self._ensure_client()
+        client.put_object(Bucket=self.bucket, Key=key, Body=content)
+        return f"s3://{self.bucket}/{key}"
+
+    def get(self, storage_ref: str) -> bytes:
+        bucket, key = self._parse_ref(storage_ref)
+        client = self._ensure_client()
+        try:
+            resp = client.get_object(Bucket=bucket, Key=key)
+        except Exception as exc:
+            raise KeyError(f"object '{storage_ref}' not found: {exc}") from None
+        return resp["Body"].read()
 
 
 def object_store_from_env(environ: Optional[Dict[str, str]] = None) -> ObjectStoreAdapter:

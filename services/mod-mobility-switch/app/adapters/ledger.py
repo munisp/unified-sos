@@ -101,7 +101,8 @@ class TigerBeetleSettlementLedger:
             import tigerbeetle  # type: ignore  # noqa: F401
         except ImportError as exc:  # pragma: no cover
             raise AdapterUnavailableError(
-                "tigerbeetle package not installed") from exc
+                "tigerbeetle package not installed "
+                "(pip install tigerbeetle==0.17.9 — see pyproject.toml)") from exc
 
     def execute_linked_chain(self, batch_id: str, legs: list) -> list[dict]:  # pragma: no cover
         raise AdapterUnavailableError(

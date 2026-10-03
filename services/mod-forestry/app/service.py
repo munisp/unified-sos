@@ -15,6 +15,7 @@ from .models import (
 )
 
 TOPIC_UNTAGGED_TIMBER_ALERT = "ng.sos.forestry.untagged_timber_alert"
+TOPIC_PROVENANCE_RECORDED = "ng.sos.forestry.provenance_recorded"
 
 #: Allowed provenance chain transitions (harvest -> transit -> mill).
 _TRANSITIONS: Dict[TagStatus, List[TagStatus]] = {
@@ -92,6 +93,10 @@ class ForestryService:
             )
         self._provenance[tag.tag_id].append(event)
         tag.status = event.stage
+        if self.bus is not None:
+            # AsyncAPI channel ng.sos.forestry.provenance_recorded
+            # (contracts/asyncapi/forestry-events.yaml) — one event per hop.
+            self.bus.publish(TOPIC_PROVENANCE_RECORDED, event)
         if event.stage == TagStatus.HARVESTED and tag.volume_m3:
             self.bill_stumpage(tag.tag_id)  # billing hook fires on harvest
         return event

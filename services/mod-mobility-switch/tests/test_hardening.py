@@ -3,6 +3,9 @@ escrow ordering/expiry, hash-chain audit."""
 
 from __future__ import annotations
 
+import sys
+from types import SimpleNamespace
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -203,6 +206,41 @@ def test_ledger_adapter_fail_closed_production(monkeypatch) -> None:
     assert isinstance(select_ledger_adapter(), FixtureSettlementLedger)
     with pytest.raises(AdapterUnavailableError):
         TigerBeetleSettlementLedger(url=None)
+
+
+def test_ledger_adapter_fail_closed_names_package_when_absent(monkeypatch) -> None:
+    # Simulate the optional client package being uninstalled; the error must
+    # name the package so operators know what to install.
+    monkeypatch.setitem(sys.modules, "tigerbeetle", None)
+    with pytest.raises(AdapterUnavailableError, match="tigerbeetle"):
+        TigerBeetleSettlementLedger(url="127.0.0.1:3000")
+
+
+def test_fixture_ledger_is_default_and_never_imports_tigerbeetle(monkeypatch) -> None:
+    # Dev/test default is the deterministic fixture, and fixture mode works
+    # even with the tigerbeetle package absent (lazy import in the TB seam).
+    monkeypatch.delenv("SOS_MOBILITY_LEDGER_URL", raising=False)
+    monkeypatch.setenv("SOS_PROFILE", "dev")
+    monkeypatch.setitem(sys.modules, "tigerbeetle", None)
+    ledger = select_ledger_adapter()
+    assert isinstance(ledger, FixtureSettlementLedger)
+    leg = SimpleNamespace(
+        amount_kobo=1_000, beneficiary="op",
+        tigerbeetle_account_code=4002, transfer_code=10,
+    )
+    receipts = ledger.execute_linked_chain("b1", [leg])
+    assert receipts[0]["posted"] is True
+
+
+def test_tigerbeetle_adapter_constructs_with_real_package() -> None:
+    # Smoke test (construction only — no live TB cluster needed): the pinned
+    # tigerbeetle client imports and both the adapter seam and a real
+    # ClientSync construct against a placeholder address.
+    tb = pytest.importorskip("tigerbeetle")
+    adapter = TigerBeetleSettlementLedger(url="127.0.0.1:3000")
+    assert adapter.url == "127.0.0.1:3000"
+    client = tb.ClientSync(cluster_id=0, replica_addresses="127.0.0.1:3000")
+    client.close()
 
 
 # --- A3: escrow ordering / expiry ----------------------------------------------

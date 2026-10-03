@@ -23,10 +23,14 @@ by ``contracts/asyncapi/registry/generate.py`` — one topic per channel.
 from __future__ import annotations
 
 import json
+import logging
 import os
+import threading
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Protocol
+
+logger = logging.getLogger(__name__)
 
 from pydantic import BaseModel
 
@@ -106,6 +110,7 @@ class KafkaEventBus:
         bootstrap_servers: Optional[str] = None,
         client_id: str = "sos-service",
         registry_path: Optional[Path] = None,
+        consumer_factory: Optional[Callable[..., Any]] = None,
     ) -> None:
         servers = bootstrap_servers or os.environ.get("EVENT_KAFKA_BOOTSTRAP")
         if not servers:
@@ -117,6 +122,18 @@ class KafkaEventBus:
         self.client_id = client_id
         self.topic_map = load_topic_map(registry_path)
         self._producer = None  # aiokafka.AIOKafkaProducer, created lazily
+        # consumer_factory: test seam for injecting a fake AIOKafkaConsumer
+        # class (same call signature); production code leaves it None and the
+        # real aiokafka client is imported lazily in subscribe().
+        self._consumer_factory = consumer_factory
+        # Messages whose JSON deserialization fails land here (dead-letter,
+        # mirroring the erp-bridge dead-letter style) and are logged.
+        self.dead_letters: List[Dict[str, Any]] = []
+        self._consumers: List[Any] = []
+        self._threads: List[threading.Thread] = []
+        self._loops: List[Any] = []  # asyncio loops, one per consumer thread
+        self._closing = threading.Event()
+        self._started = threading.Event()
 
     def resolve_topic(self, channel: str) -> str:
         if channel not in self.topic_map:
@@ -147,13 +164,107 @@ class KafkaEventBus:
     def publish(self, topic: str, payload: BaseModel) -> None:
         import asyncio
 
-        asyncio.run(self.publish_async(topic, payload))
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No running loop in this thread: drive the producer directly.
+            asyncio.run(self.publish_async(topic, payload))
+            return
+        # Already inside an event loop (e.g. a consumer-thread handler that
+        # re-publishes): schedule onto it instead of nesting asyncio.run.
+        asyncio.run_coroutine_threadsafe(self.publish_async(topic, payload), loop)
+
+    def _build_consumer(self, topic: str) -> Any:
+        """Create an AIOKafkaConsumer for ``topic`` (lazy import, fail-closed)."""
+        factory = self._consumer_factory
+        if factory is None:
+            try:
+                from aiokafka import AIOKafkaConsumer  # optional dependency
+            except ImportError as exc:
+                raise AdapterUnavailableError(
+                    "aiokafka is required for KafkaEventBus.subscribe "
+                    "(pip install aiokafka)"
+                ) from exc
+            factory = AIOKafkaConsumer
+        return factory(
+            topic,
+            bootstrap_servers=self.bootstrap_servers,
+            group_id=self.client_id,
+        )
 
     def subscribe(self, topic: str, handler: Callable[[BaseModel], None]) -> None:
-        raise NotImplementedError(
-            "Kafka consumption runs in dedicated consumers; use aiokafka "
-            "AIOKafkaConsumer with the AsyncAPI schema for the topic."
+        """Subscribe ``handler`` to ``topic`` on a background consumer thread.
+
+        Each message value is the AsyncAPI JSON payload (mirroring
+        ``publish``); it is deserialized and handed to ``handler`` as a plain
+        ``dict`` (handlers such as erp-bridge's ``ingest_settlement`` accept
+        either a mapping or a pydantic model). Deserialization failures are
+        logged and dead-lettered; they never kill the consumer loop.
+        """
+        consumer = self._build_consumer(topic)
+        self._consumers.append(consumer)
+        thread = threading.Thread(
+            target=self._consume_loop,
+            args=(consumer, topic, handler),
+            name=f"kafka-consumer-{topic}",
+            daemon=True,
         )
+        self._threads.append(thread)
+        thread.start()
+
+    def _consume_loop(
+        self, consumer: Any, topic: str, handler: Callable[[BaseModel], None]
+    ) -> None:
+        import asyncio
+
+        loop = asyncio.new_event_loop()
+        self._loops.append((loop, consumer))
+        try:
+            loop.run_until_complete(self._consume_async(consumer, topic, handler))
+        finally:
+            loop.close()
+
+    async def _consume_async(
+        self, consumer: Any, topic: str, handler: Callable[[BaseModel], None]
+    ) -> None:
+        await consumer.start()
+        self._started.set()
+        try:
+            async for msg in consumer:
+                if self._closing.is_set():
+                    break
+                try:
+                    payload = json.loads(msg.value.decode("utf-8"))
+                except Exception as exc:  # noqa: BLE001 — poison message
+                    logger.exception(
+                        "dead-lettering undecodable message on topic %s", topic
+                    )
+                    self.dead_letters.append(
+                        {"topic": topic, "error": str(exc),
+                         "value": getattr(msg, "value", b"")}
+                    )
+                    continue
+                try:
+                    handler(payload)
+                except Exception:  # noqa: BLE001 — handler faults must not kill the loop
+                    logger.exception("handler failed for message on topic %s", topic)
+        finally:
+            await consumer.stop()
+
+    def close(self) -> None:
+        """Signal consumer loops to stop and join their threads (best-effort)."""
+        import asyncio
+
+        self._closing.set()
+        self._started.wait(timeout=5.0)  # let consumer threads reach start()
+        for loop, consumer in list(self._loops):
+            if loop.is_running():
+                try:
+                    asyncio.run_coroutine_threadsafe(consumer.stop(), loop)
+                except RuntimeError:  # loop already closed
+                    pass
+        for thread in self._threads:
+            thread.join(timeout=5.0)
 
 
 class FluvioEdgeBus:

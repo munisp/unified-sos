@@ -103,6 +103,12 @@
       "topic": "ng.sos.fundsflow.outbox_deadletter"
     },
     {
+      "channel": "ng.sos.fundsflow.payment_completed",
+      "contract": "platform-events.yaml",
+      "schema": "schemas/ng.sos.fundsflow.payment_completed.json",
+      "topic": "ng.sos.fundsflow.payment_completed"
+    },
+    {
       "channel": "ng.sos.fundsflow.saga_failed",
       "contract": "platform-events.yaml",
       "schema": "schemas/ng.sos.fundsflow.saga_failed.json",

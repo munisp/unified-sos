@@ -13,7 +13,11 @@ RUN addgroup --system sos && adduser --system --ingroup sos sos
 
 WORKDIR /srv/app
 
-RUN pip install --no-cache-dir fastapi>=0.110 pydantic>=2.6 uvicorn[standard]>=0.29
+# tigerbeetle==0.17.9: official TigerBeetle Python client, pinned in
+# pyproject.toml; the production settlement ledger (SOS_MOBILITY_LEDGER_URL)
+# lazy-imports it and fails closed without it. Client release must match the
+# TigerBeetle cluster release. (Specs quoted so `>=` is not a shell redirect.)
+RUN pip install --no-cache-dir "fastapi>=0.110" "pydantic>=2.6" "uvicorn[standard]>=0.29" "tigerbeetle==0.17.9"
 
 COPY --chown=sos:sos app/ ./app/
 
